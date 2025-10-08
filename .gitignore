@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables (contém API keys sensíveis)
+.env
+.env.*
+.env.local
+.env.save
+.env.evolution
+.env.evolution_backup
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+orbion.db
+agent.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Google OAuth credentials (sensíveis)
+google_credentials.json
+google_token.json
+
+# Audio files temporários
+audio/
+temp/
+*.mp3
+*.ogg
+*.wav
+*.m4a
+
+# Process ID files
+*.pid
+orbion.pid
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+
+# Backup files
+*.bak
+*.backup

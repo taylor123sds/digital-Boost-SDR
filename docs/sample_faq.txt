@@ -1,0 +1,42 @@
+Perguntas Frequentes — Digital Boost (exemplo de base RAG)
+
+O que é a Digital Boost?
+A Digital Boost é uma empresa de Growth & IA focada em PMEs, premiada pelo Sebrae como uma das 15 melhores startups de tecnologia do Brasil (Startup NE 2024/2025). Entregamos um ecossistema integrado de Growth + IA + CRM para pequenas e médias empresas.
+
+Quais são as principais soluções da Digital Boost?
+• Agentes de IA para atendimento e pré-vendas (24/7, integrados a WhatsApp, Instagram e site)
+• CRM Kommo implantado com automações, funis e playbooks comerciais
+• Consultoria de Growth com estratégias digitais de aquisição, retenção e expansão
+• Branding & E-commerce: sites, lojas virtuais e identidade visual de alto impacto
+
+Qual o diferencial da Digital Boost?
+Somos a única empresa em Natal que integra Growth + IA + CRM em um só ecossistema, com ticket acessível e soluções personalizadas para PMEs. Temos parcerias estratégicas com Sebrae, Abrasel, NuvemShop e Shopify.
+
+Quais são os preços dos serviços?
+• Implantação inicial: R$ 3.000 a R$ 5.000 (setup de CRM, playbook e automações)
+• Recorrência mensal: R$ 2.000 a R$ 6.000 (Growth, IA, manutenção e expansão)
+• ROI garantido em 60 dias com previsibilidade de receita
+
+Quem são os líderes da Digital Boost?
+• Marcos Moura (CEO & Growth): Especialista em e-commerce, branding e psicologia aplicada a vendas
+• Rodrigo (Diretor de Projetos): Estrutura comercial, CRM e operações
+• Taylor Lapenda (AI Strategist): Diretor de IA e vendas
+
+Quais são os cases de sucesso?
+• Expert Turismo: Automação completa de atendimento com 40% de aumento em conversões
+• NafNaf Grill: Sistema de pedidos automatizado com 180% de crescimento em delivery
+• Clínica Vivance: CRM implementado com 70% de redução no tempo de resposta
+• BRC Lightning: Pipeline comercial estruturado com 250% de aumento em leads qualificados
+• Cedro Engenharia: Automação de processos com ROI de 300% em 6 meses
+
+Quais problemas resolvem?
+Gargalos operacionais (atendimento moroso, follow-ups falhando), pouca previsibilidade comercial, e processos manuais custosos.
+
+Como funciona a implantação?
+Descoberta (mapa de tarefas), protótipo (MVP em 2 semanas), piloto controlado e escala com métricas e governança.
+
+Quais integrações comuns?
+Google Workspace (Gmail/Calendar/Drive), CRMs (HubSpot, Pipedrive, Kommo), WhatsApp Providers, ERPs e gateways de pagamento.
+
+Resultados esperados?
+Redução de tempo operacional, aumento de conversão e maior controle de dados. Métricas típicas: TMA, taxa de no-show, LTV/CAC, ciclo de vendas.

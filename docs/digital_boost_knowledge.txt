@@ -1,0 +1,192 @@
+# DIGITAL BOOST - Base de Conhecimento
+
+## Sobre a Empresa
+
+A Digital Boost é um ecossistema de Growth & IA de Natal/RN focado em Pequenas e Médias Empresas.
+
+Nossa missão: Organizar atendimento, dados e vendas para gerar receita previsível.
+
+Localização: Natal, Rio Grande do Norte, Brasil
+
+## Reconhecimento
+
+- Top 5 startups no Programa Startup Nordeste (entre 2.800 empresas)
+- Top 15 startups tech do Brasil (Sebrae)
+- Acelerados pelo SEBRAE
+- Incubados no ITNC do IFRN (Instituto Federal do RN)
+
+## Serviços Principais
+
+### 1. Growth (Estrutura Comercial)
+- Organização de funil de vendas
+- Criação de playbook e rotinas de prospecção
+- Implantação de CRM com automações
+- Integração com Kommo CRM
+
+### 2. Agentes de IA
+- Atendentes digitais no WhatsApp, telefone e site
+- Resposta automática de dúvidas
+- Qualificação de leads
+- Agendamento automatizado
+- Integração com CRM, agenda e ERP
+- Disponibilidade 24/7
+
+### 3. Automações
+- Automação de WhatsApp
+- Automação de processos comerciais
+- Integração de sistemas
+
+### 4. Consultoria de Crescimento Digital
+- Estratégias de growth
+- Otimização de processos
+- Transformação digital
+
+## Dores que Resolvemos
+
+1. Demora para responder clientes e perder oportunidades
+2. Perda de leads por falta de follow-up
+3. Falta de organização no time comercial
+4. Ausência de métricas para decisão
+5. Alto no-show em agendamentos
+6. Pouco retorno pós-venda
+7. Atendimento limitado ao horário comercial
+8. Dependência total do dono para vendas
+9. Confusão com pedidos/agendamentos simultâneos
+10. Falta de padronização no atendimento
+
+## Setores onde Geramos Mais Valor
+
+### Clínicas e Saúde
+- Agendamento automatizado de consultas
+- Confirmação e redução de no-show
+- Atendimento pós-consulta
+
+### Advocacia
+- Qualificação de casos
+- Agendamento de consultorias
+- Follow-up com clientes
+
+### Contabilidade
+- Atendimento a dúvidas recorrentes
+- Organização de documentos
+- Lembretes de prazos
+
+### Educação e Cursos
+- Matrícula e inscrição automatizada
+- Resposta sobre grade e valores
+- Acompanhamento de alunos
+
+### Restaurantes e Delivery
+- Atendimento de pedidos WhatsApp
+- Organização em horários de pico
+- Redução de perda de vendas
+
+### Varejo e E-commerce
+- Atendimento 24/7
+- Resposta sobre produtos e preços
+- Acompanhamento pós-venda
+
+### Serviços Locais (Salões, Oficinas, etc)
+- Agendamento automatizado
+- Confirmações automáticas
+- Organização da agenda
+
+## Diferenciais
+
+1. Foco em PMEs de Natal e região
+2. Soluções acessíveis e escaláveis
+3. Implementação rápida (15-30 dias)
+4. Suporte contínuo em português
+5. Conhecimento profundo do mercado local
+6. Integração com sistemas já existentes
+7. ROI mensurável e comprovado
+
+## Metodologia BANT
+
+A Digital Boost utiliza metodologia BANT para qualificação de leads:
+
+### Budget (Orçamento)
+- Planos a partir de R$ 150-200/mês para pequenos negócios
+- ROI médio de 3-5x em 90 dias
+- Comparável ao custo de meio atendente
+
+### Authority (Decisor)
+- Ideal falar com dono, sócio ou gestor comercial
+- Processo de aprovação geralmente rápido em PMEs
+
+### Need (Necessidade)
+- Foco em dores específicas do negócio
+- Quantificação de perdas atuais
+
+### Timing (Urgência)
+- Implementação em 15-30 dias
+- Sem necessidade de infraestrutura complexa
+
+## Cases de Sucesso (Exemplos)
+
+### Restaurante no Alecrim
+- Aumento de 180% nos pedidos em 2 meses
+- Redução de 70% no tempo de resposta
+- ROI de 400%
+
+### Clínica Odontológica
+- Redução de 60% no no-show
+- Aumento de 45% em agendamentos
+- Economia de 20h/semana da recepcionista
+
+### Loja de Varejo
+- Atendimento 24/7 implementado
+- Aumento de 30% em conversão
+- 200+ atendimentos mensais automatizados
+
+## Perguntas Frequentes
+
+### Quanto custa?
+Planos personalizados a partir de R$ 150-800/mês dependendo do volume e complexidade. Geralmente equivale a menos de 30% do custo de um atendente.
+
+### Quanto tempo para implementar?
+15 a 30 dias da assinatura até o go-live, incluindo treinamento do agente com informações da empresa.
+
+### Funciona com meu sistema atual?
+Sim! Integramos com WhatsApp Business, Kommo CRM, Google Calendar, planilhas e diversos outros sistemas via API.
+
+### Precisa mudar meu número de WhatsApp?
+Não! Funciona com seu número atual do WhatsApp Business.
+
+### E se o cliente perguntar algo que a IA não sabe?
+O agente é treinado com informações da sua empresa. Se não souber, pode transferir para humano ou registrar para aprendizado.
+
+### Substitui meu time?
+Não substitui, POTENCIALIZA. Libera seu time de tarefas repetitivas para focar no que é estratégico.
+
+### Como medir resultados?
+Dashboard completo com métricas: atendimentos, conversões, horários de pico, dúvidas frequentes, tempo de resposta, etc.
+
+## Processo de Vendas
+
+1. Conversa inicial (WhatsApp/reunião)
+2. Identificação de dores e contexto (BANT)
+3. Reunião de apresentação (30min)
+4. Proposta comercial personalizada
+5. Assinatura de contrato
+6. Onboarding (coleta de informações)
+7. Configuração e treinamento do agente
+8. Testes e homologação
+9. Go-live
+10. Acompanhamento e otimização contínua
+
+## Contato
+
+- WhatsApp: [número do vendedor]
+- Site: [URL se disponível]
+- Localização: Natal/RN
+- Atendimento: Segunda a Sexta, 8h às 18h (agente IA 24/7)
+
+## Tom de Comunicação
+
+- Informal mas profissional (WhatsApp style)
+- Foco em resultados e ROI
+- Linguagem regional (quando apropriado)
+- Empático com dores de pequenos empresários
+- Objetivo sem ser agressivo
+- Consultivo quando cliente precisa entender

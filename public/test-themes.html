@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TESTE DE TEMAS - ORBION</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: var(--dashboard-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+            color: var(--text-color, white);
+            transition: all 0.3s ease;
+        }
+
+        .theme-card {
+            padding: 12px;
+            border: 2px solid var(--border, #ddd);
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            margin: 10px;
+            display: inline-block;
+            min-width: 150px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .theme-card:hover {
+            border-color: var(--primary-color, #667eea);
+            transform: translateY(-2px);
+        }
+
+        .theme-card.active {
+            border-color: var(--primary-color, #667eea);
+            box-shadow: 0 0 20px var(--primary-color, #667eea);
+        }
+
+        .test-area {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            border: 1px solid var(--primary-color, #667eea);
+        }
+
+        .btn {
+            background: var(--primary-color, #667eea);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background: var(--secondary-color, #764ba2);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 TESTE DE TEMAS ORBION v2.8</h1>
+    <p>Clique nos temas para testar a funcionalidade:</p>
+
+    <div class="themes-container">
+        <div class="theme-card" data-theme="default">
+            <strong>🔵 Default</strong><br>
+            Azul/Roxo
+        </div>
+
+        <div class="theme-card" data-theme="cyberpunk">
+            <strong>🌈 Cyberpunk</strong><br>
+            Rosa/Azul Neon
+        </div>
+
+        <div class="theme-card" data-theme="matrix">
+            <strong>💚 Matrix</strong><br>
+            Verde/Preto
+        </div>
+
+        <div class="theme-card" data-theme="corporate">
+            <strong>🏢 Corporate</strong><br>
+            Azul/Cinza
+        </div>
+
+        <div class="theme-card" data-theme="minimal">
+            <strong>⚪ Minimal</strong><br>
+            Branco/Cinza
+        </div>
+    </div>
+
+    <div class="test-area">
+        <h3>Área de Teste</h3>
+        <p>Esta área deve mudar de cor conforme o tema selecionado.</p>
+        <button class="btn">Botão de Teste</button>
+        <button class="btn">Outro Botão</button>
+
+        <div id="status" style="margin-top: 20px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
+            <strong>Status:</strong> <span id="current-theme">Default</span>
+        </div>
+    </div>
+
+    <script>
+        // Temas pré-definidos
+        const predefinedThemes = {
+            default: {
+                brandName: 'ORBION',
+                primaryColor: '#667eea',
+                secondaryColor: '#764ba2',
+                accentColor: '#4facfe',
+                dashboardBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+            },
+            cyberpunk: {
+                brandName: 'ORBION',
+                primaryColor: '#ff0080',
+                secondaryColor: '#00ffff',
+                accentColor: '#ff6600',
+                dashboardBg: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%)'
+            },
+            matrix: {
+                brandName: 'ORBION',
+                primaryColor: '#00ff41',
+                secondaryColor: '#008f11',
+                accentColor: '#39ff14',
+                dashboardBg: 'linear-gradient(135deg, #000000 0%, #0d1b0d 50%, #001100 100%)'
+            },
+            corporate: {
+                brandName: 'ORBION',
+                primaryColor: '#2c5aa0',
+                secondaryColor: '#5a7db8',
+                accentColor: '#7ba7d6',
+                dashboardBg: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 50%, #dee2e6 100%)'
+            },
+            minimal: {
+                brandName: 'ORBION',
+                primaryColor: '#6c757d',
+                secondaryColor: '#adb5bd',
+                accentColor: '#495057',
+                dashboardBg: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%)'
+            }
+        };
+
+        function applyTheme(theme) {
+            console.log('🎨 Aplicando tema:', theme);
+            const root = document.documentElement;
+
+            // Aplicar variáveis CSS
+            root.style.setProperty('--primary-color', theme.primaryColor);
+            root.style.setProperty('--secondary-color', theme.secondaryColor);
+            root.style.setProperty('--accent-color', theme.accentColor);
+            root.style.setProperty('--dashboard-bg', theme.dashboardBg);
+
+            // Aplicar fundo do body
+            document.body.style.background = theme.dashboardBg;
+
+            // Atualizar status
+            document.getElementById('current-theme').textContent = theme.brandName;
+
+            console.log('✅ Tema aplicado com sucesso!');
+        }
+
+        // Event listeners para theme cards
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 DOM Carregado - Configurando temas...');
+
+            const themeCards = document.querySelectorAll('.theme-card');
+            console.log('🎨 Theme cards encontrados:', themeCards.length);
+
+            themeCards.forEach((card, index) => {
+                const themeName = card.getAttribute('data-theme');
+                console.log('🎨 Configurando card', index + 1, ':', themeName);
+
+                card.addEventListener('click', function() {
+                    console.log('🎨 CLIQUE no tema:', themeName);
+
+                    const theme = predefinedThemes[themeName];
+                    if (theme) {
+                        console.log('🎨 Tema encontrado:', theme);
+
+                        // Remover classe active de todos os cards
+                        themeCards.forEach(c => c.classList.remove('active'));
+
+                        // Adicionar classe active ao card clicado
+                        card.classList.add('active');
+
+                        // Aplicar tema
+                        applyTheme(theme);
+
+                        console.log('🎨 Tema aplicado:', themeName);
+                    } else {
+                        console.error('❌ Tema não encontrado:', themeName);
+                    }
+                });
+            });
+
+            console.log('✅ Event listeners configurados!');
+
+            // Aplicar tema default
+            setTimeout(() => {
+                console.log('🎨 Aplicando tema default...');
+                applyTheme(predefinedThemes.default);
+                document.querySelector('[data-theme="default"]').classList.add('active');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

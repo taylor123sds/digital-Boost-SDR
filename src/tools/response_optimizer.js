@@ -1,14 +1,14 @@
 // tools/response_optimizer.js
-// 📏 MELHORIA #1: Otimizador de Tamanho de Resposta para WhatsApp
+//  MELHORIA #1: Otimizador de Tamanho de Resposta para WhatsApp
 
 /**
- * 📏 OTIMIZADOR DE RESPOSTA - MELHORIA #1
+ *  OTIMIZADOR DE RESPOSTA - MELHORIA #1
  *
  * Garante respostas curtas e objetivas para WhatsApp:
- * ✂️ Reduz respostas longas automaticamente
- * 📝 Mantém máximo 2-3 frases
- * 🎯 Preserva call-to-action e valor
- * 💬 Estilo natural de mensagem
+ *  Reduz respostas longas automaticamente
+ *  Mantém máximo 2-3 frases
+ *  Preserva call-to-action e valor
+ *  Estilo natural de mensagem
  */
 
 class ResponseOptimizer {
@@ -51,11 +51,11 @@ class ResponseOptimizer {
       ]
     };
 
-    console.log('📏 [RESPONSE-OPTIMIZER] Sistema de otimização de respostas inicializado');
+    console.log(' [RESPONSE-OPTIMIZER] Sistema de otimização de respostas inicializado');
   }
 
   /**
-   * 📏 OTIMIZAÇÃO COMPLETA DE RESPOSTA
+   *  OTIMIZAÇÃO COMPLETA DE RESPOSTA
    * @param {string} response - Resposta original
    * @param {Object} options - Opções de otimização
    * @returns {Object} Resposta otimizada com métricas
@@ -73,7 +73,7 @@ class ResponseOptimizer {
     if (originalStats.length >= limits.minChars &&
         originalStats.length <= limits.maxChars &&
         originalStats.sentences <= limits.maxSentences) {
-      console.log('📏 [OPTIMIZER] Resposta já está otimizada');
+      console.log(' [OPTIMIZER] Resposta já está otimizada');
       return {
         optimized: response,
         wasOptimized: false,
@@ -115,7 +115,7 @@ class ResponseOptimizer {
     const finalStats = this.analyzeResponse(optimized);
     const reduction = ((originalStats.length - finalStats.length) / originalStats.length * 100);
 
-    console.log(`📏 [OPTIMIZER] ${originalStats.length}→${finalStats.length} chars (${reduction.toFixed(0)}% redução)`);
+    console.log(` [OPTIMIZER] ${originalStats.length}${finalStats.length} chars (${reduction.toFixed(0)}% redução)`);
 
     return {
       optimized,
@@ -132,7 +132,7 @@ class ResponseOptimizer {
   }
 
   /**
-   * 📊 Analisa estatísticas da resposta
+   *  Analisa estatísticas da resposta
    */
   analyzeResponse(response) {
     const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0);
@@ -149,7 +149,7 @@ class ResponseOptimizer {
   }
 
   /**
-   * ✂️ Remove frases desnecessárias
+   *  Remove frases desnecessárias
    */
   removeUnnecessarySentences(response) {
     let optimized = response;
@@ -158,14 +158,17 @@ class ResponseOptimizer {
       optimized = optimized.replace(pattern, '');
     }
 
-    // Limpar espaços duplos
-    optimized = optimized.replace(/\s+/g, ' ').trim();
+    // Limpar espaços duplos (preservando quebras de linha)
+    optimized = optimized
+      .replace(/[^\S\n]+/g, ' ')  // Substitui espaços/tabs por espaço único (exceto \n)
+      .replace(/\n\s*\n/g, '\n\n')  // Normaliza múltiplas quebras para no máximo 2
+      .trim();
 
     return optimized;
   }
 
   /**
-   * 🔄 Simplifica conectivos
+   *  Simplifica conectivos
    */
   simplifyConnectors(response) {
     let optimized = response;
@@ -178,7 +181,7 @@ class ResponseOptimizer {
   }
 
   /**
-   * 🔢 Limita número de frases
+   *  Limita número de frases
    */
   limitSentences(response, maxSentences) {
     const sentences = response.split(/([.!?]+)/).filter(s => s.trim().length > 0);
@@ -207,7 +210,7 @@ class ResponseOptimizer {
   }
 
   /**
-   * ❓ Limita número de perguntas
+   *  Limita número de perguntas
    */
   limitQuestions(response, maxQuestions) {
     const questionMatches = response.match(/[^.!?]*\?/g);
@@ -225,14 +228,17 @@ class ResponseOptimizer {
       optimized = optimized.replace(questionMatches[i], '');
     }
 
-    // Limpar espaços
-    optimized = optimized.replace(/\s+/g, ' ').trim();
+    // Limpar espaços (preservando quebras de linha)
+    optimized = optimized
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
 
     return optimized;
   }
 
   /**
-   * 🔪 Corte duro (último recurso)
+   *  Corte duro (último recurso)
    */
   hardCut(response, maxChars) {
     if (response.length <= maxChars) {
@@ -261,28 +267,28 @@ class ResponseOptimizer {
   }
 
   /**
-   * 🔢 Conta frases
+   *  Conta frases
    */
   countSentences(text) {
     return text.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
   }
 
   /**
-   * 📏 Otimização específica para WhatsApp
+   *  Otimização específica para WhatsApp
    */
   optimizeForWhatsApp(response) {
     return this.optimize(response, { platform: 'whatsapp' });
   }
 
   /**
-   * 📋 Otimização específica para Dashboard
+   *  Otimização específica para Dashboard
    */
   optimizeForDashboard(response) {
     return this.optimize(response, { platform: 'dashboard' });
   }
 
   /**
-   * ⚡ Verifica se precisa otimizar (análise rápida)
+   *  Verifica se precisa otimizar (análise rápida)
    */
   needsOptimization(response, platform = 'whatsapp') {
     const limits = this.limits[platform];
@@ -293,14 +299,14 @@ class ResponseOptimizer {
   }
 
   /**
-   * 🎯 Adiciona tokens de controle ao prompt
+   *  Adiciona tokens de controle ao prompt
    * Para instruir o LLM a gerar respostas já otimizadas
    */
   generateOptimizationPrompt(platform = 'whatsapp') {
     const limits = this.limits[platform];
 
     return `
-🎯 IMPORTANTE - TAMANHO DE RESPOSTA:
+ IMPORTANTE - TAMANHO DE RESPOSTA:
 - Máximo: ${limits.maxSentences} frases curtas
 - Tamanho ideal: ${limits.idealChars} caracteres
 - ${platform === 'whatsapp' ? 'Apenas 1 pergunta por mensagem' : 'Máximo 2 perguntas'}
@@ -325,6 +331,8 @@ OBJETIVO: Mensagem curta, natural e com CTA claro.
 // Singleton instance
 const responseOptimizer = new ResponseOptimizer();
 
+//  Exportar classe e instância
+export { ResponseOptimizer };
 export default responseOptimizer;
 
 // Funções de conveniência

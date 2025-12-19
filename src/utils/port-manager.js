@@ -1,5 +1,5 @@
 /**
- * PORT MANAGER - ORBION
+ * PORT MANAGER - LEADLY
  * Gerenciamento inteligente de portas para evitar conflitos
  */
 
@@ -23,7 +23,8 @@ class PortManager {
     return new Promise((resolve) => {
       const command = process.platform === 'win32'
         ? `netstat -an | findstr :${port}`
-        : `lsof -i :${port}`;
+        // Restrict to LISTEN to avoid false positives from ESTABLISHED/CLOSE_WAIT
+        : `lsof -nP -iTCP:${port} -sTCP:LISTEN`;
 
       const child = spawn('sh', ['-c', command], { stdio: 'pipe' });
 
@@ -126,17 +127,17 @@ class PortManager {
   async autoConfigurePort(preferredPort = null) {
     const targetPort = preferredPort || process.env.PORT || this.defaultPorts.main;
 
-    console.log(`🔍 Verificando porta ${targetPort}...`);
+    console.log(` Verificando porta ${targetPort}...`);
 
     if (!(await this.isPortInUse(targetPort))) {
-      console.log(`✅ Porta ${targetPort} disponível`);
+      console.log(` Porta ${targetPort} disponível`);
       return targetPort;
     }
 
-    console.log(`⚠️ Porta ${targetPort} ocupada, procurando alternativa...`);
+    console.log(` Porta ${targetPort} ocupada, procurando alternativa...`);
 
     const availablePort = await this.findAvailablePort(targetPort);
-    console.log(`✅ Porta ${availablePort} disponível`);
+    console.log(` Porta ${availablePort} disponível`);
 
     return availablePort;
   }
@@ -145,10 +146,10 @@ class PortManager {
    * Força liberação de porta (usar com cuidado)
    */
   async forceReleasePort(port) {
-    console.log(`🚨 Forçando liberação da porta ${port}...`);
+    console.log(` Forçando liberação da porta ${port}...`);
 
     if (!(await this.isPortInUse(port))) {
-      console.log(`✅ Porta ${port} já está livre`);
+      console.log(` Porta ${port} já está livre`);
       return true;
     }
 
@@ -159,14 +160,14 @@ class PortManager {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       if (!(await this.isPortInUse(port))) {
-        console.log(`✅ Porta ${port} liberada com sucesso`);
+        console.log(` Porta ${port} liberada com sucesso`);
         return true;
       } else {
-        console.log(`❌ Falha ao liberar porta ${port}`);
+        console.log(` Falha ao liberar porta ${port}`);
         return false;
       }
     } catch (error) {
-      console.log(`❌ Erro ao liberar porta ${port}:`, error.message);
+      console.log(` Erro ao liberar porta ${port}:`, error.message);
       return false;
     }
   }

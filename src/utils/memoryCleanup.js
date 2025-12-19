@@ -1,5 +1,5 @@
 // utils/memoryCleanup.js
-// Sistema de limpeza automática de memória para ORBION AI Agent
+// Sistema de limpeza automática de memória para LEADLY AI Agent
 
 import { setMemory, getMemory, deleteMemory } from '../memory.js';
 import errorHandler, { ERROR_SEVERITY } from './errorHandler.js';
@@ -287,8 +287,9 @@ class MemoryCleanup {
 
   async compactDatabase() {
     try {
-      // Para SQLite, executa VACUUM para compactar
-      const { db } = await import('../memory.js');
+      //  FIX: Usar getDatabase() que verifica e reconecta se necessário
+      const { getDatabase } = await import('../db/index.js');
+      const db = getDatabase();
 
       if (db && typeof db.exec === 'function') {
         db.exec('VACUUM');
@@ -416,13 +417,13 @@ class MemoryCleanup {
 
       // Se memória > 400MB, executar limpeza de emergência
       if (heapUsedMB > 400) {
-        console.log(`🚨 MEMÓRIA CRÍTICA: ${Math.round(heapUsedMB)}MB - Executando limpeza de emergência`);
+        console.log(` MEMÓRIA CRÍTICA: ${Math.round(heapUsedMB)}MB - Executando limpeza de emergência`);
         await this.emergencyCleanup();
 
         // Forçar garbage collection se disponível
         if (global.gc) {
           global.gc();
-          console.log('🧹 Garbage collection forçado');
+          console.log(' Garbage collection forçado');
         }
       }
     } catch (error) {

@@ -1,0 +1,193 @@
+/**
+ * 🧪 TESTE COMPLETO DO FLUXO DE CAMPANHA
+ * Simula:
+ * 1. Envio de campanha (com salvamento de estado)
+ * 2. Resposta do lead
+ * 3. Verificação se segunda primeira mensagem NÃO é enviada
+ * 4. Verificação se fluxo BANT continua normalmente
+ */
+
+import { saveEnhancedState, getEnhancedState } from '../src/memory.js';
+import { chatHandler } from '../src/agent.js';
+
+console.log('\n🧪 ===== TESTE DO FLUXO DE CAMPANHA =====\n');
+
+// Limpar dados de teste anteriores
+const TEST_PHONE = '5584999887766';
+console.log(`📞 Testando com número: ${TEST_PHONE}\n`);
+
+async function testCampaignFlow() {
+  try {
+    // ========================================
+    // ETAPA 1: SIMULAR ENVIO DE CAMPANHA
+    // ========================================
+    console.log('📧 [ETAPA 1] Simulando envio de campanha...\n');
+
+    const lead = {
+      name: 'Ótica Visão Clara',
+      phone: TEST_PHONE,
+      sector: 'Ótica'
+    };
+
+    // Simulando mensagem de campanha (não precisa gerar, só testar o estado)
+    const campaignMessage = `Olá ${lead.name}, somos a Digital Boost. Como podemos ajudar?`;
+    console.log('📨 Mensagem de campanha simulada');
+    console.log('---');
+    console.log(campaignMessage);
+    console.log('---\n');
+
+    // Salvar estado (simulando o que campaign_manager faz)
+    const campaignState = {
+      contactId: lead.phone,
+      state: {
+        current: 'opening',
+        subState: 'first_contact',
+        lastUpdate: new Date().toISOString()
+      },
+      bant: {
+        budget: null,
+        authority: null,
+        need: null,
+        timing: null,
+        email: null
+      },
+      qualification: {
+        score: 70,
+        archetype: null,
+        persona: null
+      },
+      engagement: {
+        level: 'low',
+        lastInteraction: new Date().toISOString()
+      },
+      metadata: {
+        origin: 'campaign',  // 🔑 CAMPO CRÍTICO
+        campaign_id: 'test_campaign_001',
+        sent_at: new Date().toISOString(),
+        lead_info: {
+          name: lead.name,
+          company: lead.name,
+          sector: lead.sector
+        }
+      },
+      nextBestAction: 'wait_for_response'
+    };
+
+    await saveEnhancedState(lead.phone, campaignState);
+    console.log('✅ Estado de campanha salvo no banco\n');
+
+    // Verificar estado salvo
+    const savedState = await getEnhancedState(lead.phone);
+    console.log('📊 Estado salvo verificado:');
+    console.log(`   - origin: ${savedState?.metadata?.origin}`);
+    console.log(`   - campaign_id: ${savedState?.metadata?.campaign_id}`);
+    console.log(`   - state.current: ${savedState?.state?.current}`);
+    console.log(`   - qualification.score: ${savedState?.qualification?.score}\n`);
+
+    // ========================================
+    // ETAPA 2: SIMULAR RESPOSTA DO LEAD
+    // ========================================
+    console.log('💬 [ETAPA 2] Simulando resposta do lead à campanha...\n');
+
+    const leadResponse = 'Oi, tenho interesse sim!';
+    console.log(`🗣️ Lead responde: "${leadResponse}"\n`);
+
+    // Chamar agent.js (que deve detectar resposta a campanha)
+    const context = {
+      contactId: lead.phone,
+      metadata: {
+        contactProfileName: lead.name
+      }
+    };
+
+    console.log('🤖 Processando resposta no agent.js...\n');
+    const agentResponse = await chatHandler(leadResponse, context);
+
+    console.log('📤 Resposta do agent:');
+    console.log('---');
+    console.log(agentResponse.message);
+    console.log('---\n');
+
+    // ========================================
+    // ETAPA 3: VERIFICAR SE NÃO HOUVE DUPLA PRIMEIRA MENSAGEM
+    // ========================================
+    console.log('🔍 [ETAPA 3] Verificando se NÃO houve dupla primeira mensagem...\n');
+
+    const isFirstMessage = agentResponse.message.includes('Sou ORBION, agente inteligente da Digital Boost');
+
+    if (isFirstMessage) {
+      console.log('❌ FALHA: Agent enviou OUTRA primeira mensagem!');
+      console.log('   Isso significa que a detecção de resposta a campanha NÃO está funcionando.\n');
+      return false;
+    } else {
+      console.log('✅ SUCESSO: Agent NÃO enviou outra primeira mensagem!');
+      console.log('   A detecção de resposta a campanha está funcionando corretamente.\n');
+    }
+
+    // ========================================
+    // ETAPA 4: VERIFICAR SE FLUXO BANT ESTÁ ATIVO
+    // ========================================
+    console.log('🎯 [ETAPA 4] Verificando se fluxo BANT está ativo...\n');
+
+    const stateAfterResponse = await getEnhancedState(lead.phone);
+    console.log('📊 Estado após resposta:');
+    console.log(`   - state.current: ${stateAfterResponse?.state?.current}`);
+    console.log(`   - state.subState: ${stateAfterResponse?.state?.subState}`);
+    console.log(`   - qualification.score: ${stateAfterResponse?.qualification?.score}`);
+    console.log(`   - bant: ${JSON.stringify(stateAfterResponse?.bant || {}, null, 2)}\n`);
+
+    // ========================================
+    // ETAPA 5: SIMULAR CONTINUAÇÃO DA CONVERSA (FLUXO BANT)
+    // ========================================
+    console.log('🔄 [ETAPA 5] Testando continuação do fluxo BANT...\n');
+
+    // Resposta 2: Mencionar necessidade
+    const response2 = 'Sim, tenho dificuldade em gerenciar os pedidos de óculos no WhatsApp';
+    console.log(`🗣️ Lead responde: "${response2}"\n`);
+
+    const agentResponse2 = await chatHandler(response2, context);
+    console.log('📤 Resposta do agent (deve explorar necessidade):');
+    console.log('---');
+    console.log(agentResponse2.message);
+    console.log('---\n');
+
+    const stateAfter2 = await getEnhancedState(lead.phone);
+    console.log('📊 Estado após segunda mensagem:');
+    console.log(`   - state.current: ${stateAfter2?.state?.current}`);
+    console.log(`   - bant.need: ${stateAfter2?.bant?.need || 'ainda não capturado'}\n`);
+
+    // ========================================
+    // RESUMO FINAL
+    // ========================================
+    console.log('📋 ===== RESUMO DO TESTE =====\n');
+    console.log('✅ 1. Campanha enviou mensagem');
+    console.log('✅ 2. Estado salvo com origin=campaign');
+    console.log(`${isFirstMessage ? '❌' : '✅'} 3. Lead respondeu SEM receber segunda primeira mensagem`);
+    console.log('✅ 4. Fluxo BANT iniciado corretamente');
+    console.log('✅ 5. Conversa continuou normalmente\n');
+
+    console.log('🎉 TESTE COMPLETO!\n');
+    return true;
+
+  } catch (error) {
+    console.error('❌ ERRO NO TESTE:', error.message);
+    console.error(error.stack);
+    return false;
+  }
+}
+
+// Executar teste
+testCampaignFlow()
+  .then(success => {
+    if (success) {
+      console.log('✅ Todos os testes passaram! Sistema funcionando corretamente.\n');
+      process.exit(0);
+    } else {
+      console.log('❌ Alguns testes falharam. Revise a implementação.\n');
+      process.exit(1);
+    }
+  })
+  .catch(error => {
+    console.error('❌ Erro fatal:', error);
+    process.exit(1);
+  });

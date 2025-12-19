@@ -19,6 +19,19 @@ const DEFINITIVE_OPT_OUT_PATTERNS = [
     /\b(chato|irritante|perturbando|incomodando|enchendo\s+o\s+saco)\b/i
 ];
 
+// Padrões de Pausa Temporária com Razão (PRIORIDADE MÁXIMA - verificar ANTES de opt-out definitivo)
+const TEMPORARY_PAUSE_WITH_REASON_PATTERNS = [
+    // Pausa temporária explícita
+    /\b(parar|pare)\s+(por\s+enquanto|por\s+agora|agora|temporariamente|momentaneamente)\b/i,
+    /\b(não\s+)?pode(mos)?\s+(parar|pausar)\s+(por\s+enquanto|por\s+agora|agora|o\s+contato)\b/i,
+    // Combinação: palavra "parar" + razão urgente
+    /\bparar.*\b(hospital|médico|emergência|urgente|urgência|compromisso|reunião|viagem)\b/i,
+    /\b(hospital|médico|emergência|urgente|urgência|compromisso|reunião|viagem).*\bparar\b/i,
+    // Frases contextuais com "tenho que" / "preciso"
+    /\bparar.*\b(tenho\s+que|preciso|vou|devo)\b/i,
+    /\b(tenho\s+que|preciso|vou|devo).*\bparar\b/i
+];
+
 // Padrões de Recusa Temporária (reagendar/aguardar)
 const TEMPORARY_REFUSAL_PATTERNS = [
     // Questões temporais
@@ -67,8 +80,19 @@ const BOT_RESPONSE_PATTERNS = [
  * @returns {Object} Classificação da intenção
  */
 export function classifyOptOutIntent(message, phoneNumber) {
+    // Validação: se mensagem for undefined ou não for string, retornar sem opt-out
+    if (!message || typeof message !== 'string') {
+        console.log(` [OPT-OUT] Mensagem inválida ou vazia, ignorando verificação`);
+        return {
+            type: 'no_intent',
+            confidence: 0,
+            action: 'continue',
+            reason: 'Mensagem inválida'
+        };
+    }
+
     const msgLower = message.toLowerCase().trim();
-    
+
     // Verifica resposta de bot primeiro
     const isBotResponse = BOT_RESPONSE_PATTERNS.some(pattern => pattern.test(msgLower));
     if (isBotResponse) {
@@ -81,7 +105,21 @@ export function classifyOptOutIntent(message, phoneNumber) {
         };
     }
 
-    // Verifica opt-out definitivo
+    // PRIORIDADE MÁXIMA: Verifica pausa temporária com razão ANTES de opt-out definitivo
+    // Isso captura mensagens como "podemos parar por enquanto, tenho que buscar no hospital"
+    const isTemporaryPauseWithReason = TEMPORARY_PAUSE_WITH_REASON_PATTERNS.some(pattern => pattern.test(msgLower));
+    if (isTemporaryPauseWithReason) {
+        return {
+            type: 'temporary_pause_with_reason',
+            confidence: 0.9,
+            action: 'reschedule',
+            reason: 'Pausa temporária com razão válida - não é opt-out definitivo',
+            waitTime: 168, // 7 dias
+            message: 'Claro! Entendo perfeitamente. Vou aguardar um momento mais adequado. Fico à disposição quando precisar! '
+        };
+    }
+
+    // Verifica opt-out definitivo (só chega aqui se NÃO for pausa temporária com razão)
     const isDefinitiveOptOut = DEFINITIVE_OPT_OUT_PATTERNS.some(pattern => pattern.test(msgLower));
     if (isDefinitiveOptOut) {
         return {
@@ -89,7 +127,7 @@ export function classifyOptOutIntent(message, phoneNumber) {
             confidence: 0.95,
             action: 'remove_immediately',
             reason: 'Solicitação clara de remoção',
-            message: 'Entendido! Seu número foi removido da nossa lista. Obrigado pelo retorno! 👍'
+            message: 'Entendido! Seu número foi removido da nossa lista. Obrigado pelo retorno! '
         };
     }
 
@@ -102,7 +140,7 @@ export function classifyOptOutIntent(message, phoneNumber) {
             action: 'reschedule',
             reason: 'Recusa temporária - momento inadequado',
             waitTime: 168, // 7 dias
-            message: 'Entendo! Vou aguardar um momento mais adequado. Obrigado pela gentileza! 😊'
+            message: 'Entendo! Vou aguardar um momento mais adequado. Obrigado pela gentileza! '
         };
     }
 
@@ -115,7 +153,7 @@ export function classifyOptOutIntent(message, phoneNumber) {
             action: 'nurture',
             reason: 'Recusa educada - manter para nurturing',
             waitTime: 720, // 30 dias
-            message: 'Sem problemas! Fico à disposição se precisar. Tenha um ótimo dia! 🌟'
+            message: 'Sem problemas! Fico à disposição se precisar. Tenha um ótimo dia! '
         };
     }
 
@@ -128,7 +166,7 @@ export function classifyOptOutIntent(message, phoneNumber) {
             action: 'find_decision_maker',
             reason: 'Não é o decisor - buscar responsável',
             waitTime: 72, // 3 dias
-            message: 'Entendi! Consegue me passar o contato da pessoa responsável? Ou prefere que eu entre em contato em outro momento? 📞'
+            message: 'Entendi! Consegue me passar o contato da pessoa responsável? Ou prefere que eu entre em contato em outro momento? '
         };
     }
 
@@ -154,12 +192,14 @@ export async function processOptOutAction(phoneNumber, classification) {
         switch (classification.action) {
             case 'remove_immediately':
                 // Remove da lista imediatamente
-                await saveMessage(phoneNumber, 'system', `OPT_OUT_DEFINITIVO: ${classification.reason}`, {
-                    classification: classification,
-                    opt_out_date: now.toISOString(),
-                    status: 'removed'
-                });
-                
+                // Assinatura correta: saveMessage(phoneNumber, messageText, fromMe, messageType)
+                await saveMessage(
+                    phoneNumber,
+                    `[SYSTEM] OPT_OUT_DEFINITIVO: ${classification.reason} | status: removed | date: ${now.toISOString()}`,
+                    true, // fromMe = true (mensagem do sistema)
+                    'system'
+                );
+
                 return {
                     success: true,
                     action_taken: 'removed',
@@ -170,13 +210,14 @@ export async function processOptOutAction(phoneNumber, classification) {
             case 'reschedule':
                 // Reagenda contato
                 const rescheduleDate = new Date(now.getTime() + (classification.waitTime * 60 * 60 * 1000));
-                
-                await saveMessage(phoneNumber, 'system', `REAGENDADO: ${classification.reason}`, {
-                    classification: classification,
-                    next_contact: rescheduleDate.toISOString(),
-                    status: 'scheduled'
-                });
-                
+
+                await saveMessage(
+                    phoneNumber,
+                    `[SYSTEM] REAGENDADO: ${classification.reason} | next_contact: ${rescheduleDate.toISOString()} | status: scheduled`,
+                    true,
+                    'system'
+                );
+
                 return {
                     success: true,
                     action_taken: 'rescheduled',
@@ -188,13 +229,14 @@ export async function processOptOutAction(phoneNumber, classification) {
             case 'reschedule_later':
                 // Reagenda para mais tarde (resposta de bot)
                 const laterDate = new Date(now.getTime() + (classification.waitTime * 60 * 60 * 1000));
-                
-                await saveMessage(phoneNumber, 'system', `REAGENDADO_BOT: ${classification.reason}`, {
-                    classification: classification,
-                    next_contact: laterDate.toISOString(),
-                    status: 'scheduled'
-                });
-                
+
+                await saveMessage(
+                    phoneNumber,
+                    `[SYSTEM] REAGENDADO_BOT: ${classification.reason} | next_contact: ${laterDate.toISOString()} | status: scheduled`,
+                    true,
+                    'system'
+                );
+
                 return {
                     success: true,
                     action_taken: 'rescheduled_bot',
@@ -205,13 +247,14 @@ export async function processOptOutAction(phoneNumber, classification) {
             case 'nurture':
                 // Coloca em lista de nurturing
                 const nurtureDate = new Date(now.getTime() + (classification.waitTime * 60 * 60 * 1000));
-                
-                await saveMessage(phoneNumber, 'system', `NURTURING: ${classification.reason}`, {
-                    classification: classification,
-                    next_contact: nurtureDate.toISOString(),
-                    status: 'nurturing'
-                });
-                
+
+                await saveMessage(
+                    phoneNumber,
+                    `[SYSTEM] NURTURING: ${classification.reason} | next_contact: ${nurtureDate.toISOString()} | status: nurturing`,
+                    true,
+                    'system'
+                );
+
                 return {
                     success: true,
                     action_taken: 'nurturing',
@@ -223,13 +266,14 @@ export async function processOptOutAction(phoneNumber, classification) {
             case 'find_decision_maker':
                 // Busca decisor
                 const findDecisionMakerDate = new Date(now.getTime() + (classification.waitTime * 60 * 60 * 1000));
-                
-                await saveMessage(phoneNumber, 'system', `BUSCAR_DECISOR: ${classification.reason}`, {
-                    classification: classification,
-                    next_contact: findDecisionMakerDate.toISOString(),
-                    status: 'finding_decision_maker'
-                });
-                
+
+                await saveMessage(
+                    phoneNumber,
+                    `[SYSTEM] BUSCAR_DECISOR: ${classification.reason} | next_contact: ${findDecisionMakerDate.toISOString()} | status: finding_decision_maker`,
+                    true,
+                    'system'
+                );
+
                 return {
                     success: true,
                     action_taken: 'finding_decision_maker',
@@ -253,7 +297,7 @@ export async function processOptOutAction(phoneNumber, classification) {
                 };
         }
     } catch (error) {
-        console.error('❌ Erro ao processar ação de opt-out:', error);
+        console.error(' Erro ao processar ação de opt-out:', error);
         return {
             success: false,
             error: error.message
@@ -263,20 +307,76 @@ export async function processOptOutAction(phoneNumber, classification) {
 
 /**
  * Verifica se um contato está em status de opt-out
+ * Busca nas mensagens de sistema salvas para verificar status
  * @param {string} phoneNumber - Número de telefone
  * @returns {Promise<Object>} Status do contato
  */
 export async function checkOptOutStatus(phoneNumber) {
     try {
-        // Aqui você pode implementar a lógica para verificar no banco
-        // Por agora, retorna status básico
+        // Import dinâmico para evitar circular dependency
+        const { getDatabase } = await import('../db/connection.js');
+        const db = getDatabase();
+
+        const cleanNumber = phoneNumber.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+
+        // Busca última mensagem de sistema relacionada a opt-out
+        const stmt = db.prepare(`
+            SELECT message_text, created_at
+            FROM whatsapp_messages
+            WHERE phone_number LIKE ?
+              AND message_type = 'system'
+              AND message_text LIKE '%OPT_OUT%'
+            ORDER BY created_at DESC
+            LIMIT 1
+        `);
+
+        const result = stmt.get(`%${cleanNumber}%`);
+
+        if (result) {
+            // Analisa o tipo de opt-out
+            const isDefinitive = result.message_text.includes('OPT_OUT_DEFINITIVO');
+            const isNurturing = result.message_text.includes('NURTURING');
+            const isScheduled = result.message_text.includes('REAGENDADO');
+
+            // Extrai next_contact se existir
+            const nextContactMatch = result.message_text.match(/next_contact:\s*([^\s|]+)/);
+            const nextContact = nextContactMatch ? nextContactMatch[1] : null;
+
+            // Se tem next_contact e ainda não passou, está em pausa
+            if (nextContact) {
+                const nextContactDate = new Date(nextContact);
+                if (nextContactDate > new Date()) {
+                    return {
+                        is_opted_out: false,
+                        status: 'paused',
+                        pause_until: nextContact,
+                        last_interaction: result.created_at,
+                        reason: isNurturing ? 'nurturing' : 'rescheduled'
+                    };
+                }
+            }
+
+            // Opt-out definitivo
+            if (isDefinitive) {
+                return {
+                    is_opted_out: true,
+                    status: 'removed',
+                    opt_out_date: result.created_at,
+                    last_interaction: result.created_at
+                };
+            }
+        }
+
+        // Sem opt-out registrado - contato ativo
         return {
             is_opted_out: false,
             status: 'active',
             last_interaction: null
         };
+
     } catch (error) {
-        console.error('❌ Erro ao verificar status de opt-out:', error);
+        console.error(' Erro ao verificar status de opt-out:', error);
+        // Em caso de erro, assume ativo para não bloquear mensagens
         return {
             is_opted_out: false,
             status: 'unknown',
@@ -292,11 +392,11 @@ export async function checkOptOutStatus(phoneNumber) {
  */
 export function generateOptOutMessage(context = 'initial') {
     const messages = {
-        initial: 'Se em algum momento não quiser mais receber minhas mensagens, é só me avisar com um "sair", "parar" ou até um "não quero mais" que eu retiro seu número rapidinho, sem problema 😉',
+        initial: 'Se em algum momento não quiser mais receber minhas mensagens, é só me avisar com um "sair", "parar" ou até um "não quero mais" que eu retiro seu número rapidinho, sem problema ',
         
-        follow_up: 'Lembrando que se você quiser parar de receber essas mensagens, é só falar "sair" que eu respeito sua decisão na hora! 👍',
+        follow_up: 'Lembrando que se você quiser parar de receber essas mensagens, é só falar "sair" que eu respeito sua decisão na hora! ',
         
-        final: 'E se não quiser mais contato, é só digitar "parar" que eu entendo perfeitamente! 🤝'
+        final: 'E se não quiser mais contato, é só digitar "parar" que eu entendo perfeitamente! '
     };
 
     return messages[context] || messages.initial;

@@ -11,14 +11,14 @@ export class EnhancedHistoryManager {
     this.historyCache = new Map();
     this.maxHistorySize = 50;
     this.contextWindow = 10;
-    console.log('🔧 Enhanced History Manager inicializado');
+    console.log(' Enhanced History Manager inicializado');
   }
 
   /**
    * FORÇA recuperação do histórico COMPLETO
    */
   async getFullConversationHistory(from) {
-    console.log(`📚 [FORCED] Recuperando histórico completo para ${from}`);
+    console.log(` [FORCED] Recuperando histórico completo para ${from}`);
 
     try {
       // 1. Buscar do banco de dados SQLite
@@ -48,14 +48,14 @@ export class EnhancedHistoryManager {
         conversationPhase: this.determineConversationPhase(enrichedHistory)
       };
 
-      console.log(`✅ Histórico completo recuperado:`);
+      console.log(` Histórico completo recuperado:`);
       console.log(`   - ${enrichedHistory.length} mensagens`);
       console.log(`   - ${unansweredQuestions.length} perguntas não respondidas`);
 
       return result;
 
     } catch (error) {
-      console.error('❌ Erro ao recuperar histórico:', error);
+      console.error(' Erro ao recuperar histórico:', error);
       return {
         messages: [],
         unansweredQuestions: [],
@@ -75,12 +75,12 @@ export class EnhancedHistoryManager {
       const { getRecentMessages } = await import('../memory.js');
       const messages = await getRecentMessages(from, this.maxHistorySize);
 
-      console.log(`📊 Banco: ${messages?.length || 0} mensagens encontradas`);
+      console.log(` Banco: ${messages?.length || 0} mensagens encontradas`);
 
       return messages || [];
 
     } catch (error) {
-      console.error('❌ Erro ao buscar no banco:', error);
+      console.error(' Erro ao buscar no banco:', error);
       return [];
     }
   }
@@ -193,7 +193,7 @@ export class EnhancedHistoryManager {
       }
     }
 
-    console.log(`⚠️ Perguntas não respondidas: ${unanswered.length}`);
+    console.log(` Perguntas não respondidas: ${unanswered.length}`);
     unanswered.forEach(q => console.log(`   - "${q.question}"`));
 
     return unanswered;
@@ -301,14 +301,14 @@ export class EnhancedHistoryManager {
 export class ContextAwareResponseGenerator {
   constructor() {
     this.historyManager = new EnhancedHistoryManager();
-    console.log('🧠 Context-Aware Response Generator inicializado');
+    console.log(' Context-Aware Response Generator inicializado');
   }
 
   /**
    * Gera resposta SEMPRE considerando histórico
    */
   async generateContextualResponse(from, currentMessage, agentInstance) {
-    console.log(`🔄 [FORCED] Gerando resposta contextual para: "${currentMessage}"`);
+    console.log(` [FORCED] Gerando resposta contextual para: "${currentMessage}"`);
 
     // 1. FORÇAR recuperação do histórico
     const fullHistory = await this.historyManager.getFullConversationHistory(from);
@@ -325,7 +325,7 @@ export class ContextAwareResponseGenerator {
     // 5. Validar coerência
     const finalResponse = this.validateResponseCoherence(response, fullHistory);
 
-    console.log(`✅ Resposta contextual gerada: "${finalResponse.substring(0, 100)}..."`);
+    console.log(` Resposta contextual gerada: "${finalResponse.substring(0, 100)}..."`);
 
     return finalResponse;
   }
@@ -356,10 +356,10 @@ export class ContextAwareResponseGenerator {
    */
   buildContextualPrompt(richContext, currentMessage) {
     const conversationHistory = richContext.recentMessages
-      .map(m => `[${m.timestamp}] ${m.fromBot ? 'ORBION' : 'Cliente'}: ${m.text}`)
+      .map(m => `[${m.timestamp}] ${m.fromBot ? 'LEADLY' : 'Cliente'}: ${m.text}`)
       .join('\n');
 
-    const systemPrompt = `Você é o ORBION, assistente de vendas da Digital Boost.
+    const systemPrompt = `Você é a LEADLY, assistente de vendas da Digital Boost.
 
 CONTEXTO DA CONVERSA:
 ${conversationHistory}
@@ -407,7 +407,7 @@ INSTRUÇÕES CRÍTICAS:
         return completion.choices[0].message.content;
 
       } catch (error) {
-        console.error('❌ Erro na IA:', error);
+        console.error(' Erro na IA:', error);
         return this.generateFallbackResponse(contextualPrompt);
       }
     }
@@ -439,11 +439,11 @@ INSTRUÇÕES CRÍTICAS:
     // Resposta baseada na fase da conversa
     switch (context.conversationPhase) {
       case 'initial':
-        return 'Olá! Sou o ORBION da Digital Boost. Como posso ajudar você hoje?';
+        return 'Olá! Sou a Leadly da Digital Boost. Como posso ajudar você hoje?';
       case 'discovery':
-        return 'Entendi! E me conta, qual é o principal desafio no seu negócio hoje?';
+        return 'Entendi! E me conta, qual é o principal desafio financeiro no seu negócio hoje?';
       case 'negotiation':
-        return 'Perfeito! Vamos encontrar a melhor solução para o seu caso. Que tal agendarmos uma conversa?';
+        return 'Perfeito! Vamos encontrar a melhor solução para o seu caso. Que tal agendarmos uma demonstração?';
       default:
         return 'Entendo. Como posso ajudar você com isso?';
     }

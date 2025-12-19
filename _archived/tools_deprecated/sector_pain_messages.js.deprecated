@@ -1,0 +1,1598 @@
+/**
+ * 📊 MENSAGENS CONSULTIVAS POR SETOR
+ * Templates personalizados focados nas DORES REAIS de cada nicho
+ *
+ * Formato: Pergunta consultiva + "Tem interesse em resolver isso?"
+ * SEM perguntas genéricas como "qual processo quer otimizar"
+ */
+
+export const SECTOR_PAIN_TEMPLATES = {
+  // 🏪 VAREJO & COMÉRCIO
+  'Moda & Vestuário': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos lojas de moda como a sua a aumentar vendas via WhatsApp com automação inteligente.
+
+Empresas como Boutique Fashion em Natal aumentaram vendas em 35% com atendimento automatizado 24/7.
+
+**Você perde vendas por não responder clientes rápido o suficiente?**
+Muitas lojas perdem até 40% das vendas por demora no atendimento.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não tiver interesse_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos lojas de roupas como a sua a recuperar carrinhos abandonados com mensagens automatizadas.
+
+Lojas como Moda Prime recuperaram 28% de carrinhos abandonados com follow-up inteligente.
+
+**Clientes pedem informação de produtos mas você demora pra responder e eles compram com o concorrente?**
+Perder vendas por lentidão custa caro.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para não receber mais mensagens_`
+  ],
+
+  'Bijuterias & Acessórios': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos bijuterias como a sua a vender mais com catálogo automatizado via WhatsApp.
+
+Empresas como Bella Acessórios aumentaram vendas em 42% com catálogo automático que envia fotos dos produtos em segundos.
+
+**Seus clientes pedem fotos dos produtos repetidas vezes e você perde tempo enviando manualmente?**
+Automação envia catálogo completo em segundos e aumenta vendas em 3x.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser receber mais contato_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos lojas de acessórios como a sua a fechar mais vendas online com atendimento automatizado.
+
+Lojas como Joias & Encantos capturam 60% mais vendas com atendimento 24/7 que responde até de madrugada.
+
+**Você perde vendas à noite e fins de semana porque não tem quem responda?**
+Atendimento 24/7 captura 100% das oportunidades.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair da lista_`
+  ],
+
+  'Ótica': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos óticas a automatizar orçamentos de óculos e lentes via WhatsApp.
+
+Óticas como Vision Center aumentaram vendas em 32% capturando pedidos mesmo quando a loja está cheia.
+
+**Clientes ligam pedindo preço de óculos mas você está ocupado e perde a venda?**
+Automação captura 100% dos orçamentos mesmo quando você não pode atender.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser mais contato_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos óticas como a sua a vender mais com catálogo automatizado de armações via WhatsApp.
+
+Óticas como Bella Visão triplicaram vendas online enviando fotos de armações automaticamente 24/7.
+
+**Seus clientes pedem fotos de armações repetidas vezes e você perde tempo enviando manualmente?**
+Catálogo automático envia todas as opções em segundos e aumenta vendas.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair da lista_`
+  ],
+
+  // 🍔 ALIMENTAÇÃO
+  'Restaurante': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos restaurantes como o seu a automatizar pedidos via WhatsApp e reduzir erros.
+
+Restaurantes como Sabor da Terra aumentaram pedidos em 53% e reduziram erros em 90% com sistema automatizado.
+
+**Seus atendentes anotam pedidos errados ou atrasam respostas no horário de pico?**
+Isso faz você perder clientes e dinheiro todo dia.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para não receber mais mensagens_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos restaurantes como o seu a triplicar pedidos online com cardápio automatizado.
+
+Empresas como Pizzaria Dom João triplicaram pedidos online com cardápio digital que funciona 24/7.
+
+**Você perde pedidos porque cliente liga e ninguém atende no horário de rush?**
+Atendimento 24/7 captura todos os pedidos, mesmo quando está lotado.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair_`
+  ],
+
+  'Padaria': [
+    `{NOME}, bom dia!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos padarias como a sua a automatizar encomendas de bolos e salgados via WhatsApp.
+
+Padarias como Pão Nosso aumentaram encomendas em 38% capturando pedidos mesmo quando o balcão está lotado.
+
+**Clientes ligam pedindo orçamento mas você está ocupado e perde a venda?**
+Automação captura 100% dos pedidos mesmo quando você não pode atender.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser mais contato_`
+  ],
+
+  // 💇 BELEZA & ESTÉTICA
+  'Salão de Beleza': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos salões como o seu a reduzir no-show em 70% com confirmação automática.
+
+Salões como Espaço Glamour reduziram no-show em 68% e aumentaram faturamento em R$ 12 mil/mês com confirmação via WhatsApp.
+
+**Clientes marcam horário e não aparecem, deixando sua agenda com buraco?**
+Isso faz você perder dinheiro todo dia com profissionais parados.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para não receber mensagens_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos salões como o seu a trazer clientes de volta com lembretes automatizados.
+
+Empresas como Salão Beleza Pura reativaram 43% dos clientes inativos com lembretes automáticos de retorno.
+
+**Suas clientes esquecem de voltar após 30-60 dias e você perde receita recorrente?**
+Lembrete automático reativa 40% dos clientes inativos.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair da lista_`
+  ],
+
+  'Barbearia': [
+    `{NOME}, e aí!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos barbearias como a sua a lotar agenda com agendamento inteligente via WhatsApp.
+
+Barbearias como Corte & Estilo aumentaram agendamentos em 55% e equilibraram horários vazios com sistema automatizado.
+
+**Sua agenda fica vazia em alguns horários mas lotada em outros?**
+Redistribuição automática equilibra sua agenda e aumenta faturamento.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser_`
+  ],
+
+  // 🏋️ FITNESS & BEM-ESTAR
+  'Academia': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos academias como a sua a reduzir cancelamento de planos em 50%.
+
+Academias como FitPower reduziram cancelamentos em 47% identificando e reativando alunos inativos antes de perder eles.
+
+**Alunos param de vir e você só descobre quando cancelam o plano?**
+Retenção automática identifica e reativa alunos antes de perder eles.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para não receber mais mensagens_`
+  ],
+
+  // 🏥 SAÚDE
+  'Clínica': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos clínicas como a sua a reduzir faltas em consultas em 80%.
+
+Clínicas como OdontoVida eliminaram 78% das faltas e otimizaram 100% da agenda com confirmação automática 24h antes.
+
+**Pacientes faltam consulta sem avisar, causando prejuízo na agenda?**
+Confirmação automática 24h antes praticamente elimina esse problema.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser mais contato_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos clínicas como a sua a aumentar retornos de pacientes com lembretes automatizados.
+
+Empresas como Clínica SorrirBem recuperaram 52% dos retornos perdidos com lembretes automáticos de consulta.
+
+**Pacientes esquecem de agendar consulta de retorno e você perde receita recorrente?**
+Lembrete automático recupera 50% dos retornos perdidos.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair_`
+  ],
+
+  // 🏗️ SERVIÇOS & REFORMAS
+  'Marcenaria': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos marcenarias como a sua a fechar mais orçamentos com follow-up automático.
+
+Marcenarias como MadeiraFina recuperaram 65% dos orçamentos que "esfriaram" com follow-up inteligente via WhatsApp.
+
+**Cliente pede orçamento, você envia, mas ele some e não responde?**
+70% dos orçamentos morrem assim. Follow-up automático recupera esses clientes.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para não receber mensagens_`
+  ],
+
+  // 🎓 EDUCAÇÃO
+  'Escola': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos escolas como a sua a reduzir inadimplência em 60% com cobrança automatizada.
+
+Escolas como Colégio Crescer reduziram inadimplência de 25% para 8% com lembretes automáticos antes do vencimento.
+
+**Pais atrasam mensalidade e você perde tempo cobrando manualmente?**
+Lembrete automático antes do vencimento evita atraso e reduz inadimplência.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER se não quiser mais contato_`
+  ],
+
+  'Curso': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos cursos como o seu a converter 3x mais alunos com follow-up automatizado.
+
+Cursos como EnglishPro triplicaram matrículas com nutrição de leads automatizada que mantém interessados engajados até decisão final.
+
+**Pessoas pedem informação do curso mas esquecem e nunca matriculam?**
+Follow-up automático mantém elas engajadas até fechar matrícula.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para sair_`,
+
+    `{NOME}, bom dia!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos cursos como o seu a capturar matrículas que estavam sendo perdidas por falta de atendimento rápido.
+
+Escolas como Curso Advance aumentaram matrículas em 45% respondendo interessados em segundos, 24/7.
+
+**Interessados entram em contato mas você demora para responder e eles procuram outro curso?**
+Atendimento automatizado responde na hora e agenda visita antes de esfriar.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para não receber mais mensagens_`
+  ],
+
+  // 🏨 TURISMO & HOSPEDAGEM
+  'Hotel': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos hotéis como o seu a reduzir cancelamentos de última hora com confirmação automática.
+
+Hotéis como Pousada Mar Azul reduziram no-show em 72% e aumentaram ocupação em 18% com confirmação 48h antes.
+
+**Hóspedes fazem reserva mas não confirmam presença e você fica com quarto vago?**
+Confirmação 48h antes reduz no-show em 70% e aumenta ocupação.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para não receber mensagens_`
+  ],
+
+  'Agência de Viagens': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos agências como a sua a fechar mais pacotes com catálogo automatizado.
+
+Agências como Viagens & Destinos aumentaram fechamento em 48% enviando catálogo de pacotes instantaneamente via WhatsApp.
+
+**Cliente pede destinos mas você demora para enviar opções e ele compra com concorrente?**
+Catálogo instantâneo via WhatsApp fecha venda na hora.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para sair da lista_`
+  ],
+
+  // 🛠️ SERVIÇOS TÉCNICOS
+  'Assistência Técnica': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos assistências técnicas como a sua a capturar 90% mais orçamentos.
+
+Assistências como TechConsert capturaram 85% mais orçamentos atendendo clientes 24/7 mesmo quando técnicos estão ocupados.
+
+**Cliente liga pedindo orçamento mas você está ocupado e perde a venda?**
+Atendimento 24/7 automatizado captura todos os pedidos mesmo quando você está sem tempo.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER se não quiser mais contato_`
+  ],
+
+  // ⚖️ SERVIÇOS JURÍDICOS
+  'Advocacia': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos escritórios de advocacia como o seu a converter 3x mais consultas jurídicas com triagem automatizada.
+
+Escritórios como Advocacia Silva & Associados aumentaram captação de clientes em 65% com triagem automatizada que qualifica casos 24/7.
+
+**Potenciais clientes entram em contato fora do horário comercial e você perde casos para escritórios que respondem primeiro?**
+Triagem automatizada captura 100% das consultas e qualifica casos mesmo à noite e fins de semana.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser mais contato_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos escritórios de advocacia como o seu a reduzir no-show em consultas iniciais.
+
+Escritórios como Direito & Justiça reduziram no-show em 78% com lembretes automatizados 24h antes da consulta.
+
+**Clientes agendam consulta mas não aparecem e você perde tempo com agenda vazia?**
+Confirmação automatizada 24h antes reduz no-show em até 80% e otimiza sua agenda.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair da lista_`
+  ],
+
+  // 🏠 IMOBILIÁRIO
+  'Consultoria Imobiliária': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos imobiliárias e corretores como você a converter 4x mais leads com follow-up automatizado.
+
+Imobiliárias como Casa & Lar fecharam 45% mais vendas com nutrição automatizada que mantém interessados engajados até decisão final.
+
+**Pessoas pedem informação de imóveis mas esquecem de você e compram com o concorrente?**
+Follow-up automático mantém leads aquecidos até fechar negócio.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não tiver interesse_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos corretores como você a capturar visitas que seriam perdidas por falta de resposta rápida.
+
+Corretores como Imóveis Prime aumentaram visitas em 58% respondendo interessados em segundos, 24/7.
+
+**Interessados pedem visita mas você demora pra responder e eles agendam com outro corretor?**
+Atendimento instantâneo 24/7 captura 100% das oportunidades de visita.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para não receber mais mensagens_`
+  ],
+
+  // 🏠 DECORAÇÃO & LAR
+  'Loja de Decoração': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos lojas de decoração como a sua a vender mais com showroom virtual via WhatsApp.
+
+Lojas como DecorArte aumentaram vendas online em 58% com showroom virtual que mostra todo portfólio em segundos.
+
+**Cliente quer ver produtos e ambientes mas você não consegue enviar fotos rápido?**
+Catálogo automatizado mostra todo portfólio em segundos e aumenta conversão.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para não receber mensagens_`
+  ],
+
+  // 🚗 AUTOMOTIVO
+  'Oficina Mecânica': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos oficinas como a sua a liberar vagas mais rápido com lembretes automatizados.
+
+Oficinas como AutoMaster aumentaram giro de veículos em 40% com lembretes que aceleram retirada de carros prontos.
+
+**Cliente deixa carro consertado mas não volta buscar no prazo, ocupando vaga?**
+Lembrete automático acelera retirada e aumenta giro de veículos.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair_`
+  ],
+
+  'Lava-Jato': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos lava-jatos como o seu a fidelizar clientes com programa de pontos automatizado.
+
+Lava-jatos como Clean Car triplicaram clientes recorrentes com programa de fidelidade automatizado via WhatsApp.
+
+**Cliente vem uma vez e esquece de voltar?**
+Lembrete com benefício progressivo traz ele de volta e cria hábito.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER para não receber mais contato_`
+  ],
+
+  // 🎉 EVENTOS
+  'Buffet': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos buffets como o seu a fechar mais eventos com orçamento instantâneo.
+
+Buffets como Sabor & Festa fecharam 67% mais contratos enviando cardápio e orçamento em segundos via automação.
+
+**Cliente pede orçamento mas você demora para enviar cardápio e ele contrata concorrente?**
+Automação envia tudo em segundos e fecha venda antes dele procurar outros.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para sair da lista_`
+  ],
+
+  // 📦 GENÉRICO (FALLBACK)
+  'default': [
+    `{NOME}, boa tarde!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos empresas como a sua a automatizar atendimento via WhatsApp e aumentar vendas.
+
+Empresas como a sua no RN aumentaram vendas em média 40% com atendimento automatizado 24/7.
+
+**Você perde vendas por demora no atendimento ou falta de follow-up?**
+Muitas empresas perdem até 50% das oportunidades por não responder rápido.
+
+Tem interesse em resolver isso?
+
+_Responda REMOVER se não quiser mais contato_`,
+
+    `Oi {NOME}!
+
+Sou ORBION, agente inteligente da Digital Boost, empresa premiada em 5º lugar no Startup Nordeste pelo Sebrae.
+
+Ajudamos negócios como o seu a atender clientes 24/7 com automação inteligente.
+
+PMEs da região recuperaram 35% de vendas perdidas com sistema que responde clientes em segundos.
+
+**Seus clientes reclamam de demora na resposta e você perde vendas por isso?**
+Atendimento automatizado resolve em segundos o que levaria horas.
+
+Tem interesse em resolver isso?
+
+_Digite REMOVER para não receber mensagens_`
+  ]
+};
+
+/**
+ * 🎯 MAPEIA SETOR DA PLANILHA PARA CATEGORIA DE MENSAGEM
+ */
+export function getSectorCategory(sector) {
+  if (!sector) return 'default';
+
+  const sectorLower = sector.toLowerCase();
+
+  // Mapeamento inteligente - MASSIVAMENTE EXPANDIDO
+  const mapping = {
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏪 VAREJO & COMÉRCIO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // MODA & VESTUÁRIO
+    'moda': 'Moda & Vestuário',
+    'vestuário': 'Moda & Vestuário',
+    'roupa': 'Moda & Vestuário',
+    'boutique': 'Moda & Vestuário',
+    'loja de roupa': 'Moda & Vestuário',
+    'costura': 'Moda & Vestuário',
+    'reforma de roupa': 'Moda & Vestuário',
+    'tecido': 'Moda & Vestuário',
+    'alfaiate': 'Moda & Vestuário',
+    'confecção': 'Moda & Vestuário',
+    'fashion': 'Moda & Vestuário',
+    'ateliê': 'Moda & Vestuário',
+    'atelier': 'Moda & Vestuário',
+
+    // BIJUTERIAS & ACESSÓRIOS
+    'bijuteria': 'Bijuterias & Acessórios',
+    'joia': 'Bijuterias & Acessórios',
+    'joalheria': 'Bijuterias & Acessórios',
+    'acessório': 'Bijuterias & Acessórios',
+    'semi-joia': 'Bijuterias & Acessórios',
+    'semijoia': 'Bijuterias & Acessórios',
+    'folheado': 'Bijuterias & Acessórios',
+    'prata': 'Bijuterias & Acessórios',
+    'ouro': 'Bijuterias & Acessórios',
+
+    // ÓTICA
+    'ótica': 'Ótica',
+    'otica': 'Ótica',
+    'óptica': 'Ótica',
+    'optica': 'Ótica',
+    'óculos': 'Ótica',
+    'oculos': 'Ótica',
+    'lentes': 'Ótica',
+    'lente': 'Ótica',
+    'oftalmológic': 'Ótica',
+    'oftalmológica': 'Ótica',
+    'oftalmologica': 'Ótica',
+    'armação': 'Ótica',
+    'armacao': 'Ótica',
+    'grau': 'Ótica',
+    'vision': 'Ótica',
+    'visual': 'Ótica',
+    'visão': 'Ótica',
+    'visao': 'Ótica',
+    'glasses': 'Ótica',
+    'eyewear': 'Ótica',
+    'ray-ban': 'Ótica',
+    'rayban': 'Ótica',
+    'oakley': 'Ótica',
+    'sol': 'Ótica',
+    'contato': 'Ótica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🍔 ALIMENTAÇÃO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // RESTAURANTE
+    'restaurante': 'Restaurante',
+    'lanchonete': 'Restaurante',
+    'pizzaria': 'Restaurante',
+    'lanch': 'Restaurante',
+    'salgad': 'Restaurante',
+    'peixaria': 'Restaurante',
+    'peixe': 'Restaurante',
+    'hamburgueria': 'Restaurante',
+    'pastelaria': 'Restaurante',
+    'açaí': 'Restaurante',
+    'acai': 'Restaurante',
+    'sorveteria': 'Restaurante',
+    'sorvete': 'Restaurante',
+    'tapioca': 'Restaurante',
+    'crepe': 'Restaurante',
+    'espeto': 'Restaurante',
+    'churrascaria': 'Restaurante',
+    'churrasco': 'Restaurante',
+    'comida': 'Restaurante',
+    'frango': 'Restaurante',
+    'marmita': 'Restaurante',
+    'delivery': 'Restaurante',
+    'entrega': 'Restaurante',
+    'gastronomia': 'Restaurante',
+    'cozinha': 'Restaurante',
+    'food': 'Restaurante',
+
+    // PADARIA & CONFEITARIA
+    'padaria': 'Padaria',
+    'confeitaria': 'Padaria',
+    'doce': 'Padaria',
+    'doces': 'Padaria',
+    'doçaria': 'Padaria',
+    'docaria': 'Padaria',
+    'bolo': 'Padaria',
+    'bolos': 'Padaria',
+    'sobremesa': 'Padaria',
+    'cafeteria': 'Padaria',
+    'café': 'Padaria',
+    'coffee': 'Padaria',
+    'panificadora': 'Padaria',
+    'panificação': 'Padaria',
+    'casa de pão': 'Padaria',
+    'pão': 'Padaria',
+    'biscoito': 'Padaria',
+    'brigadeiro': 'Padaria',
+    'brigaderia': 'Padaria',
+    'torta': 'Padaria',
+    'tortas': 'Padaria',
+    'salgados': 'Padaria',
+    'cake': 'Padaria',
+    'cakes': 'Padaria',
+    'bakery': 'Padaria',
+    'patisserie': 'Padaria',
+    'confeit': 'Padaria',
+    'docinhos': 'Padaria',
+    'festas': 'Padaria',
+    'eventos': 'Padaria',
+    'encomendas': 'Padaria',
+    'personalizados': 'Padaria',
+    'artesanal': 'Padaria',
+    'artesão': 'Padaria',
+    'fornada': 'Padaria',
+    'quitanda': 'Padaria',
+    'delícias': 'Padaria',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 💇 BELEZA & ESTÉTICA
+    // ═══════════════════════════════════════════════════════════════════
+
+    // SALÃO DE BELEZA
+    'salão': 'Salão de Beleza',
+    'cabeleireiro': 'Salão de Beleza',
+    'estética': 'Salão de Beleza',
+    'tranç': 'Salão de Beleza',
+    'beleza': 'Salão de Beleza',
+    'spa': 'Salão de Beleza',
+    'manicure': 'Salão de Beleza',
+    'pedicure': 'Salão de Beleza',
+    'unha': 'Salão de Beleza',
+    'cabelo': 'Salão de Beleza',
+    'maquiagem': 'Salão de Beleza',
+    'make': 'Salão de Beleza',
+    'depilação': 'Salão de Beleza',
+    'massagem': 'Salão de Beleza',
+    'design de sobrancelha': 'Salão de Beleza',
+    'sobrancelha': 'Salão de Beleza',
+    'micropigmentação': 'Salão de Beleza',
+    'microblading': 'Salão de Beleza',
+    'alongamento': 'Salão de Beleza',
+    'esmalteria': 'Salão de Beleza',
+
+    // BARBEARIA
+    'barbearia': 'Barbearia',
+    'barber': 'Barbearia',
+    'barbeiro': 'Barbearia',
+    'barba': 'Barbearia',
+
+    // ESTÚDIO DE TATUAGEM (NOVO)
+    'tatuagem': 'Salão de Beleza',  // Usando Salão como proxy
+    'tattoo': 'Salão de Beleza',
+    'piercing': 'Salão de Beleza',
+    'estúdio': 'Salão de Beleza',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏋️ FITNESS & BEM-ESTAR
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ACADEMIA
+    'academia': 'Academia',
+    'fitness': 'Academia',
+    'crossfit': 'Academia',
+    'musculação': 'Academia',
+    'artes marciais': 'Academia',
+    'marcial': 'Academia',
+    'gym': 'Academia',
+    'personal': 'Academia',
+    'treinamento': 'Academia',
+    'pilates': 'Academia',
+    'yoga': 'Academia',
+    'funcional': 'Academia',
+    'spinning': 'Academia',
+    'zumba': 'Academia',
+    'dança': 'Academia',
+    'ballet': 'Academia',
+    'luta': 'Academia',
+    'jiu-jitsu': 'Academia',
+    'jiu jitsu': 'Academia',
+    'karatê': 'Academia',
+    'muay thai': 'Academia',
+    'boxe': 'Academia',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏥 SAÚDE
+    // ═══════════════════════════════════════════════════════════════════
+
+    // CLÍNICA
+    'clínica': 'Clínica',
+    'consultório': 'Clínica',
+    'médic': 'Clínica',
+    'odonto': 'Clínica',
+    'dentista': 'Clínica',
+    'fisioterapi': 'Clínica',
+    'psicolog': 'Clínica',
+    'nutricion': 'Clínica',
+    'fonoaudi': 'Clínica',
+    'veterinári': 'Clínica',
+    'pet shop': 'Clínica',
+    'petshop': 'Clínica',
+    'laboratório': 'Clínica',
+    'exame': 'Clínica',
+    'farmácia': 'Clínica',
+    'farmacia': 'Clínica',
+    'drogaria': 'Clínica',
+    'saúde': 'Clínica',
+    'saude': 'Clínica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏗️ SERVIÇOS & REFORMAS
+    // ═══════════════════════════════════════════════════════════════════
+
+    // MARCENARIA
+    'marcenaria': 'Marcenaria',
+    'marceneiro': 'Marcenaria',
+    'móveis': 'Marcenaria',
+    'móvel': 'Marcenaria',
+    'outlet': 'Marcenaria',
+    'movelaria': 'Marcenaria',
+    'madeira': 'Marcenaria',
+    'carpintaria': 'Marcenaria',
+    'planejado': 'Marcenaria',
+
+    // CONSTRUÇÃO & ENGENHARIA (NOVO)
+    'construção': 'Marcenaria',  // Proxy - serviço de reforma
+    'construcao': 'Marcenaria',
+    'construtora': 'Marcenaria',
+    'engenharia': 'Marcenaria',
+    'engenheir': 'Marcenaria',
+    'projeto': 'Marcenaria',
+    'arquitetura': 'Marcenaria',
+    'arquitet': 'Marcenaria',
+    'reforma': 'Marcenaria',
+    'pintura': 'Marcenaria',
+    'pintor': 'Marcenaria',
+    'gesso': 'Marcenaria',
+    'drywall': 'Marcenaria',
+    'pedreiro': 'Marcenaria',
+    'alvenaria': 'Marcenaria',
+
+    // SERVIÇOS ELÉTRICOS & HIDRÁULICOS (NOVO)
+    'elétric': 'Assistência Técnica',
+    'eletric': 'Assistência Técnica',
+    'eletricista': 'Assistência Técnica',
+    'hidráulic': 'Assistência Técnica',
+    'hidraulic': 'Assistência Técnica',
+    'encanador': 'Assistência Técnica',
+    'bombeiro': 'Assistência Técnica',
+    'bomba': 'Assistência Técnica',
+    'ar-condicionado': 'Assistência Técnica',
+    'ar condicionado': 'Assistência Técnica',
+    'refrigeração': 'Assistência Técnica',
+    'climatização': 'Assistência Técnica',
+    'instalação': 'Assistência Técnica',
+    'instalacao': 'Assistência Técnica',
+    'manutenção': 'Assistência Técnica',
+    'manutencao': 'Assistência Técnica',
+    'automação': 'Assistência Técnica',
+    'automacao': 'Assistência Técnica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ⚖️ SERVIÇOS JURÍDICOS
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ADVOCACIA
+    'advocacia': 'Advocacia',
+    'advogado': 'Advocacia',
+    'advogada': 'Advocacia',
+    'escritório jurídico': 'Advocacia',
+    'escritorio juridico': 'Advocacia',
+    'jurídico': 'Advocacia',
+    'juridico': 'Advocacia',
+    'direito': 'Advocacia',
+    'lei': 'Advocacia',
+    'tribunal': 'Advocacia',
+    'processo': 'Advocacia',
+    'ação judicial': 'Advocacia',
+    'acao judicial': 'Advocacia',
+    'consultoria jurídica': 'Advocacia',
+    'consultoria juridica': 'Advocacia',
+    'previdenciário': 'Advocacia',
+    'previdenciaria': 'Advocacia',
+    'trabalhista': 'Advocacia',
+    'cível': 'Advocacia',
+    'civel': 'Advocacia',
+    'criminal': 'Advocacia',
+    'penal': 'Advocacia',
+    'família': 'Advocacia',
+    'familia': 'Advocacia',
+    'divórcio': 'Advocacia',
+    'divorcio': 'Advocacia',
+    'inventário': 'Advocacia',
+    'inventario': 'Advocacia',
+    'contrato': 'Advocacia',
+    'empresarial': 'Advocacia',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏠 IMOBILIÁRIO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // CONSULTORIA IMOBILIÁRIA
+    'imobiliária': 'Consultoria Imobiliária',
+    'imobiliaria': 'Consultoria Imobiliária',
+    'corretor': 'Consultoria Imobiliária',
+    'corretora': 'Consultoria Imobiliária',
+    'imóveis': 'Consultoria Imobiliária',
+    'imoveis': 'Consultoria Imobiliária',
+    'imóvel': 'Consultoria Imobiliária',
+    'imovel': 'Consultoria Imobiliária',
+    'venda de casa': 'Consultoria Imobiliária',
+    'venda de apartamento': 'Consultoria Imobiliária',
+    'aluguel': 'Consultoria Imobiliária',
+    'locação': 'Consultoria Imobiliária',
+    'locacao': 'Consultoria Imobiliária',
+    'compra e venda': 'Consultoria Imobiliária',
+    'apartamento': 'Consultoria Imobiliária',
+    'casa': 'Consultoria Imobiliária',
+    'terreno': 'Consultoria Imobiliária',
+    'propriedade': 'Consultoria Imobiliária',
+    'creci': 'Consultoria Imobiliária',
+    'real estate': 'Consultoria Imobiliária',
+    'incorporadora': 'Consultoria Imobiliária',
+    'loteamento': 'Consultoria Imobiliária',
+    'condomínio': 'Consultoria Imobiliária',
+    'condominio': 'Consultoria Imobiliária',
+
+    // LIMPEZA (NOVO)
+    'limpeza': 'Lava-Jato',  // Proxy - serviço de limpeza
+    'faxina': 'Lava-Jato',
+    'higienização': 'Lava-Jato',
+    'higienizacao': 'Lava-Jato',
+    'estofado': 'Lava-Jato',
+    'sofá': 'Lava-Jato',
+    'sofa': 'Lava-Jato',
+    'carpete': 'Lava-Jato',
+    'tapete': 'Lava-Jato',
+    'impermeabilização': 'Lava-Jato',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎓 EDUCAÇÃO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ESCOLA
+    'escola': 'Escola',
+    'colégio': 'Escola',
+    'colegio': 'Escola',
+    'ensino': 'Escola',
+    'educação': 'Escola',
+    'educacao': 'Escola',
+    'educacional': 'Escola',
+    'infantil': 'Escola',
+    'fundamental': 'Escola',
+    'médio': 'Escola',
+    'medio': 'Escola',
+    'creche': 'Escola',
+    'berçário': 'Escola',
+
+    // CURSO
+    'curso': 'Curso',
+    'cursos': 'Curso',
+    'capacitação': 'Curso',
+    'capacitacao': 'Curso',
+    'qualificação': 'Curso',
+    'profissionalizante': 'Curso',
+    'técnico': 'Curso',
+    'tecnico': 'Curso',
+    'informática': 'Curso',
+    'informatica': 'Curso',
+    'inglês': 'Curso',
+    'ingles': 'Curso',
+    'idioma': 'Curso',
+    'música': 'Curso',
+    'musica': 'Curso',
+    'aula': 'Curso',
+    'treinamento': 'Curso',
+    'workshop': 'Curso',
+    'formação': 'Curso',
+    'formacao': 'Curso',
+    'certificação': 'Curso',
+    'certificacao': 'Curso',
+    'preparatório': 'Curso',
+    'preparatorio': 'Curso',
+    'pré-vestibular': 'Curso',
+    'pre-vestibular': 'Curso',
+    'concurso': 'Curso',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏨 TURISMO & HOSPEDAGEM
+    // ═══════════════════════════════════════════════════════════════════
+
+    // HOTEL
+    'hotel': 'Hotel',
+    'pousada': 'Hotel',
+    'hostel': 'Hotel',
+    'hospedagem': 'Hotel',
+    'resort': 'Hotel',
+    'motel': 'Hotel',
+
+    // AGÊNCIA DE VIAGENS
+    'agência de viagens': 'Agência de Viagens',
+    'agencia de viagens': 'Agência de Viagens',
+    'turismo': 'Agência de Viagens',
+    'viagem': 'Agência de Viagens',
+    'passeio': 'Agência de Viagens',
+    'excursão': 'Agência de Viagens',
+    'tour': 'Agência de Viagens',
+    'receptivo': 'Agência de Viagens',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🛠️ SERVIÇOS TÉCNICOS
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ASSISTÊNCIA TÉCNICA
+    'assistência': 'Assistência Técnica',
+    'assistencia': 'Assistência Técnica',
+    'conserto': 'Assistência Técnica',
+    'celular': 'Assistência Técnica',
+    'técnica': 'Assistência Técnica',
+    'tecnica': 'Assistência Técnica',
+    'eletrônico': 'Assistência Técnica',
+    'eletronico': 'Assistência Técnica',
+    'smartphone': 'Assistência Técnica',
+    'tablet': 'Assistência Técnica',
+    'computador': 'Assistência Técnica',
+    'notebook': 'Assistência Técnica',
+    'impressora': 'Assistência Técnica',
+    'reparo': 'Assistência Técnica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏠 DECORAÇÃO & LAR
+    // ═══════════════════════════════════════════════════════════════════
+
+    // LOJA DE DECORAÇÃO
+    'decoração': 'Loja de Decoração',
+    'decoracao': 'Loja de Decoração',
+    'decor': 'Loja de Decoração',
+    'decorações': 'Loja de Decoração',
+    'cortina': 'Loja de Decoração',
+    'persiana': 'Loja de Decoração',
+    'papel de parede': 'Loja de Decoração',
+    'iluminação': 'Loja de Decoração',
+    'iluminacao': 'Loja de Decoração',
+    'lustres': 'Loja de Decoração',
+    'quadro': 'Loja de Decoração',
+    'vaso': 'Loja de Decoração',
+    'artesanato': 'Loja de Decoração',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🚗 AUTOMOTIVO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // OFICINA MECÂNICA
+    'oficina': 'Oficina Mecânica',
+    'mecânica': 'Oficina Mecânica',
+    'mecanica': 'Oficina Mecânica',
+    'autopeças': 'Oficina Mecânica',
+    'autopeça': 'Oficina Mecânica',
+    'autopecas': 'Oficina Mecânica',
+    'automotiv': 'Oficina Mecânica',
+    'carro': 'Oficina Mecânica',
+    'auto': 'Oficina Mecânica',
+    'veículo': 'Oficina Mecânica',
+    'veiculo': 'Oficina Mecânica',
+    'motor': 'Oficina Mecânica',
+    'freio': 'Oficina Mecânica',
+    'suspensão': 'Oficina Mecânica',
+    'suspensao': 'Oficina Mecânica',
+    'alinhamento': 'Oficina Mecânica',
+    'balanceamento': 'Oficina Mecânica',
+    'pneu': 'Oficina Mecânica',
+    'bateria': 'Oficina Mecânica',
+    'vidro': 'Oficina Mecânica',
+    'funilaria': 'Oficina Mecânica',
+    'pintura automotiva': 'Oficina Mecânica',
+    'direção': 'Oficina Mecânica',
+    'direcao': 'Oficina Mecânica',
+
+    // LAVA-JATO
+    'lava': 'Lava-Jato',
+    'lava-jato': 'Lava-Jato',
+    'lavagem': 'Lava-Jato',
+    'lavanderia': 'Lava-Jato',
+    'lava jato': 'Lava-Jato',
+    'lavador': 'Lava-Jato',
+    'polimento': 'Lava-Jato',
+    'enceramento': 'Lava-Jato',
+    'estética automotiva': 'Lava-Jato',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎉 EVENTOS
+    // ═══════════════════════════════════════════════════════════════════
+
+    // BUFFET
+    'buffet': 'Buffet',
+    'evento': 'Buffet',
+    'catering': 'Buffet',
+    'chef': 'Buffet',
+    'festas': 'Buffet',
+    'festa': 'Buffet',
+    'casamento': 'Buffet',
+    'aniversário': 'Buffet',
+    'aniversario': 'Buffet',
+    'formatura': 'Buffet',
+    'corporativo': 'Buffet',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎵 ENTRETENIMENTO & CULTURA
+    // ═══════════════════════════════════════════════════════════════════
+
+    // MÚSICA & ARTE (NOVO)
+    'banda': 'Buffet',  // Proxy - serviço para eventos
+    'musica': 'Buffet',
+    'música': 'Buffet',
+    'show': 'Buffet',
+    'dj': 'Buffet',
+    'som': 'Buffet',
+    'audio': 'Buffet',
+    'áudio': 'Buffet',
+    'fotografia': 'Buffet',
+    'foto': 'Buffet',
+    'vídeo': 'Buffet',
+    'video': 'Buffet',
+    'filmagem': 'Buffet',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🌾 AGRONEGÓCIO & DISTRIBUIÇÃO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // AGRO & DISTRIBUIÇÃO (NOVO)
+    'granja': 'Restaurante',  // Proxy - fornecedor de alimentos
+    'avícola': 'Restaurante',
+    'avicola': 'Restaurante',
+    'ovo': 'Restaurante',
+    'horta': 'Restaurante',
+    'hortifruti': 'Restaurante',
+    'verdura': 'Restaurante',
+    'distribuidora': 'Restaurante',
+    'atacado': 'Restaurante',
+    'atacadista': 'Restaurante',
+    'gás': 'Restaurante',
+    'gas': 'Restaurante',
+    'água': 'Restaurante',
+    'agua': 'Restaurante',
+    'bebida': 'Restaurante',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🛡️ SEGURANÇA & MONITORAMENTO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // SEGURANÇA (NOVO)
+    'segurança': 'Assistência Técnica',  // Proxy - serviço técnico
+    'seguranca': 'Assistência Técnica',
+    'monitoramento': 'Assistência Técnica',
+    'alarme': 'Assistência Técnica',
+    'câmera': 'Assistência Técnica',
+    'camera': 'Assistência Técnica',
+    'vigilância': 'Assistência Técnica',
+    'vigilancia': 'Assistência Técnica',
+    'portaria': 'Assistência Técnica',
+    'cerca': 'Assistência Técnica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏢 SERVIÇOS EMPRESARIAIS (Usar template genérico 'default')
+    // ═══════════════════════════════════════════════════════════════════
+
+    // CONTABILIDADE & GESTÃO - Usa template genérico por ora
+    'contabilidade': 'default',
+    'contador': 'default',
+    'contábil': 'default',
+    'contabil': 'default',
+    'assessoria': 'default',
+    'gestão': 'default',
+    'gestao': 'default',
+    'administração': 'default',
+    'administracao': 'default',
+
+    // CONSULTORIAS DIVERSAS - Usa template genérico
+    // Baseado nos setores encontrados na planilha real
+    'consultoria': 'default',
+    'consultor': 'default',
+    'consultora': 'default',
+    'consultoria de vendas': 'default',
+    'consultoria iso': 'default',
+    'consultoria financeira': 'default',
+    'consultoria de marketing': 'default',
+    'consultoria de software': 'default',
+    'consultoria empresarial': 'default',
+    'multinível': 'default',
+    'multinivel': 'default',
+    'vendas': 'default',
+    'software': 'default',
+    'iso': 'default',
+    'certificação': 'default',
+    'certificacao': 'default',
+    'inteligência artificial': 'default',
+    'ia': 'default',
+
+    // MARKETING & PUBLICIDADE - Usa template genérico
+    'marketing': 'default',
+    'publicidade': 'default',
+    'propaganda': 'default',
+    'agência': 'default',
+    'agencia': 'default',
+
+    // GRÁFICA & IMPRESSÃO - Usa template genérico
+    'design': 'default',
+    'gráfica': 'default',
+    'grafica': 'default',
+    'impressão': 'default',
+    'impressao': 'default',
+    'copiadora': 'default',
+
+    // TECNOLOGIA & AUTOMAÇÃO - Usa template Assistência Técnica
+    'tecnologia': 'Assistência Técnica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ⚡ ENERGIA E ENGENHARIA
+    // ═══════════════════════════════════════════════════════════════════
+    'energia solar': 'Assistência Técnica',
+    'fotovoltaica': 'Assistência Técnica',
+    'instalação de placas': 'Assistência Técnica',
+    'inversor solar': 'Assistência Técnica',
+    'painel solar': 'Assistência Técnica',
+    'engenheiro eletricista': 'Assistência Técnica',
+    'automação industrial': 'Assistência Técnica',
+    'energia limpa': 'Assistência Técnica',
+    'dipolo': 'Assistência Técnica',
+    'energia renovável': 'Assistência Técnica',
+    'renov': 'Assistência Técnica',
+    'engenharia civil': 'Marcenaria',
+    'projetos elétricos': 'Assistência Técnica',
+    'manutenção predial': 'Assistência Técnica',
+    'instalações industriais': 'Assistência Técnica',
+    'energia eólica': 'Assistência Técnica',
+    'eolica': 'Assistência Técnica',
+    'hidráulica': 'Assistência Técnica',
+    'hidraulica': 'Assistência Técnica',
+    'eficiência energética': 'Assistência Técnica',
+    'usina': 'Assistência Técnica',
+    'distribuidora': 'Assistência Técnica',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏗️ CONSTRUÇÃO, INFRA E ARQUITETURA
+    // ═══════════════════════════════════════════════════════════════════
+    'obra': 'Marcenaria',
+    'construtora': 'Marcenaria',
+    'mestre de obras': 'Marcenaria',
+    'arquitetura': 'Marcenaria',
+    'design de interiores': 'Marcenaria',
+    'planta': 'Marcenaria',
+    'loteamento': 'Consultoria Imobiliária',
+    'saneamento': 'Marcenaria',
+    'urbanismo': 'Marcenaria',
+    'infraestrutura': 'Marcenaria',
+    'incorporadora': 'Consultoria Imobiliária',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧾 FINANCEIRO E CONTÁBIL
+    // ═══════════════════════════════════════════════════════════════════
+    'fintech': 'default',
+    'banco digital': 'default',
+    'imposto': 'default',
+    'ir': 'default',
+    'cnpj': 'default',
+    'boleto': 'default',
+    'nota fiscal': 'default',
+    'crédito': 'default',
+    'credito': 'default',
+    'empréstimo': 'default',
+    'emprestimo': 'default',
+    'consórcio': 'default',
+    'consorcio': 'default',
+    'investimentos': 'default',
+    'ações': 'default',
+    'acoes': 'default',
+    'trading': 'default',
+    'corretora': 'default',
+    'câmbio': 'default',
+    'cambio': 'default',
+    'pix': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 💼 MARKETING, GROWTH E PUBLICIDADE
+    // ═══════════════════════════════════════════════════════════════════
+    'social media': 'default',
+    'tráfego pago': 'default',
+    'trafego pago': 'default',
+    'anúncio': 'default',
+    'anuncio': 'default',
+    'facebook ads': 'default',
+    'google ads': 'default',
+    'reels': 'default',
+    'carrossel': 'default',
+    'branding': 'default',
+    'posicionamento': 'default',
+    'growth': 'default',
+    'funil': 'default',
+    'conversão': 'default',
+    'conversao': 'default',
+    'lead': 'default',
+    'persona': 'default',
+    'digital boost': 'default',
+    'orbion': 'default',
+    'engajamento': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 💻 TECNOLOGIA E SOFTWARE
+    // ═══════════════════════════════════════════════════════════════════
+    'saas': 'default',
+    'sistema online': 'default',
+    'plataforma': 'default',
+    'crm': 'default',
+    'erp': 'default',
+    'chatbot': 'default',
+    'cloud': 'default',
+    'servidor': 'default',
+    'dados': 'default',
+    'startup': 'default',
+    'dev': 'default',
+    'programador': 'default',
+    'tech': 'default',
+    'segurança de dados': 'default',
+    'seguranca': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏥 SAÚDE, CLÍNICAS E BIOTECNOLOGIA
+    // ═══════════════════════════════════════════════════════════════════
+    'hospital': 'Clínica',
+    'enfermeiro': 'Clínica',
+    'biomedicina': 'Clínica',
+    'biotecnologia': 'Clínica',
+    'saúde mental': 'Clínica',
+    'plano de saúde': 'Clínica',
+    'estética facial': 'Salão de Beleza',
+    'estetica facial': 'Salão de Beleza',
+    'emagrecimento': 'Clínica',
+    'ozempic natural': 'Clínica',
+    'glp-1': 'Clínica',
+    'bem-estar': 'Academia',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏫 EDUCAÇÃO E TREINAMENTOS
+    // ═══════════════════════════════════════════════════════════════════
+    'faculdade': 'Escola',
+    'técnico': 'Curso',
+    'ead': 'Curso',
+    'plataforma de ensino': 'Curso',
+    'simulado': 'Curso',
+    'estudante': 'Curso',
+    'enem': 'Curso',
+    'vestibular': 'Curso',
+    'over colégio': 'Escola',
+    'over colegio': 'Escola',
+    'dcxp': 'default',
+    'palestra': 'default',
+    'mentoria': 'default',
+    'e-book': 'Curso',
+    'capacitação': 'Curso',
+    'capacitacao': 'Curso',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🌿 MEIO AMBIENTE E SUSTENTABILIDADE
+    // ═══════════════════════════════════════════════════════════════════
+    'idema': 'default',
+    'ibama': 'default',
+    'meio ambiente': 'default',
+    'licença ambiental': 'default',
+    'licenca ambiental': 'default',
+    'consultoria ambiental': 'default',
+    'impacto ambiental': 'default',
+    'reflorestamento': 'default',
+    'sustentabilidade': 'default',
+    'esg': 'default',
+    'resíduos sólidos': 'default',
+    'residuos solidos': 'default',
+    'fiscalização': 'default',
+    'fiscalizacao': 'default',
+    'compostagem': 'default',
+    'biodiversidade': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧳 TURISMO, HOTELARIA E EVENTOS
+    // ═══════════════════════════════════════════════════════════════════
+    'viagem': 'Agência de Viagens',
+    'turismo': 'Agência de Viagens',
+    'pacote': 'Agência de Viagens',
+    'passagem': 'Agência de Viagens',
+    'agência de turismo': 'Agência de Viagens',
+    'roteiro': 'Agência de Viagens',
+    'hospedagem': 'Hotel',
+    'athenas turismo': 'Agência de Viagens',
+    'evento': 'default',
+    'congresso': 'default',
+    'feira': 'default',
+    'exposição': 'default',
+    'exposicao': 'default',
+    'festival': 'default',
+    'conferência': 'default',
+    'conferencia': 'default',
+    'produção': 'default',
+    'producao': 'default',
+    'palco': 'default',
+    'som': 'default',
+    'iluminação': 'default',
+    'iluminacao': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🛒 VAREJO, E-COMMERCE E MODA
+    // ═══════════════════════════════════════════════════════════════════
+    'e-commerce': 'default',
+    'ecommerce': 'default',
+    'produto': 'default',
+    'vender online': 'default',
+    'marketplace': 'default',
+    'shopee': 'default',
+    'amazon': 'default',
+    'roupa': 'Moda & Vestuário',
+    'sapato': 'Moda & Vestuário',
+    'cosmético': 'Salão de Beleza',
+    'cosmetico': 'Salão de Beleza',
+    'tendência': 'Moda & Vestuário',
+    'tendencia': 'Moda & Vestuário',
+    'promoção': 'default',
+    'promocao': 'default',
+    'estoque': 'default',
+    'vitrine': 'default',
+    'dropshipping': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🚗 AUTOMOTIVO E TRANSPORTE
+    // ═══════════════════════════════════════════════════════════════════
+    'carro': 'Oficina Mecânica',
+    'moto': 'Oficina Mecânica',
+    'caminhão': 'Oficina Mecânica',
+    'caminhao': 'Oficina Mecânica',
+    'oficina': 'Oficina Mecânica',
+    'mecânico': 'Oficina Mecânica',
+    'mecanico': 'Oficina Mecânica',
+    'pneu': 'Oficina Mecânica',
+    'autopeças': 'Oficina Mecânica',
+    'autopecas': 'Oficina Mecânica',
+    'transporte': 'default',
+    'frete': 'default',
+    'logística': 'default',
+    'logistica': 'default',
+    'combustível': 'Oficina Mecânica',
+    'combustivel': 'Oficina Mecânica',
+    'revisão': 'Oficina Mecânica',
+    'revisao': 'Oficina Mecânica',
+    'concessionária': 'Oficina Mecânica',
+    'concessionaria': 'Oficina Mecânica',
+    'frotas': 'Oficina Mecânica',
+    'mobilidade urbana': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🌾 AGRONEGÓCIO E RURAL
+    // ═══════════════════════════════════════════════════════════════════
+    'fazenda': 'default',
+    'agricultura': 'default',
+    'plantio': 'default',
+    'colheita': 'default',
+    'irrigação': 'default',
+    'irrigacao': 'default',
+    'trator': 'default',
+    'maquinário': 'default',
+    'maquinario': 'default',
+    'adubo': 'default',
+    'agro': 'default',
+    'pecuária': 'default',
+    'pecuaria': 'default',
+    'insumos': 'default',
+    'fazendeiro': 'default',
+    'agritech': 'default',
+    'cooperativa': 'default',
+    'campo': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🏢 SETOR PÚBLICO E ADMINISTRAÇÃO
+    // ═══════════════════════════════════════════════════════════════════
+    'prefeitura': 'default',
+    'secretaria': 'default',
+    'servidor': 'default',
+    'escola municipal': 'Escola',
+    'gestão pública': 'default',
+    'gestao publica': 'default',
+    'licitação': 'default',
+    'licitacao': 'default',
+    'terceirização': 'default',
+    'terceirizacao': 'default',
+    'educação municipal': 'Escola',
+    'educacao municipal': 'Escola',
+    'saúde pública': 'Clínica',
+    'saude publica': 'Clínica',
+    'obras públicas': 'Marcenaria',
+    'obras publicas': 'Marcenaria',
+    'gabinete': 'default',
+    'vereador': 'default',
+    'prefeitura de natal': 'default',
+    'câmara municipal': 'default',
+    'camara municipal': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎭 MÍDIA, CULTURA E ENTRETENIMENTO
+    // ═══════════════════════════════════════════════════════════════════
+    'influenciador': 'default',
+    'produtor de conteúdo': 'default',
+    'produtor de conteudo': 'default',
+    'vídeo': 'default',
+    'video': 'default',
+    'podcast': 'default',
+    'cinema': 'default',
+    'música': 'default',
+    'musica': 'default',
+    'show': 'default',
+    'estúdio': 'default',
+    'estudio': 'default',
+    'câmera': 'default',
+    'camera': 'default',
+    'streaming': 'default',
+    'cultura': 'default',
+    'audiovisual': 'default',
+    'criador': 'default',
+    'gamer': 'default',
+    'tiktok': 'default',
+    'viral': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧰 SERVIÇOS GERAIS, MANUTENÇÃO E LIMPEZA
+    // ═══════════════════════════════════════════════════════════════════
+    'asg': 'Lava-Jato',
+    'auxiliar de serviços gerais': 'Lava-Jato',
+    'auxiliar de servicos gerais': 'Lava-Jato',
+    'zelador': 'Lava-Jato',
+    'portaria': 'default',
+    'vigia': 'default',
+    'merendeira': 'default',
+    'auxiliar de cozinha': 'default',
+    'jardinagem': 'Lava-Jato',
+    'facilities': 'default',
+    'terceirizados': 'default',
+    'vigilância': 'default',
+    'vigilancia': 'default',
+    'limpeza escolar': 'Lava-Jato',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧑‍⚖️ JURÍDICO E COMPLIANCE
+    // ═══════════════════════════════════════════════════════════════════
+    'compliance': 'Advocacia',
+    'lgpd': 'Advocacia',
+    'cartório': 'Advocacia',
+    'cartorio': 'Advocacia',
+    'regularização': 'Advocacia',
+    'regularizacao': 'Advocacia',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧠 CONSULTORIA E DESENVOLVIMENTO HUMANO
+    // ═══════════════════════════════════════════════════════════════════
+    'coach': 'default',
+    'coaching': 'default',
+    'rh': 'default',
+    'recrutamento': 'default',
+    'liderança': 'default',
+    'lideranca': 'default',
+    'feedback': 'default',
+    'cultura organizacional': 'default',
+    'psicologia': 'Clínica',
+    'pdi': 'default',
+    'desenvolvimento pessoal': 'default',
+    'crescimento profissional': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧮 ADMINISTRAÇÃO E NEGÓCIOS
+    // ═══════════════════════════════════════════════════════════════════
+    'planejamento': 'default',
+    'auditoria': 'default',
+    'bpo': 'default',
+    'estratégia': 'default',
+    'estrategia': 'default',
+    'kpi': 'default',
+    'meta': 'default',
+    'indicador': 'default',
+    'performance': 'default',
+    'eficiência': 'default',
+    'eficiencia': 'default',
+    'controle de custos': 'default',
+    'orçamento': 'default',
+    'orcamento': 'default',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🧬 CIÊNCIA, PESQUISA E INOVAÇÃO
+    // ═══════════════════════════════════════════════════════════════════
+    'pesquisa': 'default',
+    'ciência': 'default',
+    'ciencia': 'default',
+    'universidade': 'Escola',
+    'inovação': 'default',
+    'inovacao': 'default',
+    'desenvolvimento': 'default',
+    'protótipo': 'default',
+    'prototipo': 'default',
+    'patente': 'default',
+    'engenharia genética': 'default',
+    'engenharia genetica': 'default'
+  };
+
+  for (const [keyword, category] of Object.entries(mapping)) {
+    if (sectorLower.includes(keyword)) {
+      return category;
+    }
+  }
+
+  return 'default';
+}
+
+/**
+ * 🎯 GERA MENSAGEM PERSONALIZADA POR SETOR
+ */
+export function generateSectorMessage(leadName, sector, templateIndex = null) {
+  const category = getSectorCategory(sector);
+  const templates = SECTOR_PAIN_TEMPLATES[category] || SECTOR_PAIN_TEMPLATES.default;
+
+  // Se templateIndex foi especificado, usar ele; senão, escolher aleatório
+  const index = templateIndex !== null ? templateIndex % templates.length : Math.floor(Math.random() * templates.length);
+  const template = templates[index];
+
+  // Substituir {NOME} pelo nome da empresa
+  return template.replace(/{NOME}/g, leadName);
+}

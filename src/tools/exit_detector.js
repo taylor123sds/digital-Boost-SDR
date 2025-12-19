@@ -194,7 +194,7 @@ Retorne JSON:
     return JSON.parse(response.choices[0].message.content);
     
   } catch (error) {
-    console.error('❌ Erro na análise de intenção de saída:', error);
+    console.error(' Erro na análise de intenção de saída:', error);
     return {
       wants_to_exit: false,
       confidence: 0,
@@ -211,7 +211,7 @@ Retorne JSON:
  * @returns {Promise<object>} Análise completa de saída
  */
 export async function detectExitIntent(message, conversationHistory = []) {
-  console.log('🚪 Verificando intenção de saída...');
+  console.log(' Verificando intenção de saída...');
   
   // 1. Análise rápida por palavras-chave
   const keywordAnalysis = detectExitKeywords(message);
@@ -235,7 +235,7 @@ export async function detectExitIntent(message, conversationHistory = []) {
     }
   };
   
-  console.log(`🚪 Análise de saída: ${finalAnalysis.confidence.toFixed(2)} confiança (${finalAnalysis.wantsToExit ? 'QUER SAIR' : 'CONTINUAR'})`);
+  console.log(` Análise de saída: ${finalAnalysis.confidence.toFixed(2)} confiança (${finalAnalysis.wantsToExit ? 'QUER SAIR' : 'CONTINUAR'})`);
   
   return finalAnalysis;
 }
@@ -248,15 +248,15 @@ export async function detectExitIntent(message, conversationHistory = []) {
  */
 export function generateExitMessage(exitType = 'unknown', userName = 'Cliente') {
   const farewellMessages = {
-    direct_command: `Entendido, ${userName}! Seu número foi removido da nossa lista de contatos. Obrigado pelo tempo que nos dedicou. Se futuramente tiver interesse em soluções digitais, estaremos aqui. Tenha um ótimo dia! 👋`,
+    direct_command: `Entendido, ${userName}! Seu número foi removido da nossa lista de contatos. Obrigado pelo tempo que nos dedicou. Se futuramente tiver interesse em soluções digitais, estaremos aqui. Tenha um ótimo dia! `,
     
-    irritation: `${userName}, peço desculpas por qualquer incômodo. Respeitamos sua decisão e removemos seu contato imediatamente. Desejamos muito sucesso para você! 🙏`,
+    irritation: `${userName}, peço desculpas por qualquer incômodo. Respeitamos sua decisão e removemos seu contato imediatamente. Desejamos muito sucesso para você! `,
     
     unsubscribe: `${userName}, seu número foi removido com sucesso da nossa base de contatos. Agradecemos a oportunidade de ter conversado com você. Sucesso!`,
     
-    block_threat: `${userName}, compreendo perfeitamente. Removemos seu contato imediatamente e não enviaremos mais mensagens. Pedimos desculpas e desejamos sucesso em seus projetos! 🤝`,
+    block_threat: `${userName}, compreendo perfeitamente. Removemos seu contato imediatamente e não enviaremos mais mensagens. Pedimos desculpas e desejamos sucesso em seus projetos! `,
     
-    unknown: `${userName}, respeitamos sua decisão. Removemos seu número da nossa lista e não entraremos mais em contato. Obrigado e muito sucesso! 👋`
+    unknown: `${userName}, respeitamos sua decisão. Removemos seu número da nossa lista e não entraremos mais em contato. Obrigado e muito sucesso! `
   };
   
   return farewellMessages[exitType] || farewellMessages.unknown;
@@ -289,7 +289,7 @@ export async function addToBlacklist(phoneNumber, reason = 'user_request') {
     
     await saveMessage(phoneNumber, `[BLOCKED] ${JSON.stringify(blockData)}`, true, 'system');
     
-    console.log(`🚫 Número ${phoneNumber} adicionado à blacklist. Motivo: ${reason}`);
+    console.log(` Número ${phoneNumber} adicionado à blacklist. Motivo: ${reason}`);
     
     return {
       success: true,
@@ -299,7 +299,7 @@ export async function addToBlacklist(phoneNumber, reason = 'user_request') {
     };
     
   } catch (error) {
-    console.error('❌ Erro ao adicionar à blacklist:', error);
+    console.error(' Erro ao adicionar à blacklist:', error);
     return {
       success: false,
       error: error.message
@@ -325,7 +325,7 @@ export async function isBlacklisted(phoneNumber) {
     return !!blockMessage;
     
   } catch (error) {
-    console.error('❌ Erro ao verificar blacklist:', error);
+    console.error(' Erro ao verificar blacklist:', error);
     return false;
   }
 }

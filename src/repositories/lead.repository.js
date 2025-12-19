@@ -5,16 +5,15 @@
  * This is the main abstraction layer for lead data.
  * All lead operations go through here, using SQLite as the source of truth.
  * Google Sheets sync is optional and runs in background (non-blocking).
+ *  FIX CRÍTICO: Usar conexão centralizada para evitar corrupção do banco
  */
 
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const DB_PATH = path.join(process.cwd(), 'orbion.db');
+import { getDatabase } from '../db/index.js';
+import { getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 // Phone normalization helper
-// ✅ FIX CRÍTICO: Agora usa mesma lógica de phone_normalizer.js
-// Converte 13 dígitos → 12 dígitos (remove o "9" do celular)
+//  FIX CRÍTICO: PRESERVAR o número real - NÃO remover o "9" do celular
+// Formato E.164: celular = 13 dígitos (55+DDD+9+8), fixo = 12 dígitos (55+DDD+8)
 function normalizePhone(phone) {
   if (!phone) return null;
 
@@ -25,12 +24,19 @@ function normalizePhone(phone) {
     .replace('@lid', '')
     .replace(/\D/g, '');
 
-  // ✅ CRÍTICO: Normalizar 13 → 12 dígitos (mesmo que phone_normalizer.js)
-  // Google Sheets: 5584996250203 (13 dígitos)
-  // Evolution API: 558496250203 (12 dígitos)
-  if (cleaned.startsWith('55') && cleaned.length === 13) {
-    // Remover o "9" do celular (posição 4)
-    cleaned = cleaned.substring(0, 4) + cleaned.substring(5);
+  // Rejeitar IDs de grupo/lista (muito longos)
+  if (cleaned.length > 13 && !cleaned.startsWith('55')) {
+    return null;
+  }
+  if (cleaned.startsWith('55') && cleaned.length > 13) {
+    return null;
+  }
+
+  // Adicionar código de país se necessário
+  // 11 dígitos = celular sem código país  13 dígitos
+  // 10 dígitos = fixo sem código país  12 dígitos
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    cleaned = '55' + cleaned;
   }
 
   return cleaned;
@@ -53,11 +59,10 @@ export class LeadRepository {
 
   /**
    * Get database connection
+   *  CORREÇÃO: Usar conexão singleton do db/connection.js
    */
   getDb() {
-    const db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    return db;
+    return getDatabase();
   }
 
   /**
@@ -66,7 +71,7 @@ export class LeadRepository {
    */
   enableSheetsSync(intervalMs = 60000) {
     this.sheetsEnabled = true;
-    console.log('📊 [LEAD-REPO] Google Sheets sync enabled (background)');
+    console.log(' [LEAD-REPO] Google Sheets sync enabled (background)');
 
     // Start background sync worker
     if (!this.syncInterval) {
@@ -83,7 +88,7 @@ export class LeadRepository {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
-    console.log('📊 [LEAD-REPO] Google Sheets sync disabled');
+    console.log(' [LEAD-REPO] Google Sheets sync disabled');
   }
 
   /**
@@ -101,7 +106,7 @@ export class LeadRepository {
     if (this.sheetsSyncQueue.length === 0) return;
 
     const batch = this.sheetsSyncQueue.splice(0, 10); // Process 10 at a time
-    console.log(`📊 [LEAD-REPO] Syncing ${batch.length} leads to Sheets...`);
+    console.log(` [LEAD-REPO] Syncing ${batch.length} leads to Sheets...`);
 
     try {
       const { updateFunnelLead } = await import('../tools/google_sheets.js');
@@ -122,12 +127,12 @@ export class LeadRepository {
             });
           }
         } catch (err) {
-          console.warn(`⚠️ [LEAD-REPO] Sheets sync failed for ${item.leadId}:`, err.message);
+          console.warn(` [LEAD-REPO] Sheets sync failed for ${item.leadId}:`, err.message);
           // Don't re-queue - Sheets is optional
         }
       }
     } catch (err) {
-      console.warn('⚠️ [LEAD-REPO] Sheets module not available:', err.message);
+      console.warn(' [LEAD-REPO] Sheets module not available:', err.message);
     }
   }
 
@@ -142,60 +147,64 @@ export class LeadRepository {
    */
   create(data) {
     const db = this.getDb();
-    try {
-      const id = data.id || generateLeadId();
-      const normalizedPhone = normalizePhone(data.telefone || data.whatsapp);
+    const id = data.id || generateLeadId();
+    const normalizedPhone = normalizePhone(data.telefone || data.whatsapp);
+    const tenantId = data.tenant_id || data.team_id;
 
-      const leadData = {
-        id,
-        nome: data.nome || 'Sem nome',
-        empresa: data.empresa || null,
-        cargo: data.cargo || null,
-        email: data.email || null,
-        telefone: normalizedPhone,
-        whatsapp: normalizedPhone,
-        origem: data.origem || 'whatsapp',
-        campanha: data.campanha || null,
-        midia: data.midia || null,
-        status: data.status || 'novo',
-        score: data.score || 0,
-        segmento: data.segmento || null,
-        interesse: data.interesse || null,
-        bant_budget: data.bant_budget || null,
-        bant_authority: data.bant_authority || null,
-        bant_need: data.bant_need || null,
-        bant_timing: data.bant_timing || null,
-        bant_score: data.bant_score || 0,
-        owner_id: data.owner_id || null,
-        pipeline_id: data.pipeline_id || 'pipeline_outbound_solar',
-        stage_id: data.stage_id || 'stage_lead_novo',
-        stage_entered_at: new Date().toISOString(),
-        cadence_status: data.cadence_status || 'not_started',
-        cadence_day: data.cadence_day || 0,
-        custom_fields: JSON.stringify(data.custom_fields || {}),
-        tags: JSON.stringify(data.tags || []),
-        notas: data.notas || null
-      };
+    const leadData = {
+      id,
+      nome: data.nome || 'Sem nome',
+      empresa: data.empresa || null,
+      cargo: data.cargo || null,
+      email: data.email || null,
+      telefone: normalizedPhone,
+      whatsapp: normalizedPhone,
+      origem: data.origem || 'whatsapp',
+      campanha: data.campanha || null,
+      midia: data.midia || null,
+      status: data.status || 'novo',
+      score: data.score || 0,
+      segmento: data.segmento || null,
+      interesse: data.interesse || null,
+      bant_budget: data.bant_budget || null,
+      bant_authority: data.bant_authority || null,
+      bant_need: data.bant_need || null,
+      bant_timing: data.bant_timing || null,
+      bant_score: data.bant_score || 0,
+      owner_id: data.owner_id || null,
+      pipeline_id: data.pipeline_id || 'pipeline_outbound_solar',
+      stage_id: data.stage_id || 'stage_lead_novo',
+      stage_entered_at: new Date().toISOString(),
+      cadence_status: data.cadence_status || 'not_started',
+      cadence_day: data.cadence_day || 0,
+      custom_fields: JSON.stringify(data.custom_fields || {}),
+      tags: JSON.stringify(data.tags || []),
+      notas: data.notas || null
+    };
 
-      const columns = Object.keys(leadData);
-      const placeholders = columns.map(() => '?').join(', ');
-      const values = Object.values(leadData);
-
-      const stmt = db.prepare(`
-        INSERT INTO leads (${columns.join(', ')})
-        VALUES (${placeholders})
-      `);
-
-      stmt.run(...values);
-
-      // Queue for Sheets sync (non-blocking)
-      this.queueSheetsSync(id, 'create');
-
-      console.log(`✅ [LEAD-REPO] Lead created: ${id}`);
-      return this.findById(id);
-    } finally {
-      db.close();
+    if (tenantId) {
+      const tenantColumn = getTenantColumnForTable('leads', db);
+      if (tenantColumn) {
+        leadData[tenantColumn] = tenantId;
+      }
     }
+
+    const columns = Object.keys(leadData);
+    const placeholders = columns.map(() => '?').join(', ');
+    const values = Object.values(leadData);
+
+    const stmt = db.prepare(`
+      INSERT INTO leads (${columns.join(', ')})
+      VALUES (${placeholders})
+    `);
+
+    stmt.run(...values);
+
+    // Queue for Sheets sync (non-blocking)
+    this.queueSheetsSync(id, 'create');
+
+    console.log(` [LEAD-REPO] Lead created: ${id}`);
+    return this.findById(id);
   }
 
   /**
@@ -203,11 +212,7 @@ export class LeadRepository {
    */
   findById(id) {
     const db = this.getDb();
-    try {
-      return db.prepare('SELECT * FROM leads WHERE id = ?').get(id);
-    } finally {
-      db.close();
-    }
+    return db.prepare('SELECT * FROM leads WHERE id = ?').get(id);
   }
 
   /**
@@ -215,17 +220,13 @@ export class LeadRepository {
    */
   findByPhone(phone) {
     const db = this.getDb();
-    try {
-      const normalized = normalizePhone(phone);
-      return db.prepare(`
-        SELECT * FROM leads
-        WHERE telefone = ? OR whatsapp = ?
-        ORDER BY created_at DESC
-        LIMIT 1
-      `).get(normalized, normalized);
-    } finally {
-      db.close();
-    }
+    const normalized = normalizePhone(phone);
+    return db.prepare(`
+      SELECT * FROM leads
+      WHERE telefone = ? OR whatsapp = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(normalized, normalized);
   }
 
   /**
@@ -248,28 +249,24 @@ export class LeadRepository {
    */
   update(id, data) {
     const db = this.getDb();
-    try {
-      // Remove undefined values
-      const cleanData = Object.fromEntries(
-        Object.entries(data).filter(([_, v]) => v !== undefined)
-      );
+    // Remove undefined values
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined)
+    );
 
-      if (Object.keys(cleanData).length === 0) return this.findById(id);
+    if (Object.keys(cleanData).length === 0) return this.findById(id);
 
-      const setClause = Object.keys(cleanData)
-        .map(k => `${k} = ?`)
-        .join(', ');
-      const values = [...Object.values(cleanData), id];
+    const setClause = Object.keys(cleanData)
+      .map(k => `${k} = ?`)
+      .join(', ');
+    const values = [...Object.values(cleanData), id];
 
-      db.prepare(`UPDATE leads SET ${setClause} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE leads SET ${setClause} WHERE id = ?`).run(...values);
 
-      // Queue for Sheets sync
-      this.queueSheetsSync(id, 'update');
+    // Queue for Sheets sync
+    this.queueSheetsSync(id, 'update');
 
-      return this.findById(id);
-    } finally {
-      db.close();
-    }
+    return this.findById(id);
   }
 
   /**
@@ -301,12 +298,8 @@ export class LeadRepository {
    */
   delete(id) {
     const db = this.getDb();
-    try {
-      db.prepare('DELETE FROM leads WHERE id = ?').run(id);
-      return true;
-    } finally {
-      db.close();
-    }
+    db.prepare('DELETE FROM leads WHERE id = ?').run(id);
+    return true;
   }
 
   // ==========================================
@@ -318,17 +311,17 @@ export class LeadRepository {
    */
   findAll(options = {}) {
     const db = this.getDb();
-    try {
-      const { limit = 100, offset = 0, orderBy = 'created_at', order = 'DESC' } = options;
+    const { limit = 100, offset = 0, orderBy = 'created_at', order = 'DESC', tenantId = null } = options;
+    const tenantColumn = tenantId ? getTenantColumnForTable('leads', db) : null;
+    const tenantWhere = tenantColumn ? `WHERE ${tenantColumn} = ?` : '';
+    const tenantParams = tenantColumn ? [tenantId] : [];
 
-      return db.prepare(`
-        SELECT * FROM leads
-        ORDER BY ${orderBy} ${order}
-        LIMIT ? OFFSET ?
-      `).all(limit, offset);
-    } finally {
-      db.close();
-    }
+    return db.prepare(`
+      SELECT * FROM leads
+      ${tenantWhere}
+      ORDER BY ${orderBy} ${order}
+      LIMIT ? OFFSET ?
+    `).all(...tenantParams, limit, offset);
   }
 
   /**
@@ -336,18 +329,14 @@ export class LeadRepository {
    */
   findByStage(stageId, options = {}) {
     const db = this.getDb();
-    try {
-      const { limit = 100, offset = 0 } = options;
+    const { limit = 100, offset = 0 } = options;
 
-      return db.prepare(`
-        SELECT * FROM leads
-        WHERE stage_id = ?
-        ORDER BY stage_entered_at DESC
-        LIMIT ? OFFSET ?
-      `).all(stageId, limit, offset);
-    } finally {
-      db.close();
-    }
+    return db.prepare(`
+      SELECT * FROM leads
+      WHERE stage_id = ?
+      ORDER BY stage_entered_at DESC
+      LIMIT ? OFFSET ?
+    `).all(stageId, limit, offset);
   }
 
   /**
@@ -355,15 +344,11 @@ export class LeadRepository {
    */
   findByPipeline(pipelineId = 'pipeline_outbound_solar') {
     const db = this.getDb();
-    try {
-      return db.prepare(`
-        SELECT * FROM leads
-        WHERE pipeline_id = ?
-        ORDER BY stage_entered_at DESC
-      `).all(pipelineId);
-    } finally {
-      db.close();
-    }
+    return db.prepare(`
+      SELECT * FROM leads
+      WHERE pipeline_id = ?
+      ORDER BY stage_entered_at DESC
+    `).all(pipelineId);
   }
 
   /**
@@ -371,100 +356,126 @@ export class LeadRepository {
    */
   getFunnelLeads(pipelineId = 'pipeline_outbound_solar') {
     const db = this.getDb();
-    try {
-      // Get all stages
-      const stages = db.prepare(`
-        SELECT * FROM pipeline_stages
-        WHERE pipeline_id = ?
-        ORDER BY position ASC
-      `).all(pipelineId);
+    // Get all stages
+    const stages = db.prepare(`
+      SELECT * FROM pipeline_stages
+      WHERE pipeline_id = ?
+      ORDER BY position ASC
+    `).all(pipelineId);
 
-      // Get leads for each stage
-      const result = stages.map(stage => {
-        const leads = db.prepare(`
-          SELECT * FROM leads
-          WHERE stage_id = ?
-          ORDER BY stage_entered_at DESC
-        `).all(stage.id);
+    // Get leads for each stage
+    const result = stages.map(stage => {
+      const leads = db.prepare(`
+        SELECT * FROM leads
+        WHERE stage_id = ?
+        ORDER BY stage_entered_at DESC
+      `).all(stage.id);
 
-        return {
-          stage: stage,
-          leads: leads,
-          count: leads.length
-        };
-      });
+      return {
+        stage: stage,
+        leads: leads,
+        count: leads.length
+      };
+    });
 
-      return result;
-    } finally {
-      db.close();
-    }
+    return result;
   }
 
   /**
    * Get funil stats (for dashboard)
+   * Made resilient to handle missing columns gracefully
    */
-  getFunnelStats(pipelineId = 'pipeline_outbound_solar') {
+  getFunnelStats(pipelineId = 'pipeline_outbound_solar', tenantId = null) {
     const db = this.getDb();
-    try {
-      const total = db.prepare(`
-        SELECT COUNT(*) as count FROM leads WHERE pipeline_id = ?
-      `).get(pipelineId).count;
+    const tenantColumn = tenantId ? getTenantColumnForTable('leads', db) : null;
+    const tenantAnd = tenantColumn ? `AND ${tenantColumn} = ?` : '';
+    const tenantWhere = tenantColumn ? `WHERE ${tenantColumn} = ?` : '';
+    const tenantParams = tenantColumn ? [tenantId] : [];
 
-      const byStage = db.prepare(`
-        SELECT stage_id, COUNT(*) as count
-        FROM leads
-        WHERE pipeline_id = ?
-        GROUP BY stage_id
-      `).all(pipelineId);
+    // Check if pipeline_id column exists
+    const columns = db.prepare("PRAGMA table_info(leads)").all();
+    const columnNames = columns.map(c => c.name);
+    const hasPipelineId = columnNames.includes('pipeline_id');
+    const hasBantScore = columnNames.includes('bant_score');
+    const hasFirstResponseAt = columnNames.includes('first_response_at');
 
-      const byCadenceStatus = db.prepare(`
-        SELECT cadence_status, COUNT(*) as count
-        FROM leads
-        WHERE pipeline_id = ?
-        GROUP BY cadence_status
-      `).all(pipelineId);
-
-      const responded = db.prepare(`
-        SELECT COUNT(*) as count
-        FROM leads
-        WHERE pipeline_id = ? AND first_response_at IS NOT NULL
-      `).get(pipelineId).count;
-
-      const avgBantScore = db.prepare(`
-        SELECT AVG(bant_score) as avg
-        FROM leads
-        WHERE pipeline_id = ? AND bant_score > 0
-      `).get(pipelineId).avg || 0;
-
-      const won = db.prepare(`
-        SELECT COUNT(*) as count
-        FROM leads
-        WHERE stage_id = 'stage_ganhou'
-      `).get().count;
-
-      const lost = db.prepare(`
-        SELECT COUNT(*) as count
-        FROM leads
-        WHERE stage_id = 'stage_perdeu'
-      `).get().count;
-
-      const conversionRate = total > 0 ? ((won / total) * 100).toFixed(2) : 0;
-      const responseRate = total > 0 ? ((responded / total) * 100).toFixed(2) : 0;
-
-      return {
-        total,
-        byStage,
-        byCadenceStatus,
-        responded,
-        avgBantScore: avgBantScore.toFixed(1),
-        won,
-        lost,
-        conversionRate: parseFloat(conversionRate),
-        responseRate: parseFloat(responseRate)
-      };
-    } finally {
-      db.close();
+    // Get total - use pipeline_id only if column exists
+    let total = 0;
+    if (hasPipelineId) {
+      total = db.prepare(`SELECT COUNT(*) as count FROM leads WHERE pipeline_id = ? ${tenantAnd}`)
+        .get(pipelineId, ...tenantParams)?.count || 0;
+    } else {
+      total = db.prepare(`SELECT COUNT(*) as count FROM leads ${tenantWhere}`)
+        .get(...tenantParams)?.count || 0;
     }
+
+    // Get by stage
+    let byStage = [];
+    if (hasPipelineId) {
+      byStage = db.prepare(`
+        SELECT stage_id, COUNT(*) as count FROM leads WHERE pipeline_id = ? ${tenantAnd} GROUP BY stage_id
+      `).all(pipelineId, ...tenantParams);
+    } else {
+      byStage = db.prepare(`
+        SELECT stage_id, COUNT(*) as count FROM leads ${tenantWhere} GROUP BY stage_id
+      `).all(...tenantParams);
+    }
+
+    // Get by cadence status
+    let byCadenceStatus = [];
+    if (hasPipelineId) {
+      byCadenceStatus = db.prepare(`
+        SELECT cadence_status, COUNT(*) as count FROM leads WHERE pipeline_id = ? ${tenantAnd} GROUP BY cadence_status
+      `).all(pipelineId, ...tenantParams);
+    } else {
+      byCadenceStatus = db.prepare(`
+        SELECT cadence_status, COUNT(*) as count FROM leads ${tenantWhere} GROUP BY cadence_status
+      `).all(...tenantParams);
+    }
+
+    // Get responded count - only if first_response_at exists
+    let responded = 0;
+    if (hasFirstResponseAt) {
+      if (hasPipelineId) {
+        responded = db.prepare(`SELECT COUNT(*) as count FROM leads WHERE pipeline_id = ? AND first_response_at IS NOT NULL ${tenantAnd}`)
+          .get(pipelineId, ...tenantParams)?.count || 0;
+      } else {
+        responded = db.prepare(`SELECT COUNT(*) as count FROM leads WHERE first_response_at IS NOT NULL ${tenantAnd}`)
+          .get(...tenantParams)?.count || 0;
+      }
+    }
+
+    // Get avg bant score - only if bant_score exists
+    let avgBantScore = 0;
+    if (hasBantScore) {
+      if (hasPipelineId) {
+        avgBantScore = db.prepare(`SELECT AVG(bant_score) as avg FROM leads WHERE pipeline_id = ? AND bant_score > 0 ${tenantAnd}`)
+          .get(pipelineId, ...tenantParams)?.avg || 0;
+      } else {
+        avgBantScore = db.prepare(`SELECT AVG(bant_score) as avg FROM leads WHERE bant_score > 0 ${tenantAnd}`)
+          .get(...tenantParams)?.avg || 0;
+      }
+    }
+
+    const won = db.prepare(`SELECT COUNT(*) as count FROM leads WHERE stage_id = 'stage_ganhou' ${tenantAnd}`)
+      .get(...tenantParams)?.count || 0;
+    const lost = db.prepare(`SELECT COUNT(*) as count FROM leads WHERE stage_id = 'stage_perdeu' ${tenantAnd}`)
+      .get(...tenantParams)?.count || 0;
+
+    const conversionRate = total > 0 ? ((won / total) * 100).toFixed(2) : 0;
+    const responseRate = total > 0 ? ((responded / total) * 100).toFixed(2) : 0;
+
+    return {
+      total,
+      byStage,
+      byCadenceStatus,
+      responded,
+      avgBantScore: Number(avgBantScore).toFixed(1),
+      won,
+      lost,
+      conversionRate: parseFloat(conversionRate),
+      responseRate: parseFloat(responseRate)
+    };
   }
 
   /**
@@ -472,19 +483,15 @@ export class LeadRepository {
    */
   search(query, options = {}) {
     const db = this.getDb();
-    try {
-      const { limit = 50 } = options;
-      const searchTerm = `%${query}%`;
+    const { limit = 50 } = options;
+    const searchTerm = `%${query}%`;
 
-      return db.prepare(`
-        SELECT * FROM leads
-        WHERE nome LIKE ? OR empresa LIKE ? OR email LIKE ? OR telefone LIKE ?
-        ORDER BY created_at DESC
-        LIMIT ?
-      `).all(searchTerm, searchTerm, searchTerm, searchTerm, limit);
-    } finally {
-      db.close();
-    }
+    return db.prepare(`
+      SELECT * FROM leads
+      WHERE nome LIKE ? OR empresa LIKE ? OR email LIKE ? OR telefone LIKE ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).all(searchTerm, searchTerm, searchTerm, searchTerm, limit);
   }
 
   /**
@@ -492,37 +499,33 @@ export class LeadRepository {
    */
   updateStage(leadId, newStageId, notes = null) {
     const db = this.getDb();
-    try {
-      const lead = this.findById(leadId);
-      if (!lead) return null;
+    const lead = this.findById(leadId);
+    if (!lead) return null;
 
-      const oldStageId = lead.stage_id;
+    const oldStageId = lead.stage_id;
 
-      // Update lead
-      this.update(leadId, {
-        stage_id: newStageId,
-        stage_entered_at: new Date().toISOString()
-      });
+    // Update lead
+    this.update(leadId, {
+      stage_id: newStageId,
+      stage_entered_at: new Date().toISOString()
+    });
 
-      // Log stage change
-      db.prepare(`
-        INSERT INTO pipeline_history (id, lead_id, from_stage_id, to_stage_id, moved_by, notes)
-        VALUES (?, ?, ?, ?, 'system', ?)
-      `).run(
-        `hist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        leadId,
-        oldStageId,
-        newStageId,
-        notes
-      );
+    // Log stage change
+    db.prepare(`
+      INSERT INTO pipeline_history (id, lead_id, from_stage_id, to_stage_id, moved_by, notes)
+      VALUES (?, ?, ?, ?, 'system', ?)
+    `).run(
+      `hist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      leadId,
+      oldStageId,
+      newStageId,
+      notes
+    );
 
-      // Queue for Sheets sync
-      this.queueSheetsSync(leadId, 'stage_change');
+    // Queue for Sheets sync
+    this.queueSheetsSync(leadId, 'stage_change');
 
-      return this.findById(leadId);
-    } finally {
-      db.close();
-    }
+    return this.findById(leadId);
   }
 
   /**

@@ -32,7 +32,7 @@ async function loadSharp() {
             const sharpModule = await import('sharp');
             sharp = sharpModule.default;
         } catch (error) {
-            console.log('⚠️ Sharp não disponível, análise de imagens limitada:', error.message);
+            console.log(' Sharp não disponível, análise de imagens limitada:', error.message);
             sharp = null;
         }
     }
@@ -79,7 +79,7 @@ class DocumentAnalyzer {
             const fileExt = path.extname(filePath).toLowerCase();
             const fileName = path.basename(filePath);
             
-            console.log(`🔍 Analisando arquivo: ${fileName}`);
+            console.log(` Analisando arquivo: ${fileName}`);
             
             // Determinar tipo de arquivo
             let fileType = null;
@@ -122,7 +122,7 @@ class DocumentAnalyzer {
 
             return result;
         } catch (error) {
-            console.error('❌ Erro na análise do arquivo:', error);
+            console.error(' Erro na análise do arquivo:', error);
             throw error;
         }
     }
@@ -131,7 +131,7 @@ class DocumentAnalyzer {
      * Analisar PDF
      */
     async analyzePDF(filePath, result, options) {
-        console.log('📄 Analisando PDF...');
+        console.log(' Analisando PDF...');
         
         try {
             // Carregar módulos PDF se necessário
@@ -150,7 +150,7 @@ class DocumentAnalyzer {
 
             // Se o PDF não tem texto (escaneado), tentar OCR
             if (!result.content || result.content.trim().length < 50) {
-                console.log('📸 PDF parece ser escaneado, convertendo para imagem para OCR...');
+                console.log(' PDF parece ser escaneado, convertendo para imagem para OCR...');
                 result = await this.performOCROnPDF(filePath, result);
             }
 
@@ -162,7 +162,7 @@ class DocumentAnalyzer {
 
             return result;
         } catch (error) {
-            console.error('❌ Erro na análise de PDF:', error);
+            console.error(' Erro na análise de PDF:', error);
             throw error;
         }
     }
@@ -222,7 +222,7 @@ class DocumentAnalyzer {
 
             return result;
         } catch (error) {
-            console.error('❌ Erro no OCR:', error);
+            console.error(' Erro no OCR:', error);
             result.content = 'Erro ao extrair texto do documento escaneado';
             return result;
         }
@@ -232,7 +232,7 @@ class DocumentAnalyzer {
      * Analisar imagem
      */
     async analyzeImage(filePath, result, options) {
-        console.log('🖼️ Analisando imagem...');
+        console.log(' Analisando imagem...');
         
         try {
             const sharpInstance = await loadSharp();
@@ -261,7 +261,7 @@ class DocumentAnalyzer {
                             .toBuffer();
                     }
                 } catch (sharpError) {
-                    console.log('⚠️ Erro no Sharp, usando imagem original:', sharpError.message);
+                    console.log(' Erro no Sharp, usando imagem original:', sharpError.message);
                 }
             } else {
                 result.metadata = { note: 'Sharp não disponível - metadados limitados' };
@@ -300,7 +300,7 @@ class DocumentAnalyzer {
 
             return result;
         } catch (error) {
-            console.error('❌ Erro na análise de imagem:', error);
+            console.error(' Erro na análise de imagem:', error);
             throw error;
         }
     }
@@ -309,7 +309,7 @@ class DocumentAnalyzer {
      * Analisar áudio
      */
     async analyzeAudio(filePath, result, options) {
-        console.log('🎵 Analisando áudio...');
+        console.log(' Analisando áudio...');
         
         try {
             // Converter para formato compatível se necessário
@@ -326,7 +326,7 @@ class DocumentAnalyzer {
             });
 
             // Transcrever com Whisper
-            console.log('🎙️ Transcrevendo áudio...');
+            console.log(' Transcrevendo áudio...');
             const transcription = await openai.audio.transcriptions.create({
                 file: fs.createReadStream(tempWavFile),
                 model: "whisper-1",
@@ -349,7 +349,7 @@ class DocumentAnalyzer {
 
             return result;
         } catch (error) {
-            console.error('❌ Erro na análise de áudio:', error);
+            console.error(' Erro na análise de áudio:', error);
             throw error;
         }
     }
@@ -358,7 +358,7 @@ class DocumentAnalyzer {
      * Analisar vídeo
      */
     async analyzeVideo(filePath, result, options) {
-        console.log('🎬 Analisando vídeo...');
+        console.log(' Analisando vídeo...');
         
         try {
             // Extrair metadados do vídeo
@@ -381,7 +381,7 @@ class DocumentAnalyzer {
             });
 
             // Transcrever áudio
-            console.log('🎙️ Transcrevendo áudio do vídeo...');
+            console.log(' Transcrevendo áudio do vídeo...');
             const transcription = await openai.audio.transcriptions.create({
                 file: fs.createReadStream(tempAudioFile),
                 model: "whisper-1",
@@ -408,7 +408,7 @@ class DocumentAnalyzer {
 
             return result;
         } catch (error) {
-            console.error('❌ Erro na análise de vídeo:', error);
+            console.error(' Erro na análise de vídeo:', error);
             throw error;
         }
     }
@@ -476,7 +476,7 @@ class DocumentAnalyzer {
 
             return response.choices[0].message.content;
         } catch (error) {
-            console.error('❌ Erro ao gerar resumo:', error);
+            console.error(' Erro ao gerar resumo:', error);
             return 'Erro ao gerar resumo';
         }
     }
@@ -507,7 +507,7 @@ class DocumentAnalyzer {
                 .filter(line => line.trim() && (line.includes('•') || line.includes('-') || line.match(/^\d+\./)))
                 .slice(0, 5);
         } catch (error) {
-            console.error('❌ Erro ao extrair pontos-chave:', error);
+            console.error(' Erro ao extrair pontos-chave:', error);
             return [];
         }
     }
@@ -535,7 +535,7 @@ class DocumentAnalyzer {
 
             return response.choices[0].message.content;
         } catch (error) {
-            console.error('❌ Erro na análise de sentimento:', error);
+            console.error(' Erro na análise de sentimento:', error);
             return 'Sentimento não determinado';
         }
     }

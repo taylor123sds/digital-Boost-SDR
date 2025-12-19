@@ -18,11 +18,11 @@ export class AudioCleanup {
    */
   startAutoCleanup() {
     if (this.isRunning) {
-      console.log('🧹 [CLEANUP] Sistema de limpeza já está ativo');
+      console.log(' [CLEANUP] Sistema de limpeza já está ativo');
       return;
     }
 
-    console.log(`🧹 [CLEANUP] Iniciando limpeza automática (a cada ${this.cleanupIntervalMinutes}min)`);
+    console.log(` [CLEANUP] Iniciando limpeza automática (a cada ${this.cleanupIntervalMinutes}min)`);
 
     // Executar limpeza imediatamente
     this.performCleanup();
@@ -44,7 +44,7 @@ export class AudioCleanup {
       this.intervalId = null;
     }
     this.isRunning = false;
-    console.log('🧹 [CLEANUP] Sistema de limpeza parado');
+    console.log(' [CLEANUP] Sistema de limpeza parado');
   }
 
   /**
@@ -52,11 +52,11 @@ export class AudioCleanup {
    */
   async performCleanup() {
     try {
-      console.log('🧹 [CLEANUP] Iniciando limpeza de arquivos de áudio...');
+      console.log(' [CLEANUP] Iniciando limpeza de arquivos de áudio...');
 
       // Verificar se diretório existe
       if (!fs.existsSync(this.uploadsDir)) {
-        console.log('🧹 [CLEANUP] Diretório uploads não existe');
+        console.log(' [CLEANUP] Diretório uploads não existe');
         return;
       }
 
@@ -66,7 +66,7 @@ export class AudioCleanup {
       );
 
       if (audioFiles.length === 0) {
-        console.log('🧹 [CLEANUP] Nenhum arquivo de áudio encontrado');
+        console.log(' [CLEANUP] Nenhum arquivo de áudio encontrado');
         return;
       }
 
@@ -86,20 +86,20 @@ export class AudioCleanup {
             fs.unlinkSync(filePath);
             removedCount++;
             freedSpace += fileSize;
-            console.log(`🗑️ [CLEANUP] Removido: ${file} (${this.formatBytes(fileSize)})`);
+            console.log(` [CLEANUP] Removido: ${file} (${this.formatBytes(fileSize)})`);
           }
         } catch (error) {
-          console.error(`❌ [CLEANUP] Erro ao processar ${file}:`, error.message);
+          console.error(` [CLEANUP] Erro ao processar ${file}:`, error.message);
         }
       }
 
       // Limpar arquivos de teste na raiz
       await this.cleanupTestFiles();
 
-      console.log(`✅ [CLEANUP] Concluído: ${removedCount} arquivos removidos, ${this.formatBytes(freedSpace)} liberados`);
+      console.log(` [CLEANUP] Concluído: ${removedCount} arquivos removidos, ${this.formatBytes(freedSpace)} liberados`);
 
     } catch (error) {
-      console.error('❌ [CLEANUP] Erro na limpeza:', error);
+      console.error(' [CLEANUP] Erro na limpeza:', error);
     }
   }
 
@@ -120,17 +120,17 @@ export class AudioCleanup {
         try {
           fs.unlinkSync(filePath);
           removedTestCount++;
-          console.log(`🗑️ [CLEANUP] Arquivo de teste removido: ${file}`);
+          console.log(` [CLEANUP] Arquivo de teste removido: ${file}`);
         } catch (error) {
-          console.error(`❌ [CLEANUP] Erro ao remover teste ${file}:`, error.message);
+          console.error(` [CLEANUP] Erro ao remover teste ${file}:`, error.message);
         }
       }
 
       if (removedTestCount > 0) {
-        console.log(`✅ [CLEANUP] ${removedTestCount} arquivos de teste removidos`);
+        console.log(` [CLEANUP] ${removedTestCount} arquivos de teste removidos`);
       }
     } catch (error) {
-      console.error('❌ [CLEANUP] Erro ao limpar arquivos de teste:', error);
+      console.error(' [CLEANUP] Erro ao limpar arquivos de teste:', error);
     }
   }
 
@@ -138,7 +138,7 @@ export class AudioCleanup {
    * Limpeza manual forçada
    */
   async forceCleanup() {
-    console.log('🧹 [CLEANUP] Executando limpeza manual forçada...');
+    console.log(' [CLEANUP] Executando limpeza manual forçada...');
     await this.performCleanup();
   }
 
@@ -189,7 +189,7 @@ export class AudioCleanup {
         maxFileAge: this.maxFileAgeMinutes
       };
     } catch (error) {
-      console.error('❌ [CLEANUP] Erro ao obter estatísticas:', error);
+      console.error(' [CLEANUP] Erro ao obter estatísticas:', error);
       return {
         isActive: this.isRunning,
         error: error.message

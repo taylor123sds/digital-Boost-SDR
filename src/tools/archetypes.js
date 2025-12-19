@@ -366,8 +366,8 @@ RETORNE JSON:
     
     // Valida se o arquétipo existe
     if (ARCHETYPES[analysis.archetype]) {
-      console.log(`🎭 Arquétipo selecionado: ${analysis.archetype} (${analysis.confidence})`);
-      console.log(`📋 Razão: ${analysis.reasoning}`);
+      console.log(` Arquétipo selecionado: ${analysis.archetype} (${analysis.confidence})`);
+      console.log(` Razão: ${analysis.reasoning}`);
       return {
         ...analysis,
         archetypeData: ARCHETYPES[analysis.archetype]
@@ -375,7 +375,7 @@ RETORNE JSON:
     } else {
       // Fallback inteligente baseado no contexto
       const fallbackArchetype = selectFallbackArchetype(message, leadProfile, salesContext);
-      console.log(`🎭 Usando fallback: ${fallbackArchetype}`);
+      console.log(` Usando fallback: ${fallbackArchetype}`);
       return {
         archetype: fallbackArchetype,
         confidence: 0.6,
@@ -385,7 +385,7 @@ RETORNE JSON:
     }
     
   } catch (error) {
-    console.error('❌ Erro ao analisar arquétipo:', error);
+    console.error(' Erro ao analisar arquétipo:', error);
     const fallbackArchetype = selectFallbackArchetype(message, leadProfile, salesContext);
     return {
       archetype: fallbackArchetype,
@@ -537,7 +537,7 @@ export async function applyArchetypeToScript(baseScript, archetypeAnalysis, sale
   try {
     const archetype = archetypeAnalysis.archetypeData || ARCHETYPES[archetypeAnalysis.archetype];
     if (!archetype) {
-      console.error(`❌ Arquétipo ${archetypeAnalysis.archetype} não encontrado`);
+      console.error(` Arquétipo ${archetypeAnalysis.archetype} não encontrado`);
       return baseScript;
     }
 
@@ -589,11 +589,11 @@ Retorne apenas a mensagem adaptada:
     });
 
     const adaptedScript = response.choices[0].message.content.trim();
-    console.log(`🎭 Roteiro adaptado para ${archetype.name} (confidence: ${archetypeAnalysis.confidence})`);
+    console.log(` Roteiro adaptado para ${archetype.name} (confidence: ${archetypeAnalysis.confidence})`);
     return adaptedScript;
     
   } catch (error) {
-    console.error('❌ Erro ao adaptar roteiro:', error);
+    console.error(' Erro ao adaptar roteiro:', error);
     return baseScript;
   }
 }
@@ -655,7 +655,7 @@ RETORNE JSON:
     });
 
     const scripts = JSON.parse(response.choices[0].message.content);
-    console.log(`📝 Scripts gerados para ${archetype.name} no estágio ${salesStage}`);
+    console.log(` Scripts gerados para ${archetype.name} no estágio ${salesStage}`);
     
     return {
       archetype: archetype.name,
@@ -669,7 +669,7 @@ RETORNE JSON:
     };
     
   } catch (error) {
-    console.error('❌ Erro ao gerar scripts:', error);
+    console.error(' Erro ao gerar scripts:', error);
     return {
       archetype: 'SABIO',
       stage: salesStage,
@@ -731,11 +731,11 @@ Retorne apenas a mensagem de follow-up:
     });
 
     const followUpMessage = response.choices[0].message.content.trim();
-    console.log(`🎭 Follow-up gerado para ${archetype.name}`);
+    console.log(` Follow-up gerado para ${archetype.name}`);
     return followUpMessage;
     
   } catch (error) {
-    console.error('❌ Erro ao gerar follow-up:', error);
+    console.error(' Erro ao gerar follow-up:', error);
     return null;
   }
 }

@@ -1,14 +1,12 @@
 // src/rag.js — RAG local (simples) com embeddings e sqlite
+//  FIX CRÍTICO: Usar conexão centralizada para evitar corrupção do banco
 import fs from "fs";
 import path from "path";
-import Database from "better-sqlite3";
+import { getDatabase } from './db/index.js';
 import OpenAI from "openai";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-const DB_PATH = path.join(process.cwd(), "orbion.db");
-if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, "");
 
 const EMB_MODEL = process.env.OPENAI_EMB_MODEL || "text-embedding-3-small";
 
@@ -18,7 +16,8 @@ if (!process.env.OPENAI_API_KEY) {
 }
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const db = new Database(DB_PATH);
+//  CORREÇÃO: Usar conexão singleton do db/connection.js
+const db = getDatabase();
 db.prepare(`CREATE TABLE IF NOT EXISTS docs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT,
@@ -56,7 +55,7 @@ export async function ingestDir(dir){
     }
     console.log(`Ingerido: ${f} (${chunks.length} pedaços)`);
   }
-  console.log("✅ Ingestão concluída.");
+  console.log(" Ingestão concluída.");
 }
 
 // ===== search =====

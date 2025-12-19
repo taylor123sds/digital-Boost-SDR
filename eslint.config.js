@@ -1,0 +1,52 @@
+// eslint.config.js - ESLint v9+ flat config
+export default [
+  {
+    files: ['src/v2/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+      },
+    },
+    rules: {
+      'indent': ['error', 2],
+      'linebreak-style': ['error', 'unix'],
+      'quotes': ['error', 'single', { avoidEscape: true }],
+      'semi': ['error', 'always'],
+      'no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      }],
+      'no-console': 'off',
+      'no-debugger': 'warn',
+      'prefer-const': 'error',
+      'arrow-spacing': 'error',
+      'comma-spacing': 'error',
+      'key-spacing': 'error',
+      'keyword-spacing': 'error',
+      'space-before-blocks': 'error',
+      'space-infix-ops': 'error',
+      'eqeqeq': ['error', 'always'],
+      'curly': ['error', 'all'],
+      'brace-style': ['error', '1tbs'],
+      'no-trailing-spaces': 'error',
+      'no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
+      'max-len': ['warn', {
+        code: 120,
+        ignoreComments: true,
+        ignoreStrings: true,
+        ignoreTemplateLiterals: true,
+      }],
+    },
+  },
+];

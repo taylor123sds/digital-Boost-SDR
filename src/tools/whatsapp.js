@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import OpenAI from 'openai';
 import { analyzeAndSelectArchetype, applyArchetypeToScript, generateArchetypeFollowUp } from './archetypes.js';
+import { getOutboundDeduplicator } from '../utils/OutboundDeduplicator.js';
 
 dotenv.config();
 
@@ -14,7 +15,22 @@ const openai = new OpenAI({
 
 const EVOLUTION_BASE_URL = process.env.EVOLUTION_BASE_URL || 'http://localhost:8080';
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'orbion';
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'digitalboost';
+
+//  FIX CRÍTICO: Validar API key no startup
+if (!EVOLUTION_API_KEY || EVOLUTION_API_KEY === 'your-api-key-here') {
+  console.error(' [WHATSAPP-SECURITY] EVOLUTION_API_KEY não configurada ou usando valor padrão!');
+  console.error(' [WHATSAPP-SECURITY] Configure EVOLUTION_API_KEY no arquivo .env antes de prosseguir');
+  throw new Error('EVOLUTION_API_KEY must be configured in .env file');
+}
+
+if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-openai-key-here') {
+  console.error(' [WHATSAPP-SECURITY] OPENAI_API_KEY não configurada ou usando valor padrão!');
+  console.error(' [WHATSAPP-SECURITY] Configure OPENAI_API_KEY no arquivo .env antes de prosseguir');
+  throw new Error('OPENAI_API_KEY must be configured in .env file');
+}
+
+console.log(' [WHATSAPP-SECURITY] API keys validadas com sucesso');
 
 // Cache global de leads
 let leadsCache = null;
@@ -24,7 +40,7 @@ let leadsCache = null;
  */
 export function clearLeadsCache() {
   leadsCache = null;
-  console.log('🗑️ Cache de leads limpo');
+  console.log(' Cache de leads limpo');
 }
 
 /**
@@ -99,11 +115,11 @@ async function loadLeadsData() {
     });
 
     leadsCache = leads;
-    console.log(`📊 ${leads.length} leads carregados em cache (formato: ${csvFiles[0].name})`);
+    console.log(` ${leads.length} leads carregados em cache (formato: ${csvFiles[0].name})`);
     return leads;
 
   } catch (error) {
-    console.error('❌ Erro ao carregar leads:', error);
+    console.error(' Erro ao carregar leads:', error);
     return [];
   }
 }
@@ -159,7 +175,7 @@ export async function sendWhatsAppMessage(number, text) {
     if (typeof text === 'object' && text !== null) {
       // Se for objeto, tenta JSON.stringify primeiro
       sanitizedText = JSON.stringify(text);
-      console.warn('⚠️ Objeto convertido para string:', sanitizedText.substring(0, 100) + '...');
+      console.warn(' Objeto convertido para string:', sanitizedText.substring(0, 100) + '...');
     } else {
       // Conversão padrão para string
       sanitizedText = String(text).trim();
@@ -170,18 +186,47 @@ export async function sendWhatsAppMessage(number, text) {
     }
     
   } catch (conversionError) {
-    console.error('❌ Erro na conversão de text:', { text, type: typeof text, error: conversionError.message });
+    console.error(' Erro na conversão de text:', { text, type: typeof text, error: conversionError.message });
     throw new Error('Parâmetro "text" não pode ser convertido para string válida');
   }
 
-  // Formatar número corretamente (adicionar @s.whatsapp.net se não tiver)
-  let formattedNumber = number.toString().trim();
-  if (!formattedNumber.includes('@')) {
-    formattedNumber = formattedNumber + '@s.whatsapp.net';
+  // Formatar número corretamente (REMOVER @s.whatsapp.net se tiver)
+  // Evolution API prefere receber apenas o número sem sufixo
+  let formattedNumber = number.toString().trim().replace('@s.whatsapp.net', '').replace('@c.us', '');
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OUTBOUND DEDUPLICATION - ÚLTIMA LINHA DE DEFESA
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Verifica se esta mesma mensagem já foi enviada recentemente ao mesmo número.
+  // Isso previne duplicatas causadas por:
+  // - Race conditions no ProspectingEngine
+  // - Normalização inconsistente de telefones
+  // - Retries acidentais
+  // - Múltiplos sistemas chamando sendWhatsAppMessage
+  // ═══════════════════════════════════════════════════════════════════════════
+  try {
+    const outboundDedup = getOutboundDeduplicator();
+    const dedupCheck = outboundDedup.check(formattedNumber, sanitizedText, {
+      source: 'sendWhatsAppMessage',
+      skipCooldown: true //  FIX: Desabilitar cooldown - causa bloqueio de respostas legítimas
+    });
+
+    if (!dedupCheck.allowed) {
+      console.warn(` [OUTBOUND-DEDUP] Mensagem BLOQUEADA para ${formattedNumber}: ${dedupCheck.reason}`);
+      return {
+        blocked: true,
+        reason: dedupCheck.reason,
+        number: formattedNumber,
+        message: 'Mensagem duplicada bloqueada pelo sistema de deduplitação outbound'
+      };
+    }
+  } catch (dedupError) {
+    // Se deduplitação falhar, continua normalmente (fail-open)
+    console.warn(' [OUTBOUND-DEDUP] Erro na verificação:', dedupError.message);
   }
 
   try {
-    console.log('📤 Tentando enviar mensagem para:', formattedNumber);
+    console.log(' Tentando enviar mensagem para:', formattedNumber);
     
     // Adicionar timeout de 30 segundos
     const controller = new AbortController();
@@ -204,19 +249,19 @@ export async function sendWhatsAppMessage(number, text) {
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error('❌ Resposta de erro da Evolution API:', errorBody);
+      console.error(' Resposta de erro da Evolution API:', errorBody);
       throw new Error(`Evolution API erro: ${response.status} ${response.statusText} - ${errorBody}`);
     }
 
     const result = await response.json();
-    console.log('📱 Mensagem WhatsApp enviada:', { number: formattedNumber, text: sanitizedText.substring(0, 50) + '...' });
+    console.log(' Mensagem WhatsApp enviada:', { number: formattedNumber, text: sanitizedText.substring(0, 50) + '...' });
     return result;
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.error('❌ Timeout ao enviar mensagem WhatsApp (30s)');
+      console.error(' Timeout ao enviar mensagem WhatsApp (30s)');
       throw new Error('Timeout ao enviar mensagem - Evolution API não respondeu');
     }
-    console.error('❌ Erro ao enviar mensagem WhatsApp:', error);
+    console.error(' Erro ao enviar mensagem WhatsApp:', error);
     throw error;
   }
 }
@@ -231,53 +276,55 @@ export async function sendWhatsAppMessage(number, text) {
  */
 export async function scheduleWhatsAppMeeting(number, email, title, datetime, notes = '') {
   try {
-    // 1. Adiciona evento no calendário local E Google Calendar
-    const { addEvent } = await import('./calendar_local.js');
-    const eventResult = await addEvent(title, datetime, notes);
+    // 1. Cria evento no Google Calendar usando calendar_enhanced.js
+    const { createEvent } = await import('./calendar_enhanced.js');
+    const meetingDate = new Date(datetime);
+    const dateStr = meetingDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeStr = meetingDate.toLocaleTimeString('pt-BR', { hour12: false }).slice(0, 5); // HH:mm
 
-    // 2. Tenta adicionar no Google Calendar também (com taylorlapenda@gmail.com como organizador)
+    // Usa o email fornecido como parâmetro
+    const attendees = email ? [email, 'taylorlapenda@gmail.com'] : ['taylorlapenda@gmail.com'];
+
+    let eventResult;
     try {
-      const { gcalAddEvent } = await import('./calendar_google.js');
-      const meetingDate = new Date(datetime);
-      const dateStr = meetingDate.toISOString().split('T')[0]; // YYYY-MM-DD
-      const timeStr = meetingDate.toLocaleTimeString('pt-BR', { hour12: false }).slice(0, 5); // HH:mm
-
-      // Usa o email fornecido como parâmetro
-      const attendees = email ? [email, 'taylorlapenda@gmail.com'] : ['taylorlapenda@gmail.com'];
-
-      await gcalAddEvent({
+      eventResult = await createEvent({
         title,
         date: dateStr,
         time: timeStr,
         duration: 60,
         location: 'Google Meet',
         attendees,
-        notes,
-        meet: 'google',
-        timezone: 'America/Fortaleza'
+        description: notes,
+        meetEnabled: true
       });
-
-      console.log('✅ Evento adicionado no Google Calendar com convites para:', attendees.join(', '));
-    } catch (gcalError) {
-      console.log('⚠️ Falha no Google Calendar (usando apenas local):', gcalError.message);
+      console.log(' Evento criado no Google Calendar com convites para:', attendees.join(', '));
+    } catch (calendarError) {
+      console.log(' Falha ao criar evento no Google Calendar:', calendarError.message);
+      // Fallback: evento local apenas
+      eventResult = {
+        success: false,
+        id: `local_${Date.now()}`,
+        title,
+        datetime,
+        error: calendarError.message
+      };
     }
 
     // 2. Formata data/hora para exibição
-    const meetingDate = new Date(datetime);
-    const dateStr = meetingDate.toLocaleDateString('pt-BR');
-    const timeStr = meetingDate.toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    const displayDateStr = meetingDate.toLocaleDateString('pt-BR');
+    const displayTimeStr = meetingDate.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
     // 3. Monta mensagem de confirmação
     const message = `*Reunião Agendada com Sucesso!*\n\n` +
-                   `📅 *Data:* ${dateStr}\n` +
-                   `🕐 *Horário:* ${timeStr}\n` +
-                   `📝 *Assunto:* ${title}\n` +
-                   (notes ? `📋 *Observações:* ${notes}\n` : '') +
-                   `\n📞 Entraremos em contato próximo ao horário marcado.\n\n` +
-                   `_Agendado pelo ORBION_ 🤖`;
+                   ` *Data:* ${displayDateStr}\n` +
+                   ` *Horário:* ${displayTimeStr}\n` +
+                   ` *Assunto:* ${title}\n` +
+                   (notes ? ` *Observações:* ${notes}\n` : '') +
+                   `\n Entraremos em contato próximo ao horário marcado.\n\n` +
+                   `_Agendado pelo ORBION_ `;
 
     // 4. Envia confirmação via WhatsApp
     await sendWhatsAppMessage(number, message);
@@ -285,21 +332,21 @@ export async function scheduleWhatsAppMeeting(number, email, title, datetime, no
     return {
       success: true,
       event: eventResult,
-      message: `Reunião agendada para ${dateStr} às ${timeStr} e notificação enviada via WhatsApp`
+      message: `Reunião agendada para ${displayDateStr} às ${displayTimeStr} e notificação enviada via WhatsApp`
     };
 
   } catch (error) {
-    console.error('❌ Erro ao agendar reunião WhatsApp:', error);
+    console.error(' Erro ao agendar reunião WhatsApp:', error);
     
     // Envia mensagem de erro
     try {
       await sendWhatsAppMessage(number, 
-        '❌ *Ops! Houve um problema ao agendar sua reunião.*\n\n' +
+        ' *Ops! Houve um problema ao agendar sua reunião.*\n\n' +
         'Por favor, tente novamente ou entre em contato conosco.\n\n' +
-        '_ORBION_ 🤖'
+        '_ORBION_ '
       );
     } catch (msgError) {
-      console.error('❌ Erro ao enviar mensagem de erro:', msgError);
+      console.error(' Erro ao enviar mensagem de erro:', msgError);
     }
 
     throw error;
@@ -336,10 +383,10 @@ export async function downloadWhatsAppMedia(messageId, message = null) {
   }
 
   try {
-    console.log('🔑 Baixando mídia via Evolution API - messageId:', messageId);
+    console.log(' Baixando mídia via Evolution API - messageId:', messageId);
     
     // MÉTODO CORRETO: Usar endpoint da Evolution API para obter link seguro
-    console.log('🎯 TENTATIVA 1: Endpoint comum /message/download/{instance}');
+    console.log(' TENTATIVA 1: Endpoint comum /message/download/{instance}');
     const mediaResponse = await fetch(`${EVOLUTION_BASE_URL}/message/download/${EVOLUTION_INSTANCE}`, {
       method: 'POST',
       headers: {
@@ -353,13 +400,13 @@ export async function downloadWhatsAppMedia(messageId, message = null) {
 
     if (mediaResponse.ok) {
       const mediaData = await mediaResponse.json();
-      console.log('✅ Resposta do endpoint /v1/messages:', JSON.stringify(mediaData, null, 2));
+      console.log(' Resposta do endpoint /v1/messages:', JSON.stringify(mediaData, null, 2));
       
       if (mediaData.media_url) {
-        console.log('🎉 Link seguro obtido:', mediaData.media_url.substring(0, 60) + '...');
+        console.log(' Link seguro obtido:', mediaData.media_url.substring(0, 60) + '...');
         
         // Baixar o arquivo do link seguro
-        console.log('📥 Baixando arquivo do link seguro...');
+        console.log(' Baixando arquivo do link seguro...');
         const fileResponse = await fetch(mediaData.media_url, {
           headers: {
             'Authorization': `Bearer ${EVOLUTION_API_KEY}`
@@ -370,25 +417,25 @@ export async function downloadWhatsAppMedia(messageId, message = null) {
           const fileBuffer = await fileResponse.arrayBuffer();
           const mediaBase64 = Buffer.from(fileBuffer).toString('base64');
           
-          console.log('✅ Arquivo baixado com sucesso:', fileBuffer.byteLength, 'bytes');
-          console.log('📦 Convertido para base64:', mediaBase64.length, 'chars');
+          console.log(' Arquivo baixado com sucesso:', fileBuffer.byteLength, 'bytes');
+          console.log(' Convertido para base64:', mediaBase64.length, 'chars');
           
           // Verificar se é um arquivo válido
           const firstBytes = Buffer.from(fileBuffer).slice(0, 4).toString('hex');
-          console.log('🔍 Primeiros bytes do arquivo:', firstBytes);
-          console.log('🔍 É OGG válido?', firstBytes === '4f676753');
+          console.log(' Primeiros bytes do arquivo:', firstBytes);
+          console.log(' É OGG válido?', firstBytes === '4f676753');
           
           return mediaBase64;
         } else {
-          console.log('❌ Falha ao baixar do link seguro:', fileResponse.status, fileResponse.statusText);
+          console.log(' Falha ao baixar do link seguro:', fileResponse.status, fileResponse.statusText);
         }
       }
     } else {
-      console.log('❌ TENTATIVA 1 falhou:', mediaResponse.status, mediaResponse.statusText);
+      console.log(' TENTATIVA 1 falhou:', mediaResponse.status, mediaResponse.statusText);
     }
     
     // TENTATIVA 2: Endpoint alternativo de media
-    console.log('🎯 TENTATIVA 2: Endpoint /media/{instance}');
+    console.log(' TENTATIVA 2: Endpoint /media/{instance}');
     const response2 = await fetch(`${EVOLUTION_BASE_URL}/media/${EVOLUTION_INSTANCE}`, {
       method: 'POST',
       headers: {
@@ -405,22 +452,22 @@ export async function downloadWhatsAppMedia(messageId, message = null) {
       const mediaBase64 = result2.mediaBase64 || result2.base64 || result2.media;
       
       if (mediaBase64) {
-        console.log('✅ Mídia descriptografada via endpoint automático');
+        console.log(' Mídia descriptografada via endpoint automático');
         
         // Verificar se é um arquivo válido
         const buffer = Buffer.from(mediaBase64, 'base64');
         const firstBytes = buffer.slice(0, 4).toString('hex');
-        console.log('🔍 Primeiros bytes (TENTATIVA 2):', firstBytes);
-        console.log('🔍 É OGG válido?', firstBytes === '4f676753');
+        console.log(' Primeiros bytes (TENTATIVA 2):', firstBytes);
+        console.log(' É OGG válido?', firstBytes === '4f676753');
         
         return mediaBase64;
       }
     } else {
-      console.log('❌ TENTATIVA 2 falhou:', response2.status, response2.statusText);
+      console.log(' TENTATIVA 2 falhou:', response2.status, response2.statusText);
     }
 
     // TENTATIVA 3: Endpoint direto de mensagem
-    console.log('🎯 TENTATIVA 3: Endpoint /{instance}/message');
+    console.log(' TENTATIVA 3: Endpoint /{instance}/message');
     const response3 = await fetch(`${EVOLUTION_BASE_URL}/${EVOLUTION_INSTANCE}/message`, {
       method: 'GET',
       headers: {
@@ -434,24 +481,24 @@ export async function downloadWhatsAppMedia(messageId, message = null) {
       const mediaBase64 = result3.mediaBase64 || result3.base64 || result3.data;
       
       if (mediaBase64) {
-        console.log('✅ Mídia baixada via endpoint simples');
+        console.log(' Mídia baixada via endpoint simples');
         
         // Verificar se é um arquivo válido
         const buffer = Buffer.from(mediaBase64, 'base64');
         const firstBytes = buffer.slice(0, 4).toString('hex');
-        console.log('🔍 Primeiros bytes (TENTATIVA 3):', firstBytes);
-        console.log('🔍 É OGG válido?', firstBytes === '4f676753');
+        console.log(' Primeiros bytes (TENTATIVA 3):', firstBytes);
+        console.log(' É OGG válido?', firstBytes === '4f676753');
         
         return mediaBase64;
       }
     } else {
-      console.log('❌ TENTATIVA 3 falhou:', response3.status, response3.statusText);
+      console.log(' TENTATIVA 3 falhou:', response3.status, response3.statusText);
     }
 
     throw new Error('Todas as tentativas de download via Evolution API falharam');
 
   } catch (error) {
-    console.error('❌ Erro no download de mídia:', error.message);
+    console.error(' Erro no download de mídia:', error.message);
     throw error;
   }
 }
@@ -480,7 +527,7 @@ export async function getContactProfile(number) {
       const qualification = leadData['Status de qualificação'] || '';
       const totalScore = leadData['Score Total (0-100)'] || '';
 
-      console.log(`📊 Lead encontrado: ${companyName} - ${contactName} (Score: ${totalScore})`);
+      console.log(` Lead encontrado: ${companyName} - ${contactName} (Score: ${totalScore})`);
 
       return {
         name: contactName,
@@ -551,7 +598,7 @@ export async function getContactProfile(number) {
     // Identificar gênero pelo nome
     const gender = identifyGender(name);
     
-    console.log(`👤 Perfil obtido: ${name} (${gender})`);
+    console.log(` Perfil obtido: ${name} (${gender})`);
     
     return {
       number: formattedNumber,
@@ -564,7 +611,7 @@ export async function getContactProfile(number) {
     };
 
   } catch (error) {
-    console.error('❌ Erro ao buscar perfil do contato:', error);
+    console.error(' Erro ao buscar perfil do contato:', error);
     return {
       number: number,
       name: 'Usuário',
@@ -677,7 +724,7 @@ export async function transcribeWhatsAppAudio(audioBase64, format = 'ogg') {
   }
 
   const startTime = Date.now();
-  console.log('🎤 [RÁPIDO] Iniciando transcrição otimizada...');
+  console.log(' [RÁPIDO] Iniciando transcrição otimizada...');
 
   try {
     // Converte base64 para buffer (assíncrono)
@@ -692,7 +739,7 @@ export async function transcribeWhatsAppAudio(audioBase64, format = 'ogg') {
     // Definir nome do stream para Whisper
     audioStream.path = `audio.${format}`;
 
-    console.log(`🚀 [OTIMIZADO] Buffer preparado em ${Date.now() - startTime}ms`);
+    console.log(` [OTIMIZADO] Buffer preparado em ${Date.now() - startTime}ms`);
 
     // Transcreve usando Whisper com configurações otimizadas
     const transcription = await openai.audio.transcriptions.create({
@@ -707,11 +754,11 @@ export async function transcribeWhatsAppAudio(audioBase64, format = 'ogg') {
     const totalTime = Date.now() - startTime;
     const transcribedText = typeof transcription === 'string' ? transcription : transcription.text;
 
-    console.log(`✅ [PERFORMANCE] Transcrição completa em ${totalTime}ms: "${transcribedText.substring(0, 50)}..."`);
+    console.log(` [PERFORMANCE] Transcrição completa em ${totalTime}ms: "${transcribedText.substring(0, 50)}..."`);
     return transcribedText;
     
   } catch (error) {
-    console.error('❌ Erro na transcrição:', error);
+    console.error(' Erro na transcrição:', error);
     throw error;
   }
 }
@@ -739,7 +786,7 @@ export async function transcribeWhatsAppMessage(message) {
     return transcription;
 
   } catch (error) {
-    console.error('❌ Erro ao transcrever mensagem de áudio WhatsApp:', error);
+    console.error(' Erro ao transcrever mensagem de áudio WhatsApp:', error);
     throw error;
   }
 }
@@ -756,7 +803,7 @@ export async function updateInstanceSettings(settings = {}) {
 
   const defaultSettings = {
     rejectCall: false, // Permitir chamadas
-    msgCall: '📞 Olá! Recebemos sua ligação. No momento estou ocupado, mas responderei em breve via mensagem.',
+    msgCall: ' Olá! Recebemos sua ligação. No momento estou ocupado, mas responderei em breve via mensagem.',
     groupsIgnore: false,
     alwaysOnline: true,
     readMessages: true,
@@ -781,11 +828,11 @@ export async function updateInstanceSettings(settings = {}) {
     }
 
     const result = await response.json();
-    console.log('⚙️ Configurações da instância atualizadas');
+    console.log(' Configurações da instância atualizadas');
     return result;
 
   } catch (error) {
-    console.error('❌ Erro ao atualizar configurações:', error);
+    console.error(' Erro ao atualizar configurações:', error);
     throw error;
   }
 }
@@ -812,7 +859,7 @@ export async function sendWhatsAppAudio(number, audioPath) {
     const audioBuffer = fs.readFileSync(audioPath);
     const audioBase64 = audioBuffer.toString('base64');
 
-    console.log('🎵 Enviando áudio WhatsApp para:', formattedNumber);
+    console.log(' Enviando áudio WhatsApp para:', formattedNumber);
 
     // Determina o tipo de arquivo baseado na extensão
     const fileExtension = audioPath.split('.').pop().toLowerCase();
@@ -825,7 +872,7 @@ export async function sendWhatsAppAudio(number, audioPath) {
     }
     const fileName = `audio_message.${fileExtension}`;
     
-    console.log(`🎵 Enviando ${fileExtension.toUpperCase()} (${mimeType}) para:`, formattedNumber);
+    console.log(` Enviando ${fileExtension.toUpperCase()} (${mimeType}) para:`, formattedNumber);
 
     const response = await fetch(`${EVOLUTION_BASE_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`, {
       method: 'POST',
@@ -848,13 +895,73 @@ export async function sendWhatsAppAudio(number, audioPath) {
     }
 
     const result = await response.json();
-    console.log('🎵 Áudio WhatsApp enviado com sucesso');
+    console.log(' Áudio WhatsApp enviado com sucesso');
     return result;
 
   } catch (error) {
-    console.error('❌ Erro ao enviar áudio WhatsApp:', error);
+    console.error(' Erro ao enviar áudio WhatsApp:', error);
     throw error;
   }
+}
+
+/**
+ * Envia mídia via WhatsApp (imagem, vídeo, áudio, documento)
+ * @param {string} number - Número do destinatário
+ * @param {string|Buffer} media - URL, caminho do arquivo ou Buffer
+ * @param {Object} options - Opções { type, caption, fileName }
+ * @returns {Promise<object>}
+ */
+export async function sendWhatsAppMedia(number, media, options = {}) {
+  if (!EVOLUTION_API_KEY) {
+    throw new Error('EVOLUTION_API_KEY não configurada no .env');
+  }
+
+  const type = options.type || 'image';
+  let formattedNumber = number.toString().trim().replace('@s.whatsapp.net', '').replace('@c.us', '');
+
+  const isUrl = typeof media === 'string' && media.startsWith('http');
+  const isBuffer = Buffer.isBuffer(media);
+  const isFilePath = typeof media === 'string' && !isUrl && fs.existsSync(media);
+
+  let payload = {
+    number: formattedNumber,
+    caption: options.caption || '',
+    fileName: options.fileName
+  };
+
+  if (isUrl) {
+    if (type === 'audio') {
+      payload.audioUrl = media;
+    } else {
+      payload.mediaUrl = media;
+    }
+  } else if (isBuffer || isFilePath) {
+    const buffer = isBuffer ? media : fs.readFileSync(media);
+    payload.media = buffer.toString('base64');
+    payload.mediatype = type;
+    if (!payload.fileName && isFilePath) {
+      payload.fileName = path.basename(media);
+    }
+  } else {
+    throw new Error('Mídia inválida: forneça URL, caminho de arquivo ou Buffer');
+  }
+
+  const endpoint = `${EVOLUTION_BASE_URL}/message/send${type === 'document' ? 'Document' : 'Media'}/${EVOLUTION_INSTANCE}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': EVOLUTION_API_KEY
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Evolution API erro: ${response.status} - ${errorBody}`);
+  }
+
+  return response.json();
 }
 
 /**
@@ -869,7 +976,7 @@ export async function generateTTSAudio(text, voice = 'nova') {
   }
 
   try {
-    console.log('🎤 Gerando áudio TTS...');
+    console.log(' Gerando áudio TTS...');
     
     const response = await openai.audio.speech.create({
       model: 'tts-1',
@@ -886,11 +993,11 @@ export async function generateTTSAudio(text, voice = 'nova') {
     const buffer = Buffer.from(await response.arrayBuffer());
     fs.writeFileSync(tempFilePath, buffer);
     
-    console.log('🎵 Áudio TTS gerado:', tempFilePath);
+    console.log(' Áudio TTS gerado:', tempFilePath);
     return tempFilePath;
     
   } catch (error) {
-    console.error('❌ Erro ao gerar TTS:', error);
+    console.error(' Erro ao gerar TTS:', error);
     throw error;
   }
 }
@@ -904,7 +1011,7 @@ export async function generateTTSAudio(text, voice = 'nova') {
  */
 export async function sendTTSWhatsAppMessage(number, text, voice = 'nova') {
   // TTS DESABILITADO - Sistema focado 100% em texto persuasivo
-  console.log('⚠️ TTS desabilitado. Sistema focado 100% em texto persuasivo.');
+  console.log(' TTS desabilitado. Sistema focado 100% em texto persuasivo.');
   return { success: false, message: 'TTS desabilitado' };
 }
 
@@ -918,7 +1025,7 @@ export async function sendTTSWhatsAppMessage(number, text, voice = 'nova') {
  */
 export async function sendIntelligentTTS(number, text, voice = 'nova', startConversation = true) {
   // TTS DESABILITADO - Sistema focado 100% em texto persuasivo
-  console.log('⚠️ TTS desabilitado. Sistema focado 100% em texto persuasivo.');
+  console.log(' TTS desabilitado. Sistema focado 100% em texto persuasivo.');
   return { success: false, message: 'TTS desabilitado' };
 }
 
@@ -929,7 +1036,7 @@ export async function sendIntelligentTTS(number, text, voice = 'nova', startConv
  */
 export async function analyzeProfileAndStrategy(profile) {
   try {
-    console.log('🧠 Analisando perfil e gerando estratégia...');
+    console.log(' Analisando perfil e gerando estratégia...');
     
     const analysisPrompt = `Como especialista em vendas B2B da Digital Boost, analise este perfil e crie uma estratégia de abordagem:
 
@@ -987,12 +1094,12 @@ Seja estratégico e personalizado baseado nas informações disponíveis.`;
     });
 
     const strategy = JSON.parse(response.choices[0].message.content);
-    console.log('✅ Estratégia gerada:', strategy.recommended_approach);
+    console.log(' Estratégia gerada:', strategy.recommended_approach);
     
     return strategy;
     
   } catch (error) {
-    console.error('❌ Erro na análise do perfil:', error);
+    console.error(' Erro na análise do perfil:', error);
     return {
       profile_analysis: 'Perfil padrão para prospecção geral',
       pain_points: ['falta de presença digital', 'baixa conversão online', 'processos manuais'],
@@ -1017,7 +1124,7 @@ export async function generatePersonalizedScript(profile, strategy, purpose = 'a
   const greeting = gender === 'feminino' ? 'Olá' : gender === 'masculino' ? 'E aí' : 'Olá';
   
   try {
-    console.log('📝 Gerando roteiro personalizado...');
+    console.log(' Gerando roteiro personalizado...');
     
     // Analisar contexto e selecionar arquétipo
     const contextForAnalysis = `${strategy.profile_analysis} ${strategy.recommended_approach} ${strategy.value_proposition}`;
@@ -1073,19 +1180,19 @@ Retorne APENAS o texto do roteiro, sem formatação extra, pronto para ser conve
     });
 
     const baseScript = response.choices[0].message.content.trim();
-    console.log('📝 Roteiro base gerado:', baseScript.substring(0, 100) + '...');
+    console.log(' Roteiro base gerado:', baseScript.substring(0, 100) + '...');
     
     // Aplicar arquétipo ao roteiro
     const archetypeContext = `Lead: ${name}, Estratégia: ${strategy.recommended_approach}`;
     const finalScript = await applyArchetypeToScript(baseScript, selectedArchetype, archetypeContext);
     
-    console.log(`🎭 Roteiro final (${selectedArchetype}):`, finalScript.substring(0, 100) + '...');
+    console.log(` Roteiro final (${selectedArchetype}):`, finalScript.substring(0, 100) + '...');
     
     // Retornar apenas o script por enquanto
     return finalScript;
     
   } catch (error) {
-    console.error('❌ Erro ao gerar roteiro:', error);
+    console.error(' Erro ao gerar roteiro:', error);
     return `${greeting} ${name}! Aqui é o ORBION da Digital Boost. ` +
            `Especialista em marketing digital, estou entrando em contato porque identifiquei oportunidades ` +
            `para aumentar seus resultados online. Temos cases de sucesso em automação, ads e redes sociais. ` +
@@ -1102,11 +1209,11 @@ Retorne APENAS o texto do roteiro, sem formatação extra, pronto para ser conve
  */
 export async function makeIntelligentCall(number, purpose = 'apresentação comercial', voice = 'nova') {
   try {
-    console.log('📞 Iniciando ligação inteligente para:', number);
+    console.log(' Iniciando ligação inteligente para:', number);
     
     // 1. Busca perfil detalhado
     const profile = await getContactProfile(number);
-    console.log(`👤 Perfil: ${profile.name} (${profile.gender})`);
+    console.log(` Perfil: ${profile.name} (${profile.gender})`);
     
     // 2. Analisa perfil e gera estratégia
     const strategy = await analyzeProfileAndStrategy(profile);
@@ -1134,7 +1241,7 @@ export async function makeIntelligentCall(number, purpose = 'apresentação come
     };
     
   } catch (error) {
-    console.error('❌ Erro na ligação inteligente:', error);
+    console.error(' Erro na ligação inteligente:', error);
     throw error;
   }
 }
@@ -1148,7 +1255,7 @@ export async function loadLeadsList() {
     const leadsPath = './data/leads.xlsx';
     
     if (!fs.existsSync(leadsPath)) {
-      console.log('⚠️ Arquivo de leads não encontrado');
+      console.log(' Arquivo de leads não encontrado');
       return [];
     }
     
@@ -1170,7 +1277,7 @@ export async function loadLeadsList() {
     }));
     
   } catch (error) {
-    console.error('❌ Erro ao carregar leads:', error);
+    console.error(' Erro ao carregar leads:', error);
     return [];
   }
 }
@@ -1184,7 +1291,7 @@ export async function loadLeadsList() {
  */
 export async function runIntelligentCampaign(campaignType = 'active', targetNumbers = [], purpose = 'prospecção comercial') {
   try {
-    console.log(`📢 Iniciando campanha inteligente: ${campaignType}`);
+    console.log(` Iniciando campanha inteligente: ${campaignType}`);
     
     let targets = [];
     
@@ -1216,7 +1323,7 @@ export async function runIntelligentCampaign(campaignType = 'active', targetNumb
       };
     }
     
-    console.log(`🎯 Alvo: ${targets.length} contatos`);
+    console.log(` Alvo: ${targets.length} contatos`);
     
     const results = [];
     const delay = 10000; // 10 segundos entre chamadas para não sobrecarregar
@@ -1225,7 +1332,7 @@ export async function runIntelligentCampaign(campaignType = 'active', targetNumb
       const target = targets[i];
       
       try {
-        console.log(`📞 ${i + 1}/${targets.length}: Ligando para ${target.name} (${target.contact})`);
+        console.log(` ${i + 1}/${targets.length}: Ligando para ${target.name} (${target.contact})`);
         
         const result = await makeIntelligentCall(target.contact, purpose);
         
@@ -1238,12 +1345,12 @@ export async function runIntelligentCampaign(campaignType = 'active', targetNumb
         
         // Aguarda entre chamadas (exceto na última)
         if (i < targets.length - 1) {
-          console.log(`⏳ Aguardando ${delay / 1000}s antes da próxima ligação...`);
+          console.log(` Aguardando ${delay / 1000}s antes da próxima ligação...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
         
       } catch (error) {
-        console.error(`❌ Erro na ligação para ${target.name}:`, error);
+        console.error(` Erro na ligação para ${target.name}:`, error);
         results.push({
           success: false,
           contact: { name: target.name, number: target.contact },
@@ -1268,7 +1375,7 @@ export async function runIntelligentCampaign(campaignType = 'active', targetNumb
     };
     
   } catch (error) {
-    console.error('❌ Erro na campanha inteligente:', error);
+    console.error(' Erro na campanha inteligente:', error);
     throw error;
   }
 }
@@ -1281,7 +1388,7 @@ export async function runIntelligentCampaign(campaignType = 'active', targetNumb
  */
 export async function callLeadOrNumber(identifier, purpose = 'apresentação comercial') {
   try {
-    console.log(`🔍 Buscando contato: ${identifier}`);
+    console.log(` Buscando contato: ${identifier}`);
     
     let targetNumber = null;
     let leadInfo = null;
@@ -1289,7 +1396,7 @@ export async function callLeadOrNumber(identifier, purpose = 'apresentação com
     // Se for um número direto
     if (identifier.match(/^\d+$/)) {
       targetNumber = identifier;
-      console.log('📱 Número direto identificado');
+      console.log(' Número direto identificado');
     } 
     // Se for "random" ou "aleatorio"
     else if (identifier.toLowerCase().includes('random') || identifier.toLowerCase().includes('aleatorio')) {
@@ -1300,7 +1407,7 @@ export async function callLeadOrNumber(identifier, purpose = 'apresentação com
         const randomLead = activeLeads[Math.floor(Math.random() * activeLeads.length)];
         targetNumber = randomLead.contact;
         leadInfo = randomLead;
-        console.log(`🎲 Lead aleatório selecionado: ${randomLead.name}`);
+        console.log(` Lead aleatório selecionado: ${randomLead.name}`);
       }
     }
     // Se for nome de um lead
@@ -1314,7 +1421,7 @@ export async function callLeadOrNumber(identifier, purpose = 'apresentação com
       if (foundLead) {
         targetNumber = foundLead.contact;
         leadInfo = foundLead;
-        console.log(`👤 Lead encontrado: ${foundLead.name}`);
+        console.log(` Lead encontrado: ${foundLead.name}`);
       }
     }
     
@@ -1340,7 +1447,7 @@ export async function callLeadOrNumber(identifier, purpose = 'apresentação com
     return result;
     
   } catch (error) {
-    console.error('❌ Erro ao ligar para lead/número:', error);
+    console.error(' Erro ao ligar para lead/número:', error);
     throw error;
   }
 }
@@ -1369,7 +1476,7 @@ export async function sendWhatsAppMessageFrom(fromNumber, toNumber, text) {
   }
 
   try {
-    console.log(`📤 Enviando de ${formattedFrom} para ${formattedTo}`);
+    console.log(` Enviando de ${formattedFrom} para ${formattedTo}`);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -1396,11 +1503,11 @@ export async function sendWhatsAppMessageFrom(fromNumber, toNumber, text) {
     }
 
     const result = await response.json();
-    console.log('✅ Mensagem enviada via ORBION:', result);
+    console.log(' Mensagem enviada via ORBION:', result);
     
     return result;
   } catch (error) {
-    console.error('❌ Erro ao enviar via número específico:', error.message);
+    console.error(' Erro ao enviar via número específico:', error.message);
     // Fallback: envia pela forma padrão
     return await sendWhatsAppMessage(toNumber, text);
   }
@@ -1429,7 +1536,7 @@ export async function downloadAndAnalyzeWhatsAppMedia(messageId, phoneNumber) {
       throw new Error('EVOLUTION_API_KEY não configurada');
     }
 
-    console.log(`📱 Baixando mídia do WhatsApp - Message: ${messageId}`);
+    console.log(` Baixando mídia do WhatsApp - Message: ${messageId}`);
 
     // Baixar informações da mídia
     const mediaResponse = await fetch(`${EVOLUTION_BASE_URL}/chat/findMessages/${EVOLUTION_INSTANCE}`, {
@@ -1512,8 +1619,8 @@ export async function downloadAndAnalyzeWhatsAppMedia(messageId, phoneNumber) {
     const buffer = Buffer.from(base64Data.base64, 'base64');
     fs.writeFileSync(filePath, buffer);
 
-    // Analisar o documento
-    const { analyzeDocument } = await import('./document_analyzer_simple.js');
+    // Analisar o documento usando document_analyzer.js (módulo correto)
+    const { analyzeDocument } = await import('./document_analyzer.js');
     const analysis = await analyzeDocument(filePath, {
       customPrompt: `Este documento foi recebido via WhatsApp do contato ${phoneNumber}. Analise detalhadamente seu conteúdo.`
     });
@@ -1528,16 +1635,16 @@ export async function downloadAndAnalyzeWhatsAppMedia(messageId, phoneNumber) {
         messageId: messageId
       });
     } catch (dbError) {
-      console.log('⚠️ Erro ao salvar análise no banco:', dbError.message);
+      console.log(' Erro ao salvar análise no banco:', dbError.message);
     }
 
     // Enviar resumo da análise de volta via WhatsApp
-    const responseText = `📄 *Documento Analisado*\n\n` +
-      `📋 *Arquivo:* ${analysis.fileName}\n` +
-      `📊 *Tipo:* ${analysis.fileType}\n` +
-      `⏰ *Analisado em:* ${new Date().toLocaleString('pt-BR')}\n\n` +
-      `📝 *Resumo:*\n${analysis.summary}\n\n` +
-      `🔍 *Principais pontos:*\n${Array.isArray(analysis.keyPoints) ? analysis.keyPoints.join('\n') : analysis.keyPoints || 'N/A'}`;
+    const responseText = ` *Documento Analisado*\n\n` +
+      ` *Arquivo:* ${analysis.fileName}\n` +
+      ` *Tipo:* ${analysis.fileType}\n` +
+      ` *Analisado em:* ${new Date().toLocaleString('pt-BR')}\n\n` +
+      ` *Resumo:*\n${analysis.summary}\n\n` +
+      ` *Principais pontos:*\n${Array.isArray(analysis.keyPoints) ? analysis.keyPoints.join('\n') : analysis.keyPoints || 'N/A'}`;
 
     await sendWhatsAppMessage(phoneNumber, responseText);
 
@@ -1546,7 +1653,7 @@ export async function downloadAndAnalyzeWhatsAppMedia(messageId, phoneNumber) {
       try {
         fs.unlinkSync(filePath);
       } catch (err) {
-        console.log('⚠️ Erro ao limpar arquivo temporário:', err.message);
+        console.log(' Erro ao limpar arquivo temporário:', err.message);
       }
     }, 30000);
 
@@ -1559,16 +1666,16 @@ export async function downloadAndAnalyzeWhatsAppMedia(messageId, phoneNumber) {
     };
 
   } catch (error) {
-    console.error('❌ Erro na análise de mídia WhatsApp:', error);
+    console.error(' Erro na análise de mídia WhatsApp:', error);
     
     // Informar erro ao usuário
     try {
       await sendWhatsAppMessage(phoneNumber, 
-        `❌ Erro ao analisar documento: ${error.message}\n\n` +
+        ` Erro ao analisar documento: ${error.message}\n\n` +
         `Por favor, tente enviar novamente ou verifique se o formato do arquivo é suportado.`
       );
     } catch (sendError) {
-      console.error('❌ Erro ao enviar mensagem de erro:', sendError);
+      console.error(' Erro ao enviar mensagem de erro:', sendError);
     }
     
     throw error;

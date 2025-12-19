@@ -1,0 +1,127 @@
+# Jobs and Schedules
+
+- src/server.js:13 * - Startup isolado (server.startup.js)
+- src/server.js:38 import { startServer } from './config/server.startup.js';
+- src/server.js:40 import { getCadenceEngine } from './automation/CadenceEngine.js';
+- src/server.js:41 import { prospectingEngine } from './automation/ProspectingEngine.js';
+- src/server.js:42 //  FIX P0: Import abandonment detection job para aprendizado
+- src/server.js:43 import { startAbandonmentDetectionJob } from './services/AbandonmentDetectionJob.js';
+- src/server.js:44 //  SYNC: Import prospect sync job para sincronização automática Sheet1  SQLite
+- src/server.js:45 import { startProspectSyncJob } from './services/ProspectSyncJob.js';
+- src/server.js:46 //  NIVEL 5: Import AutoOptimizer para auto-otimizacao
+- src/server.js:47 import { getAutoOptimizer } from './intelligence/AutoOptimizer.js';
+- src/server.js:48 //  DATA-SYNC: Import DataSyncService para sincronização automática de dados
+- src/server.js:92 // The process is in an undefined state and should be restarted
+- src/server.js:121 * Initialize application with Wave 1 foundation layer
+- src/server.js:123 async function initializeApp() {
+- src/server.js:143 // Initialize dependency injection container
+- src/server.js:146 logger.info(` Container initialized with ${container.getRegisteredNames().length} dependencies`);
+- src/server.js:148 // Initialize core services
+- src/server.js:152 logger.info(' Core services initialized');
+- src/server.js:207 // Initialize Cadence Engine
+- src/server.js:208 logger.info('Initializing Cadence Engine...');
+- src/server.js:209 const cadenceEngine = getCadenceEngine();
+- src/server.js:210 await cadenceEngine.initialize();
+- src/server.js:211 logger.info(' Cadence Engine initialized');
+- src/server.js:213 // Initialize Prospecting Engine (auto-start if configured)
+- src/server.js:214 logger.info('Initializing Prospecting Engine...');
+- src/server.js:215 const autoStartProspecting = process.env.PROSPECTING_AUTO_START === 'true';
+- src/server.js:216 if (autoStartProspecting) {
+- src/server.js:218 const result = await prospectingEngine.start({});
+- src/server.js:220 logger.info(` Prospecting Engine auto-started with ${result.queueSize} leads in queue`);
+- src/server.js:222 logger.warn(` Prospecting Engine start warning: ${result.error}`);
+- src/server.js:225 logger.warn(' Prospecting Engine auto-start failed:', { error: error.message });
+- src/server.js:228 logger.info('ℹ Prospecting Engine ready (manual start via dashboard or API)');
+- src/server.js:231 // Initialize Express app
+- src/server.js:240 // P1-1: Initialize ServiceLocator and preload essential services
+- src/server.js:261 // Start server
+- src/server.js:262 logger.info('Starting server...');
+- src/server.js:263 await startServer(app);
+- src/server.js:266 logger.info('Starting Abandonment Detection Job...');
+- src/server.js:267 startAbandonmentDetectionJob();
+- src/server.js:269 //  DATA-SYNC: Iniciar serviço de sincronização automática de dados
+- src/server.js:270 logger.info('Starting Data Sync Service...');
+- src/server.js:272 dataSyncService.initialize();
+- src/server.js:273 logger.info(' Data Sync Service initialized (nightly: 2h, quick: every 6h, retry: every hour)');
+- src/server.js:274 logger.info(' Abandonment Detection Job initialized');
+- src/server.js:276 //  SYNC: Iniciar job de sincronização Sheet1  SQLite (a cada 30 min)
+- src/server.js:277 logger.info('Starting Prospect Sync Job (Sheet1  SQLite)...');
+- src/server.js:278 startProspectSyncJob({
+- src/server.js:279 schedule: '*/30 * * * *', // A cada 30 minutos
+- src/server.js:280 runOnStart: true          // Sincroniza ao iniciar
+- src/server.js:282 logger.info(' Prospect Sync Job initialized (every 30 min)');
+- src/server.js:284 //  NIVEL 5: Iniciar AutoOptimizer para auto-otimizacao
+- src/server.js:285 logger.info('Starting AutoOptimizer (Level 5 Self-Optimization)...');
+- src/server.js:286 const autoOptimizer = getAutoOptimizer();
+- src/server.js:287 autoOptimizer.start();
+- src/server.js:288 logger.info(' AutoOptimizer initialized - auto-optimization active');
+- src/server.js:291 logger.info(' LEADLY Agent successfully started!');
+- src/server.js:304 // Start application
+- src/server.js:305 initializeApp();
+- src/worker.js:6 * - Cadence Engine (scheduled follow-ups)
+- src/worker.js:7 * - Prospecting Engine (outbound campaigns)
+- src/worker.js:8 * - Abandonment Detection (learning from exits)
+- src/worker.js:9 * - Prospect Sync (Sheet1 -> SQLite)
+- src/worker.js:11 * - Data Sync (nightly sync)
+- src/worker.js:17 * - Can restart worker without affecting users
+- src/worker.js:25 import { getCadenceEngine } from './automation/CadenceEngine.js';
+- src/worker.js:26 import { prospectingEngine } from './automation/ProspectingEngine.js';
+- src/worker.js:27 import { startAbandonmentDetectionJob } from './services/AbandonmentDetectionJob.js';
+- src/worker.js:28 import { startProspectSyncJob } from './services/ProspectSyncJob.js';
+- src/worker.js:29 import { getAutoOptimizer } from './intelligence/AutoOptimizer.js';
+- src/worker.js:80 const cadenceEngine = getCadenceEngine();
+- src/worker.js:81 if (cadenceEngine?.stop) {
+- src/worker.js:82 await cadenceEngine.stop();
+- src/worker.js:83 logger.info('[WORKER] Cadence Engine stopped');
+- src/worker.js:86 if (prospectingEngine?.stop) {
+- src/worker.js:87 await prospectingEngine.stop();
+- src/worker.js:88 logger.info('[WORKER] Prospecting Engine stopped');
+- src/worker.js:91 const autoOptimizer = getAutoOptimizer();
+- src/worker.js:92 if (autoOptimizer?.stop) {
+- src/worker.js:93 autoOptimizer.stop();
+- src/worker.js:100 logger.info('[WORKER] Data Sync Service stopped');
+- src/worker.js:118 async function initializeWorker() {
+- src/worker.js:127 // Initialize dependency injection container
+- src/worker.js:132 // Initialize core services (database)
+- src/worker.js:135 logger.info('[WORKER] Core services initialized');
+- src/worker.js:138 // Start Background Jobs
+- src/worker.js:141 // 1. Cadence Engine
+- src/worker.js:142 logger.info('[WORKER] Starting Cadence Engine...');
+- src/worker.js:143 const cadenceEngine = getCadenceEngine();
+- src/worker.js:144 await cadenceEngine.initialize();
+- src/worker.js:145 logger.info('[WORKER] Cadence Engine initialized');
+- src/worker.js:147 // 2. Prospecting Engine (if auto-start enabled)
+- src/worker.js:148 const autoStartProspecting = process.env.PROSPECTING_AUTO_START === 'true';
+- src/worker.js:149 if (autoStartProspecting) {
+- src/worker.js:150 logger.info('[WORKER] Starting Prospecting Engine (auto-start enabled)...');
+- src/worker.js:152 const result = await prospectingEngine.start({});
+- src/worker.js:154 logger.info(`[WORKER] Prospecting Engine started with ${result.queueSize} leads in queue`);
+- src/worker.js:156 logger.warn(`[WORKER] Prospecting Engine warning: ${result.error}`);
+- src/worker.js:159 logger.warn('[WORKER] Prospecting Engine auto-start failed:', { error: error.message });
+- src/worker.js:162 logger.info('[WORKER] Prospecting Engine ready (manual start via API)');
+- src/worker.js:165 // 3. Abandonment Detection Job
+- src/worker.js:166 logger.info('[WORKER] Starting Abandonment Detection Job...');
+- src/worker.js:167 startAbandonmentDetectionJob();
+- src/worker.js:168 logger.info('[WORKER] Abandonment Detection Job initialized');
+- src/worker.js:170 // 4. Prospect Sync Job (Sheet1 -> SQLite)
+- src/worker.js:171 logger.info('[WORKER] Starting Prospect Sync Job...');
+- src/worker.js:172 startProspectSyncJob({
+- src/worker.js:173 schedule: '*/30 * * * *', // Every 30 minutes
+- src/worker.js:174 runOnStart: true
+- src/worker.js:176 logger.info('[WORKER] Prospect Sync Job initialized (every 30 min)');
+- src/worker.js:179 logger.info('[WORKER] Starting Auto Optimizer...');
+- src/worker.js:180 const autoOptimizer = getAutoOptimizer();
+- src/worker.js:181 autoOptimizer.start();
+- src/worker.js:182 logger.info('[WORKER] Auto Optimizer initialized');
+- src/worker.js:184 // 6. Data Sync Service
+- src/worker.js:185 logger.info('[WORKER] Starting Data Sync Service...');
+- src/worker.js:187 dataSyncService.initialize();
+- src/worker.js:188 logger.info('[WORKER] Data Sync Service initialized (nightly: 2h, quick: 6h, retry: 1h)');
+- src/worker.js:195 logger.info('[WORKER] All background jobs started successfully!');
+- src/worker.js:197 logger.info('  - Cadence Engine');
+- src/worker.js:198 logger.info('  - Prospecting Engine' + (autoStartProspecting ? ' (auto-started)' : ' (manual)'));
+- src/worker.js:199 logger.info('  - Abandonment Detection');
+- src/worker.js:200 logger.info('  - Prospect Sync (30min)');
+- src/worker.js:202 logger.info('  - Data Sync Service');
+- src/worker.js:222 // Start worker
+- src/worker.js:223 initializeWorker();

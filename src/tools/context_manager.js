@@ -37,7 +37,7 @@ export class ContextManager {
     // Salvar na memória
     await this.saveInteraction(contactId, context);
 
-    console.log(`🧠 [CONTEXT] Contexto analisado para ${contactId}: ${context.patterns.mainTopic}`);
+    console.log(` [CONTEXT] Contexto analisado para ${contactId}: ${context.patterns.mainTopic}`);
     return context;
   }
 
@@ -73,7 +73,7 @@ export class ContextManager {
 
       return recentHistory;
     } catch (error) {
-      console.error('❌ [CONTEXT] Erro ao recuperar histórico:', error);
+      console.error(' [CONTEXT] Erro ao recuperar histórico:', error);
       return [];
     }
   }
@@ -382,9 +382,9 @@ export class ContextManager {
       const trimmedHistory = history.slice(-this.maxHistoryLength);
 
       await setMemory(historyKey, trimmedHistory);
-      console.log(`💾 [CONTEXT] Interação salva para ${contactId}`);
+      console.log(` [CONTEXT] Interação salva para ${contactId}`);
     } catch (error) {
-      console.error('❌ [CONTEXT] Erro ao salvar interação:', error);
+      console.error(' [CONTEXT] Erro ao salvar interação:', error);
     }
   }
 
@@ -470,7 +470,7 @@ export class ContextManager {
   }
 
   /**
-   * 💚 DETECÇÃO DE OFF-TOPIC COM EMPATIA
+   *  DETECÇÃO DE OFF-TOPIC COM EMPATIA
    * Detecta quando o lead está falando sobre assuntos pessoais/emergenciais
    * e retorna resposta empática com redirecionamento suave
    */
@@ -481,19 +481,19 @@ export class ContextManager {
     const offTopicPatterns = {
       emergency: {
         keywords: ['doente', 'sick', 'hospital', 'emergência', 'emergency', 'urgente', 'urgent', 'acidente', 'accident'],
-        response: 'Entendo perfeitamente, situações assim precisam de toda nossa atenção. Sua prioridade agora é cuidar disso. Quando as coisas se acalmarem, estarei aqui para continuarmos nossa conversa. Desejo melhoras! 🙏'
+        response: 'Entendo perfeitamente, situações assim precisam de toda nossa atenção. Sua prioridade agora é cuidar disso. Quando as coisas se acalmarem, estarei aqui para continuarmos nossa conversa. Desejo melhoras! '
       },
       personal: {
         keywords: ['família', 'family', 'filho', 'son', 'filha', 'daughter', 'mãe', 'mother', 'pai', 'father', 'esposa', 'wife', 'marido', 'husband'],
-        response: 'Entendo completamente. Assuntos de família sempre vêm em primeiro lugar. Quando tiver um momento mais tranquilo, podemos retomar nossa conversa sobre como posso ajudar seu negócio. Conte comigo! 💙'
+        response: 'Entendo completamente. Assuntos de família sempre vêm em primeiro lugar. Quando tiver um momento mais tranquilo, podemos retomar nossa conversa sobre como posso ajudar seu negócio. Conte comigo! '
       },
       busy: {
         keywords: ['ocupado', 'busy', 'sem tempo', 'no time', 'corrido', 'atarefado', 'cheio de trabalho'],
-        response: 'Sei como é ter uma agenda cheia! Não quero tomar seu tempo agora. Quando tiver um momento, me avisa e a gente conversa com calma sobre como nossos agentes podem, inclusive, liberar mais tempo na sua rotina. 😊'
+        response: 'Sei como é ter uma agenda cheia! Não quero tomar seu tempo agora. Quando tiver um momento, me avisa e a gente conversa com calma sobre como nossos agentes podem, inclusive, liberar mais tempo na sua rotina. '
       },
       unrelated: {
         keywords: ['futebol', 'football', 'jogo', 'game', 'filme', 'movie', 'série', 'series', 'novela', 'festa', 'party'],
-        response: 'Legal! 😊 Entendo que esse assunto é importante pra você. Quando tiver interesse em conversar sobre como podemos ajudar seu negócio a crescer, é só me chamar!'
+        response: 'Legal!  Entendo que esse assunto é importante pra você. Quando tiver interesse em conversar sobre como podemos ajudar seu negócio a crescer, é só me chamar!'
       }
     };
 
@@ -501,7 +501,7 @@ export class ContextManager {
     for (const [type, config] of Object.entries(offTopicPatterns)) {
       const matches = config.keywords.filter(keyword => messageLower.includes(keyword));
       if (matches.length > 0) {
-        console.log(`💚 [OFF-TOPIC] Detectado: ${type} - keywords: ${matches.join(', ')}`);
+        console.log(` [OFF-TOPIC] Detectado: ${type} - keywords: ${matches.join(', ')}`);
         return {
           isOffTopic: true,
           type,

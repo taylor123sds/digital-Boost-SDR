@@ -1,7 +1,8 @@
 // learning/conversation_analytics.js
 // Sistema de análise de conversas para identificar padrões de sucesso
 
-import { db } from '../memory.js';
+//  FIX: Usar getDatabase() que verifica e reconecta se necessário
+import { getDatabase } from '../db/index.js';
 
 /**
  * Analisa conversas e identifica padrões de sucesso/falha
@@ -15,6 +16,8 @@ export class ConversationAnalytics {
    * Inicializa tabelas para analytics
    */
   initDatabase() {
+    //  FIX: Obter conexão fresh
+    const db = getDatabase();
     // Tabela de conversas analisadas
     db.exec(`
       CREATE TABLE IF NOT EXISTS conversation_analysis (
@@ -59,7 +62,7 @@ export class ConversationAnalytics {
       )
     `);
 
-    console.log('✅ [LEARNING] Database analytics initialized');
+    console.log(' [LEARNING] Database analytics initialized');
   }
 
   /**
@@ -128,12 +131,14 @@ export class ConversationAnalytics {
    */
   async saveSuccessSignal(contactId, signalType, signalValue, confidence, context) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       db.prepare(`
         INSERT INTO success_signals (contact_id, signal_type, signal_value, confidence, context)
         VALUES (?, ?, ?, ?, ?)
       `).run(contactId, signalType, signalValue, confidence, context.substring(0, 500));
     } catch (error) {
-      console.error('❌ [LEARNING] Error saving success signal:', error);
+      console.error(' [LEARNING] Error saving success signal:', error);
     }
   }
 
@@ -144,6 +149,8 @@ export class ConversationAnalytics {
    */
   async calculateConversationScore(contactId) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       const signals = db.prepare(`
         SELECT signal_type, confidence
         FROM success_signals
@@ -173,7 +180,7 @@ export class ConversationAnalytics {
 
       return Math.round(normalizedScore);
     } catch (error) {
-      console.error('❌ [LEARNING] Error calculating score:', error);
+      console.error(' [LEARNING] Error calculating score:', error);
       return 50;
     }
   }
@@ -185,6 +192,8 @@ export class ConversationAnalytics {
    */
   async extractSuccessfulPatterns(minSuccessScore = 70) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       // Buscar conversas com alto score
       const successfulConversations = db.prepare(`
         SELECT DISTINCT contact_id
@@ -225,7 +234,7 @@ export class ConversationAnalytics {
 
       return patterns;
     } catch (error) {
-      console.error('❌ [LEARNING] Error extracting patterns:', error);
+      console.error(' [LEARNING] Error extracting patterns:', error);
       return [];
     }
   }
@@ -235,6 +244,8 @@ export class ConversationAnalytics {
    */
   async saveSuccessfulPattern(patternType, patternContent, contextTags = []) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       db.prepare(`
         INSERT INTO successful_patterns (pattern_type, pattern_content, context_tags, last_used)
         VALUES (?, ?, ?, datetime('now'))
@@ -243,9 +254,9 @@ export class ConversationAnalytics {
           last_used = datetime('now')
       `).run(patternType, patternContent, JSON.stringify(contextTags));
 
-      console.log(`✅ [LEARNING] Pattern saved: ${patternType}`);
+      console.log(` [LEARNING] Pattern saved: ${patternType}`);
     } catch (error) {
-      console.error('❌ [LEARNING] Error saving pattern:', error);
+      console.error(' [LEARNING] Error saving pattern:', error);
     }
   }
 
@@ -256,6 +267,8 @@ export class ConversationAnalytics {
    */
   async getRecommendedPatterns(context) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       const patterns = db.prepare(`
         SELECT pattern_type, pattern_content, success_rate, usage_count
         FROM successful_patterns
@@ -266,7 +279,7 @@ export class ConversationAnalytics {
 
       return patterns;
     } catch (error) {
-      console.error('❌ [LEARNING] Error getting patterns:', error);
+      console.error(' [LEARNING] Error getting patterns:', error);
       return [];
     }
   }
@@ -276,6 +289,8 @@ export class ConversationAnalytics {
    */
   async generateLearningReport() {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       const totalSignals = db.prepare('SELECT COUNT(*) as count FROM success_signals').get();
       const positiveSignals = db.prepare(`
         SELECT COUNT(*) as count FROM success_signals
@@ -302,7 +317,7 @@ export class ConversationAnalytics {
         topPatterns
       };
     } catch (error) {
-      console.error('❌ [LEARNING] Error generating report:', error);
+      console.error(' [LEARNING] Error generating report:', error);
       return null;
     }
   }

@@ -1,7 +1,14 @@
 // src/tools/lead_scoring_system.js
 // Sistema de pontuação automática de leads com classificação MQL/SQL
+// MELHORIA 3: Agora com scoring ponderado por arquétipo
 
-import { db } from '../memory.js';
+//  FIX: Usar getDatabase() que verifica e reconecta se necessário
+import { getDatabase } from '../db/index.js';
+
+// ============================================================
+// CONFIG LOADER - Carrega ICP dinamicamente do banco ou defaults
+// ============================================================
+import { getConfigLoader, DEFAULT_IDEAL_PROFILES } from '../config/AgentConfigLoader.js';
 
 /**
  * LEAD SCORING SYSTEM
@@ -11,11 +18,91 @@ import { db } from '../memory.js';
  * - Firmographics (tamanho empresa, segmento)
  * - BANT (Budget, Authority, Need, Timeline)
  * - Intent signals (perguntas sobre preço, demo, etc)
+ * - MELHORIA 3: Arquétipo (sinais de compra específicos por tipo)
  */
 
 export class LeadScoringSystem {
   constructor() {
     this.initDatabase();
+
+    // ═══════════════════════════════════════════════════════════════
+    // MELHORIA 3: PESOS DE SINAIS POR ARQUÉTIPO
+    // Cada arquétipo demonstra interesse de compra de forma diferente
+    // ═══════════════════════════════════════════════════════════════
+    this.archetypeBuyingSignals = {
+      // HEROI: Foca em resultados e velocidade
+      HEROI: {
+        highSignals: ['quanto tempo', 'roi', 'resultado', 'meta', 'superar', 'vencer'],
+        mediumSignals: ['desafio', 'concorrente', 'benchmark'],
+        multiplier: 1.2 // Herói decide rápido quando convencido
+      },
+      // SABIO: Precisa de dados e evidências
+      SABIO: {
+        highSignals: ['dados', 'case', 'estudo', 'metodologia', 'métricas', 'comparativo'],
+        mediumSignals: ['como funciona', 'documentação', 'whitepaper'],
+        multiplier: 1.0 // Padrão - processo analítico
+      },
+      // MAGO: Quer transformação e visão
+      MAGO: {
+        highSignals: ['transformar', 'revolucionar', 'automatizar', 'escalar', 'futuro'],
+        mediumSignals: ['inovar', 'diferente', 'novo'],
+        multiplier: 1.15 // Entusiasta quando vê potencial
+      },
+      // CUIDADOR: Preocupado com equipe e segurança
+      CUIDADOR: {
+        highSignals: ['minha equipe', 'meus funcionários', 'proteger', 'seguro', 'confiável'],
+        mediumSignals: ['suporte', 'ajuda', 'treinamento'],
+        multiplier: 0.95 // Mais cauteloso, precisa de confiança
+      },
+      // GOVERNANTE: Quer controle e liderança
+      GOVERNANTE: {
+        highSignals: ['controle', 'dashboard', 'relatório', 'visibilidade', 'gestão'],
+        mediumSignals: ['indicadores', 'kpi', 'monitorar'],
+        multiplier: 1.1 // Decide quando tem controle
+      },
+      // REBELDE: Quer quebrar padrões
+      REBELDE: {
+        highSignals: ['diferente', 'chega de', 'cansei', 'não funciona', 'preciso mudar'],
+        mediumSignals: ['alternativa', 'novo jeito', 'disruptivo'],
+        multiplier: 1.25 // Muito motivado quando frustrado com status quo
+      },
+      // EXPLORADOR: Busca novidades e oportunidades
+      EXPLORADOR: {
+        highSignals: ['novo', 'oportunidade', 'expandir', 'crescer', 'explorar'],
+        mediumSignals: ['tendência', 'mercado', 'inovação'],
+        multiplier: 1.1 // Aberto a novidades
+      },
+      // CRIADOR: Quer personalização
+      CRIADOR: {
+        highSignals: ['personalizar', 'customizar', 'adaptar', 'específico', 'único'],
+        mediumSignals: ['meu caso', 'minha situação', 'diferente'],
+        multiplier: 1.05 // Precisa ver fit específico
+      },
+      // AMANTE: Conexão emocional e paixão
+      AMANTE: {
+        highSignals: ['meu sonho', 'paixão', 'construí', 'minha história', 'orgulho'],
+        mediumSignals: ['família', 'legado', 'amor'],
+        multiplier: 1.1 // Compra quando há conexão
+      },
+      // INOCENTE: Simplicidade e transparência
+      INOCENTE: {
+        highSignals: ['simples', 'fácil', 'direto', 'sem complicação', 'claro'],
+        mediumSignals: ['honesto', 'transparente', 'verdade'],
+        multiplier: 1.0 // Padrão quando confia
+      },
+      // PESSOA_COMUM: Praticidade
+      PESSOA_COMUM: {
+        highSignals: ['prático', 'funciona', 'real', 'comum', 'todo mundo usa'],
+        mediumSignals: ['normal', 'básico', 'essencial'],
+        multiplier: 1.0 // Compra quando vê praticidade
+      },
+      // BOBO_DA_CORTE: Leveza
+      BOBO_DA_CORTE: {
+        highSignals: ['legal', 'bacana', 'show', 'top', 'massa'],
+        mediumSignals: ['divertido', 'interessante', 'curioso'],
+        multiplier: 0.9 // Pode ser mais difícil de converter
+      }
+    };
 
     // Critérios de pontuação e pesos
     this.scoringCriteria = {
@@ -78,35 +165,23 @@ export class LeadScoringSystem {
       ]
     };
 
-    // Segmentos ideais (ICP - Ideal Customer Profile)
-    this.idealProfiles = {
-      PERFECT: {
-        industries: ['saúde', 'clínica', 'advocacia', 'contabilidade', 'educação', 'escola', 'curso'],
-        sizes: ['10-50', '50-200'],
-        locations: ['natal', 'rn', 'nordeste'],
-        score: 25
-      },
-      GOOD: {
-        industries: ['varejo', 'e-commerce', 'serviços', 'consultoria', 'imobiliária'],
-        sizes: ['5-10', '200-500'],
-        locations: ['brasil'],
-        score: 20
-      },
-      ACCEPTABLE: {
-        industries: ['outros'],
-        sizes: ['1-5', '500+'],
-        locations: ['internacional'],
-        score: 10
-      }
-    };
+    // ============================================================
+    // ICP - Ideal Customer Profile
+    // Agora carregado via ConfigLoader (dinamico por tenant)
+    // Default mantido para retrocompatibilidade
+    // ============================================================
+    this.idealProfiles = DEFAULT_IDEAL_PROFILES;
+    this.configLoader = getConfigLoader();
 
-    console.log('🎯 Lead Scoring System inicializado');
+    console.log(' Lead Scoring System inicializado');
   }
 
   /**
    * Inicializa tabelas de lead scoring
    */
   initDatabase() {
+    //  FIX: Obter conexão fresh
+    const db = getDatabase();
     db.exec(`
       CREATE TABLE IF NOT EXISTS lead_scores (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,18 +221,19 @@ export class LeadScoringSystem {
       )
     `);
 
-    console.log('✅ Lead Scoring Database tables initialized');
+    console.log(' Lead Scoring Database tables initialized');
   }
 
   /**
    * Calcula score completo do lead
+   * MELHORIA 3: Agora considera arquétipo para ponderação
    * @param {string} contactId
-   * @param {object} context - Contexto adicional (mensagens, profile, etc)
+   * @param {object} context - Contexto adicional (mensagens, profile, archetype, etc)
    * @returns {object} - Score detalhado
    */
   async calculateLeadScore(contactId, context = {}) {
     try {
-      console.log(`📊 [SCORING] Calculando score para ${contactId}...`);
+      console.log(` [SCORING] Calculando score para ${contactId}...`);
 
       // 1. Comportamento
       const behaviorScore = await this.calculateBehaviorScore(contactId, context);
@@ -171,8 +247,22 @@ export class LeadScoringSystem {
       // 4. Intent Signals
       const intentScore = await this.calculateIntentScore(contactId, context);
 
-      // 5. Score Total
-      const totalScore = behaviorScore + firmographicsScore + bantScore + intentScore;
+      // MELHORIA 3: Score de arquétipo
+      const archetypeScore = this.calculateArchetypeScore(contactId, context);
+
+      // 5. Score Total Base
+      let totalScore = behaviorScore + firmographicsScore + bantScore + intentScore;
+
+      // MELHORIA 3: Aplicar multiplicador do arquétipo
+      const archetype = context.archetype || 'SABIO';
+      const archetypeConfig = this.archetypeBuyingSignals[archetype] || this.archetypeBuyingSignals.SABIO;
+      const multiplier = archetypeConfig.multiplier || 1.0;
+
+      // Adicionar score de sinais específicos do arquétipo
+      totalScore += archetypeScore.bonusPoints;
+
+      // Aplicar multiplicador (limitar a 100)
+      totalScore = Math.min(100, Math.round(totalScore * multiplier));
 
       // 6. Classificação
       const classification = this.classifyLeadByScore(totalScore);
@@ -189,7 +279,7 @@ export class LeadScoringSystem {
         priority
       });
 
-      console.log(`✅ [SCORING] ${contactId}: ${totalScore}/100 (${classification})`);
+      console.log(` [SCORING] ${contactId}: ${totalScore}/100 (${classification}) | Arquétipo: ${archetype} (x${multiplier})`);
 
       return {
         contactId,
@@ -198,21 +288,142 @@ export class LeadScoringSystem {
           firmographics: firmographicsScore,
           bant: bantScore,
           intent: intentScore,
+          archetype: archetypeScore, // MELHORIA 3: Incluir score de arquétipo
           total: totalScore
         },
         classification,
         priority,
+        archetypeMultiplier: multiplier, // MELHORIA 3
         breakdown: {
           behaviorDetails: this.getBehaviorBreakdown(context),
           firmographicsDetails: this.getFirmographicsBreakdown(context),
-          intentDetails: this.getIntentBreakdown(context)
+          intentDetails: this.getIntentBreakdown(context),
+          archetypeDetails: archetypeScore // MELHORIA 3
         }
       };
 
     } catch (error) {
-      console.error('❌ [SCORING] Erro ao calcular score:', error);
+      console.error(' [SCORING] Erro ao calcular score:', error);
       return null;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MELHORIA 3: SCORING PONDERADO POR ARQUÉTIPO
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Calcula score baseado em sinais específicos do arquétipo
+   * @param {string} contactId
+   * @param {object} context
+   * @returns {object} Score e detalhes
+   */
+  calculateArchetypeScore(contactId, context = {}) {
+    const archetype = context.archetype || 'SABIO';
+    const archetypeConfig = this.archetypeBuyingSignals[archetype];
+
+    if (!archetypeConfig) {
+      return {
+        bonusPoints: 0,
+        highSignalsFound: [],
+        mediumSignalsFound: [],
+        archetype,
+        multiplier: 1.0
+      };
+    }
+
+    const messages = context.recentMessages || [];
+    const allText = messages.map(m => m.text?.toLowerCase() || '').join(' ');
+    const lastMessage = (context.lastMessage || '').toLowerCase();
+
+    const highSignalsFound = [];
+    const mediumSignalsFound = [];
+    let bonusPoints = 0;
+
+    // Verificar sinais de alta prioridade do arquétipo (3 pontos cada)
+    for (const signal of archetypeConfig.highSignals) {
+      if (allText.includes(signal) || lastMessage.includes(signal)) {
+        highSignalsFound.push(signal);
+        bonusPoints += 3;
+      }
+    }
+
+    // Verificar sinais de média prioridade (1 ponto cada)
+    for (const signal of archetypeConfig.mediumSignals) {
+      if (allText.includes(signal) || lastMessage.includes(signal)) {
+        mediumSignalsFound.push(signal);
+        bonusPoints += 1;
+      }
+    }
+
+    // Limitar bônus a 15 pontos
+    bonusPoints = Math.min(15, bonusPoints);
+
+    if (highSignalsFound.length > 0 || mediumSignalsFound.length > 0) {
+      console.log(` [SCORING] Sinais de ${archetype}: ${highSignalsFound.length} altos, ${mediumSignalsFound.length} médios (+${bonusPoints} pts)`);
+    }
+
+    return {
+      bonusPoints,
+      highSignalsFound,
+      mediumSignalsFound,
+      archetype,
+      multiplier: archetypeConfig.multiplier
+    };
+  }
+
+  /**
+   * Obtém recomendação de abordagem baseada no arquétipo e score
+   * @param {string} archetype
+   * @param {number} score
+   * @returns {object} Recomendação
+   */
+  getArchetypeRecommendation(archetype, score) {
+    const config = this.archetypeBuyingSignals[archetype] || this.archetypeBuyingSignals.SABIO;
+
+    const recommendations = {
+      HEROI: {
+        highScore: 'Apresente ROI e timeline agressivo. HEROI quer vencer.',
+        mediumScore: 'Mostre cases de sucesso e métricas de resultado.',
+        lowScore: 'Desafie com metas ambiciosas que ele pode alcançar.'
+      },
+      SABIO: {
+        highScore: 'Forneça documentação técnica e dados comparativos.',
+        mediumScore: 'Ofereça webinar ou demo detalhada.',
+        lowScore: 'Compartilhe artigos e estudos de caso.'
+      },
+      MAGO: {
+        highScore: 'Pinte a visão de transformação completa.',
+        mediumScore: 'Mostre potencial de automação e escala.',
+        lowScore: 'Inspire com possibilidades futuras.'
+      },
+      REBELDE: {
+        highScore: 'Valide frustrações e mostre como quebrar padrões.',
+        mediumScore: 'Apresente como diferencial competitivo.',
+        lowScore: 'Questione o status quo junto com ele.'
+      },
+      CUIDADOR: {
+        highScore: 'Enfatize suporte, treinamento e segurança.',
+        mediumScore: 'Mostre como protege a equipe.',
+        lowScore: 'Construa confiança com garantias.'
+      },
+      GOVERNANTE: {
+        highScore: 'Demonstre controle total via dashboards.',
+        mediumScore: 'Mostre relatórios e visibilidade.',
+        lowScore: 'Enfatize gestão e indicadores.'
+      },
+      DEFAULT: {
+        highScore: 'Lead quente - agende reunião imediatamente.',
+        mediumScore: 'Continue qualificação com foco em valor.',
+        lowScore: 'Nutra com conteúdo relevante.'
+      }
+    };
+
+    const archetypeRec = recommendations[archetype] || recommendations.DEFAULT;
+
+    if (score >= 70) return { level: 'high', message: archetypeRec.highScore };
+    if (score >= 40) return { level: 'medium', message: archetypeRec.mediumScore };
+    return { level: 'low', message: archetypeRec.lowScore };
   }
 
   /**
@@ -383,6 +594,8 @@ export class LeadScoringSystem {
    */
   async saveLeadScore(contactId, scores) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       db.prepare(`
         INSERT INTO lead_scores (
           contact_id, behavior_score, firmographics_score, bant_score,
@@ -411,7 +624,7 @@ export class LeadScoringSystem {
       );
 
     } catch (error) {
-      console.error('❌ [SCORING] Erro ao salvar score:', error);
+      console.error(' [SCORING] Erro ao salvar score:', error);
     }
   }
 
@@ -420,13 +633,15 @@ export class LeadScoringSystem {
    */
   async getLeadScore(contactId) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       const score = db.prepare(`
         SELECT * FROM lead_scores WHERE contact_id = ?
       `).get(contactId);
 
       return score || null;
     } catch (error) {
-      console.error('❌ [SCORING] Erro ao buscar score:', error);
+      console.error(' [SCORING] Erro ao buscar score:', error);
       return null;
     }
   }
@@ -436,14 +651,16 @@ export class LeadScoringSystem {
    */
   async recordActivity(contactId, activityType, activityValue, points = 0) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       db.prepare(`
         INSERT INTO lead_activities (contact_id, activity_type, activity_value, points_awarded)
         VALUES (?, ?, ?, ?)
       `).run(contactId, activityType, activityValue, points);
 
-      console.log(`📝 [SCORING] Atividade registrada: ${activityType} (+${points} pontos)`);
+      console.log(` [SCORING] Atividade registrada: ${activityType} (+${points} pontos)`);
     } catch (error) {
-      console.error('❌ [SCORING] Erro ao registrar atividade:', error);
+      console.error(' [SCORING] Erro ao registrar atividade:', error);
     }
   }
 
@@ -452,13 +669,15 @@ export class LeadScoringSystem {
    */
   async getLeadsByClassification(classification) {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       return db.prepare(`
         SELECT * FROM lead_scores
         WHERE classification = ?
         ORDER BY total_score DESC, last_activity DESC
       `).all(classification);
     } catch (error) {
-      console.error('❌ [SCORING] Erro ao buscar leads:', error);
+      console.error(' [SCORING] Erro ao buscar leads:', error);
       return [];
     }
   }
@@ -468,6 +687,8 @@ export class LeadScoringSystem {
    */
   async getHighPriorityLeads() {
     try {
+      //  FIX: Obter conexão fresh
+      const db = getDatabase();
       return db.prepare(`
         SELECT * FROM lead_scores
         WHERE classification IN ('SQL', 'MQL')
@@ -481,7 +702,7 @@ export class LeadScoringSystem {
         LIMIT 50
       `).all();
     } catch (error) {
-      console.error('❌ [SCORING] Erro ao buscar leads prioritários:', error);
+      console.error(' [SCORING] Erro ao buscar leads prioritários:', error);
       return [];
     }
   }

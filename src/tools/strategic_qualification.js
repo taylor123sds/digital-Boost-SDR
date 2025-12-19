@@ -28,10 +28,10 @@ export const RESPONDENT_TYPES = {
  * Classificações finais de leads
  */
 export const LEAD_CLASSIFICATIONS = {
-  DECISOR_ENCONTRADO: '✅ Decisor humano encontrado',
-  AGUARDANDO_ENCAMINHAMENTO: '🔄 Recepcionista/assistente (aguardar encaminhamento)',
-  CHATBOT_DETECTADO: '🤖 Chatbot (precisa de outra abordagem)',
-  NAO_QUALIFICADO: '❌ Não qualificado'
+  DECISOR_ENCONTRADO: ' Decisor humano encontrado',
+  AGUARDANDO_ENCAMINHAMENTO: ' Recepcionista/assistente (aguardar encaminhamento)',
+  CHATBOT_DETECTADO: ' Chatbot (precisa de outra abordagem)',
+  NAO_QUALIFICADO: ' Não qualificado'
 };
 
 /**
@@ -122,7 +122,7 @@ export async function detectHumanVsBot(phoneNumber, message, responseTime, conve
   const indicators = [];
   
   // Recuperar análises anteriores
-  const previousAnalysis = await getMemory(`bot_detection_${phoneNumber}`);
+  const previousAnalysis = await getMemory(`human_detection_${phoneNumber}`);
   let history = previousAnalysis ? JSON.parse(previousAnalysis) : {
     responses: [],
     botIndicators: 0,
@@ -221,7 +221,7 @@ export async function detectHumanVsBot(phoneNumber, message, responseTime, conve
     analysis: analysis.indicators
   });
 
-  await saveMemory(`bot_detection_${phoneNumber}`, JSON.stringify(history));
+  await saveMemory(`human_detection_${phoneNumber}`, JSON.stringify(history));
   
   return analysis;
 }
@@ -460,7 +460,7 @@ export async function classifyLead(phoneNumber, botAnalysis, respondentMapping, 
  */
 export async function generateQualificationReport(phoneNumber) {
   const contactAnalysis = await getMemory(`contact_analysis_${phoneNumber}`);
-  const botDetection = await getMemory(`bot_detection_${phoneNumber}`);
+  const botDetection = await getMemory(`human_detection_${phoneNumber}`);
   const respondentMapping = await getMemory(`respondent_mapping_${phoneNumber}`);
   const leadClassification = await getMemory(`lead_classification_${phoneNumber}`);
 

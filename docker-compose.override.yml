@@ -1,0 +1,67 @@
+# =============================================================================
+# LEADLY SDR Agent - Docker Compose Override para DESENVOLVIMENTO LOCAL
+# =============================================================================
+#
+# Este arquivo e carregado automaticamente pelo docker-compose quando voce
+# executa `docker compose up`. Ele SOBRESCREVE o docker-compose.yml base.
+#
+# Uso Local:
+#   docker compose up -d              # Usa docker-compose.yml + override
+#   docker compose logs -f leadly    # Ver logs em tempo real
+#
+# Para Producao, use docker-compose.prod.yml explicitamente:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# =============================================================================
+
+services:
+  # ==========================================================================
+  # LEADLY SDR Agent - DESENVOLVIMENTO LOCAL
+  # ==========================================================================
+  leadly:
+    # Em desenvolvimento, faz build local em vez de usar imagem
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: local-dev
+        GIT_BRANCH: local
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    # Monta src/ para hot-reload (NÃO fazer isso em produção!)
+    volumes:
+      - ./src:/app/src:ro          # Source code (read-only para segurança)
+      - ./public:/app/public:ro    # Static files
+      - ./data:/app/data           # Database (read-write)
+      - ./uploads:/app/uploads     # Uploads
+      - ./logs:/app/logs           # Logs
+      - ./google_credentials.json:/app/google_credentials.json:ro
+      - ./google_token.json:/app/google_token.json
+      - /app/node_modules          # Prevent override of container node_modules
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      # Permite rebuild sem reiniciar container (com nodemon)
+      - CHOKIDAR_USEPOLLING=true
+    # Comando para desenvolvimento com watch
+    # command: npm run dev
+
+  # Worker em desenvolvimento (opcional - pode desabilitar)
+  leadly-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src:ro
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./google_credentials.json:/app/google_credentials.json:ro
+      - ./google_token.json:/app/google_token.json
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - ROLE=worker
+    # Descomente para desabilitar worker em desenvolvimento
+    # profiles:
+    #   - worker-dev

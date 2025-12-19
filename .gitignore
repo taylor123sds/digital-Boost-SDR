@@ -16,6 +16,7 @@ package-lock.json
 *.db-wal
 orbion.db
 agent.db
+backups/
 
 # Logs
 *.log
@@ -63,3 +64,17 @@ Thumbs.db
 # Backup files
 *.bak
 *.backup
+*.save
+*.backup-*
+*.old
+*-backup
+*-backup-*
+
+# Uploads temporários
+uploads/
+*.oga
+*.opus
+
+# Clean/Pristine database backups
+*.pristine-*
+*.clean-backup-*

@@ -1,0 +1,55 @@
+# ORBION SDR Agent - Systemd Service File
+# Alternativa ao PM2 para gerenciamento do processo
+#
+# Instalacao:
+#   sudo cp scripts/orbion.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable orbion
+#   sudo systemctl start orbion
+#
+# Comandos:
+#   sudo systemctl status orbion    - Ver status
+#   sudo systemctl start orbion     - Iniciar
+#   sudo systemctl stop orbion      - Parar
+#   sudo systemctl restart orbion   - Reiniciar
+#   journalctl -u orbion -f         - Ver logs
+
+[Unit]
+Description=ORBION SDR Agent - AI Sales Development Representative
+Documentation=https://github.com/SEU_USUARIO/agent-js-starter
+After=network.target
+
+[Service]
+Type=simple
+User=orbion
+Group=orbion
+WorkingDirectory=/opt/orbion
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3001
+EnvironmentFile=/opt/orbion/.env
+
+# Start command
+ExecStart=/usr/bin/node src/server.js
+
+# Restart policy
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=orbion
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/orbion/logs /opt/orbion/orbion.db /opt/orbion/uploads
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,12 +1,12 @@
 import { addTask, listTasks } from './tools/tasks.js';
 import { searchKnowledge } from './tools/search_knowledge.js';
 import { getTime } from './tools/time.js';
-import { addEvent, listEvents } from './tools/calendar_local.js';
+import { createEvent, listEvents } from './tools/calendar_enhanced.js';
 import { sendWhatsAppMessage, scheduleWhatsAppMeeting, checkEvolutionStatus, getContactProfile, transcribeWhatsAppAudio, updateInstanceSettings, sendWhatsAppAudio, sendTTSWhatsAppMessage, sendIntelligentTTS, makeVirtualCall, makeIntelligentCall, callLeadOrNumber, runIntelligentCampaign } from './tools/whatsapp.js';
 import { analyzeDocument, getSupportedTypes, isFileSupported } from './tools/document_analyzer.js';
 import { getDocumentHistory, getDocumentAnalysisStats } from './memory.js';
-// 🚀 ENHANCED TOOLS IMPORT
-import { processMessage } from './core/OrbionHybridAgent.js';
+//  ENHANCED TOOLS IMPORT
+// Legacy import removed - now using 3-agent system (SDR  Specialist  Scheduler)
 
 export const toolsSpec = [
   {
@@ -296,7 +296,7 @@ export const toolsSpec = [
       }
     }
   },
-  // 🚀 ENHANCED CONVERSATION TOOLS
+  //  ENHANCED CONVERSATION TOOLS
   {
     type: 'function',
     function: {
@@ -429,7 +429,13 @@ export async function dispatchTool(name, args) {
     case 'list_tasks': return listTasks();
     case 'search_knowledge': return searchKnowledge(args.query, args.k || 4);
     case 'get_time': return getTime();
-    case 'add_event': return addEvent(args.title, args.datetime, args.notes || '');
+    case 'add_event': return createEvent({
+      title: args.title,
+      date: args.datetime.split('T')[0],
+      time: args.datetime.split('T')[1]?.substring(0, 5) || '09:00',
+      description: args.notes || '',
+      duration: 60
+    });
     case 'list_events': return listEvents();
     case 'send_whatsapp_message': return sendWhatsAppMessage(args.number, args.text);
     case 'schedule_whatsapp_meeting': return scheduleWhatsAppMeeting(args.number, args.title, args.datetime, args.notes || '');
@@ -448,73 +454,16 @@ export async function dispatchTool(name, args) {
     case 'check_file_support': return { supported: isFileSupported(args.fileName), fileName: args.fileName };
     case 'get_document_analysis_history': return getDocumentHistory(args.limit || 10);
     case 'get_document_analysis_stats': return getDocumentAnalysisStats();
-    // 🚀 ENHANCED TOOLS DISPATCH
-    case 'get_conversation_state': return await getConversationState(args.from);
-    case 'get_qualification_score': return await getQualificationScore(args.from, args.text);
-    case 'analyze_sentiment': return await analyzeSentiment(args.text);
-    case 'get_next_best_action': return await getNextBestAction(args.from, args.text);
-    case 'process_enhanced_message': return await processMessage(args.from, args.text, args.profile || {});
+    //  ENHANCED TOOLS DISPATCH
+    // Legacy tools removed - now using 3-agent system (SDR  Specialist  Scheduler)
+    // The following tools were deprecated as they relied on OrbionHybridAgent:
+    // - get_conversation_state, get_qualification_score, analyze_sentiment,
+    // - get_next_best_action, process_enhanced_message
     default: return `Tool '${name}' não encontrada.`;
   }
 }
 
-// 🚀 ENHANCED TOOLS HELPER FUNCTIONS
-async function getConversationState(from) {
-  try {
-    // Simula análise do estado da conversa - em produção viria da memória/cache
-    const result = await processMessage(from, "", {});
-    return {
-      success: true,
-      state: result.enhanced?.state?.current || 'DISCOVERY',
-      subState: result.enhanced?.state?.subState || null,
-      transitions: result.enhanced?.state?.transitions || [],
-      metadata: result.enhanced?.metadata || {}
-    };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function getQualificationScore(from, text) {
-  try {
-    const result = await processMessage(from, text, {});
-    return {
-      success: true,
-      score: result.enhanced?.qualification?.score || 0,
-      criteria: result.enhanced?.qualification?.criteria || {},
-      level: result.enhanced?.qualification?.level || 'low'
-    };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function analyzeSentiment(text) {
-  try {
-    const result = await processMessage('analysis', text, {});
-    return {
-      success: true,
-      sentiment: result.enhanced?.sentiment?.polarity || 'neutral',
-      emotion: result.enhanced?.sentiment?.emotion || 'neutral',
-      intensity: result.enhanced?.sentiment?.intensity || 0.5,
-      confidence: result.enhanced?.sentiment?.confidence || 0.5
-    };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-async function getNextBestAction(from, text) {
-  try {
-    const result = await processMessage(from, text, {});
-    return {
-      success: true,
-      action: result.enhanced?.nextBestAction || 'continue_conversation',
-      reasoning: result.enhanced?.metadata?.actionReasoning || 'Continuar conversa para entender melhor',
-      priority: result.enhanced?.metadata?.actionPriority || 'medium',
-      suggestions: result.enhanced?.metadata?.actionSuggestions || []
-    };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
+//  ENHANCED TOOLS HELPER FUNCTIONS - LEGACY (Removed)
+// These functions depended on OrbionHybridAgent which has been replaced by the 3-agent system.
+// Current system uses: SDR Agent  Specialist Agent (BANT)  Scheduler Agent
+// Conversation state is now managed by AgentHub in src/agents/agent_hub_init.js

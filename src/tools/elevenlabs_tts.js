@@ -12,9 +12,9 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 let elevenLabsClient = null;
 if (ELEVENLABS_API_KEY) {
   elevenLabsClient = new ElevenLabsClient({ apiKey: ELEVENLABS_API_KEY });
-  console.log("✅ ElevenLabs Client inicializado");
+  console.log(" ElevenLabs Client inicializado");
 } else {
-  console.warn("⚠️  ELEVENLABS_API_KEY não encontrada - TTS premium desabilitado");
+  console.warn("  ELEVENLABS_API_KEY não encontrada - TTS premium desabilitado");
 }
 
 /**
@@ -29,7 +29,7 @@ export async function generateElevenLabsTTS(text, voiceId = "21m00Tcm4TlvDq8ikWA
   }
 
   try {
-    console.log(`🎤 Gerando TTS com ElevenLabs (${text.length} caracteres)...`);
+    console.log(` Gerando TTS com ElevenLabs (${text.length} caracteres)...`);
 
     const audio = await elevenLabsClient.textToSpeech.convert(voiceId, {
       text: text,
@@ -47,11 +47,11 @@ export async function generateElevenLabsTTS(text, voiceId = "21m00Tcm4TlvDq8ikWA
     }
     const audioBuffer = Buffer.concat(chunks);
 
-    console.log(`✅ TTS gerado com sucesso (${audioBuffer.length} bytes)`);
+    console.log(` TTS gerado com sucesso (${audioBuffer.length} bytes)`);
     return audioBuffer;
 
   } catch (error) {
-    console.error("❌ Erro ao gerar TTS com ElevenLabs:", error);
+    console.error(" Erro ao gerar TTS com ElevenLabs:", error);
     throw error;
   }
 }
@@ -73,7 +73,7 @@ export async function saveAudioToFile(audioBuffer, filename) {
   const filePath = path.join(audioDir, `${filename}.mp3`);
   fs.writeFileSync(filePath, audioBuffer);
 
-  console.log(`💾 Áudio salvo em: ${filePath}`);
+  console.log(` Áudio salvo em: ${filePath}`);
   return filePath;
 }
 

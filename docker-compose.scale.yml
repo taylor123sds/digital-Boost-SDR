@@ -1,0 +1,267 @@
+# =============================================================================
+# LEADLY SDR Agent - Docker Compose for Horizontal Scaling
+# =============================================================================
+#
+# This file separates API and Worker into distinct containers for production
+# horizontal scaling. Use this instead of docker-compose.yml when you need:
+#   - Multiple API instances behind a load balancer
+#   - Dedicated worker for background job processing
+#   - Independent scaling of HTTP handlers
+#
+# Usage:
+#   docker-compose -f docker-compose.scale.yml up -d
+#   docker-compose -f docker-compose.scale.yml up -d --scale leadly-api=3
+#   docker-compose -f docker-compose.scale.yml logs -f leadly-api leadly-worker
+#   docker-compose -f docker-compose.scale.yml down
+#
+# Architecture:
+#   ┌─────────────────────────────────────────────────────────────────┐
+#   │                        Load Balancer                            │
+#   │                     (nginx/traefik/etc)                         │
+#   └──────────────────────────────┬──────────────────────────────────┘
+#                                  │
+#          ┌───────────────────────┼───────────────────────┐
+#          ▼                       ▼                       ▼
+#   ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+#   │ leadly-api  │         │ leadly-api  │         │ leadly-api  │
+#   │  ROLE=api   │         │  ROLE=api   │         │  ROLE=api   │
+#   │  (replica)  │         │  (replica)  │         │  (replica)  │
+#   └─────────────┘         └─────────────┘         └─────────────┘
+#                                  │
+#                                  │ async_jobs table
+#                                  ▼
+#                          ┌─────────────┐
+#                          │leadly-worker│
+#                          │ ROLE=worker │
+#                          │   (single)  │
+#                          └─────────────┘
+#
+# =============================================================================
+
+# Common configuration for leadly services
+x-leadly-common: &leadly-common
+  image: orbion-leadly:${GIT_COMMIT:-local}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
+      GIT_BRANCH: ${GIT_BRANCH:-unknown}
+      BUILD_DATE: ${BUILD_DATE:-unknown}
+  restart: always
+  depends_on:
+    evolution-api:
+      condition: service_healthy
+  volumes:
+    - ./data:/app/data
+    - ./uploads:/app/uploads
+    - ./backups:/app/backups
+    - ./logs:/app/logs
+    - ./google_credentials.json:/app/google_credentials.json:ro
+    - ./google_token.json:/app/google_token.json
+  networks:
+    - leadly_network
+
+# Common environment variables
+x-leadly-env: &leadly-env
+  NODE_ENV: production
+  # OpenAI
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+  OPENAI_EMB_MODEL: ${OPENAI_EMB_MODEL:-text-embedding-3-small}
+  # Evolution API
+  EVOLUTION_BASE_URL: http://evolution-api:8080
+  EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-CHANGE_ME_SECURE_KEY}
+  EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-digitalboost}
+  DATABASE_PATH: /app/data/orbion.db
+  # Google Sheets
+  GOOGLE_LEADS_SHEET_ID: ${GOOGLE_LEADS_SHEET_ID}
+  GOOGLE_FUNIL_SHEET_ID: ${GOOGLE_FUNIL_SHEET_ID}
+  # Email
+  EMAIL_USER: ${EMAIL_USER}
+  EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+  EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+  EMAIL_PORT: ${EMAIL_PORT:-587}
+  EMAIL_FROM: ${EMAIL_FROM}
+  EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Digital Boost}
+  SELLER_NAME: ${SELLER_NAME:-Taylor}
+  # Security
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+  JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+  ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://yourdomain.com}
+  # ElevenLabs (optional)
+  ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+  # Prospecting
+  PROSPECTING_AUTO_START: ${PROSPECTING_AUTO_START:-false}
+  # Redis (for rate limiting and caching)
+  REDIS_URL: redis://:${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}@redis:6379
+
+services:
+  # ==========================================================================
+  # PostgreSQL - Database for Evolution API
+  # ==========================================================================
+  postgres:
+    container_name: evolution_postgres
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evolution_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evolution_pass_2025_secure}
+      POSTGRES_DB: ${POSTGRES_DB:-evolution_db}
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    networks:
+      - leadly_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evolution_user} -d ${POSTGRES_DB:-evolution_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Redis - Cache for Evolution API and LEADLY
+  # ==========================================================================
+  redis:
+    container_name: evolution_redis
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}
+    volumes:
+      - evolution_redis_data:/data
+    networks:
+      - leadly_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Evolution API - WhatsApp Integration
+  # ==========================================================================
+  evolution-api:
+    container_name: evolution_api
+    image: atendai/evolution-api:v2.3.6
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    networks:
+      - leadly_network
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://localhost:8080}
+      - CORS_ORIGIN=*
+      - CORS_METHODS=GET,POST,PUT,DELETE
+      - CORS_CREDENTIALS=true
+      - LOG_LEVEL=ERROR,WARN,INFO
+      - LOG_COLOR=true
+      - LOG_BAILEYS=info
+      - DEL_INSTANCE=false
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass_2025_secure}@postgres:5432/${POSTGRES_DB:-evolution_db}?schema=evolution_api
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://:${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}@redis:6379
+      - CACHE_REDIS_PREFIX_KEY=evolution_api
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-CHANGE_ME_SECURE_KEY}
+      - CONFIG_SESSION_PHONE_CLIENT=LEADLY
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - QRCODE_LIMIT=60
+      - QRCODE_COLOR=#18c5ff
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - WEBSOCKET_ENABLED=false
+      - INSTANCE_EXPIRATION_TIME=false
+      - STORE_MESSAGES=true
+      - STORE_MESSAGE_UP=true
+      - STORE_CONTACTS=true
+      - STORE_CHATS=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # LEADLY API - HTTP Server (Scalable)
+  # ==========================================================================
+  # This service handles HTTP requests only. No background jobs.
+  # Can be scaled horizontally: docker-compose up -d --scale leadly-api=3
+  leadly-api:
+    <<: *leadly-common
+    # Note: No container_name to allow multiple replicas
+    ports:
+      - "3001-3003:3001"  # Range for up to 3 replicas
+    environment:
+      <<: *leadly-env
+      PORT: "3001"
+      ROLE: api  # API only - no background jobs
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: ${API_REPLICAS:-1}
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ==========================================================================
+  # LEADLY Worker - Background Job Processor (Single Instance)
+  # ==========================================================================
+  # This service processes background jobs from async_jobs table.
+  # MUST be single instance to avoid job duplication (DB-level locking).
+  leadly-worker:
+    <<: *leadly-common
+    container_name: leadly_worker
+    # No ports needed - worker doesn't serve HTTP
+    environment:
+      <<: *leadly-env
+      PORT: "3002"  # Unused but required by server.js
+      ROLE: worker  # Worker only - background jobs, no HTTP
+    # No healthcheck via HTTP since worker doesn't serve HTTP
+    # Instead, monitor logs or implement a separate health mechanism
+    deploy:
+      replicas: 1  # MUST be 1 - only one worker to avoid job duplication
+      resources:
+        limits:
+          cpus: '2.0'  # More CPU for job processing
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  evolution_instances:
+  evolution_store:
+  evolution_postgres_data:
+  evolution_redis_data:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  leadly_network:
+    driver: bridge

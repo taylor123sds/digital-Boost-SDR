@@ -3,6 +3,10 @@ import OpenAI from 'openai';
 import { analyzeAndSelectArchetype, applyArchetypeToScript, ARCHETYPES } from './archetypes.js';
 import { sendWhatsAppMessage, generateTTSAudio, sendWhatsAppAudio, getContactProfile } from './whatsapp.js';
 import { saveMessage, getRecentMessages } from '../memory.js';
+// DEPRECATED: sales_intelligence.js foi removido do projeto
+// As funções abaixo foram migradas para outros módulos ou descontinuadas
+// TODO: Este arquivo (conversation_manager.js) não está sendo usado - considerar remoção
+/*
 import {
   analyzeConversationFlow,
   generateSalesResponse,
@@ -12,15 +16,25 @@ import {
   shouldCollectEmail,
   SALES_STAGES
 } from './sales_intelligence.js';
-import { 
-  completeSchedulingProcess 
-} from './meeting_scheduler.js';
+*/
+
+// Stubs para evitar erros se algum código ainda referenciar estas funções
+const analyzeConversationFlow = () => ({ stage: 'unknown', confidence: 0 });
+const generateSalesResponse = () => '';
+const extractEmailFromMessage = () => null;
+const detectSchedulingIntent = () => false;
+const shouldRequestMeeting = () => false;
+const shouldCollectEmail = () => false;
+const SALES_STAGES = {};
 import {
-  detectBot,
-  shouldStopConversation,
-  generateBotFarewellMessage
-} from './bot_detector.js';
+  completeSchedulingProcess
+} from './meeting_scheduler.js';
 import dotenv from 'dotenv';
+
+// ============================================================
+// CONFIG LOADER - Carrega config dinamica do banco ou defaults
+// ============================================================
+import { getConfigLoader, DEFAULT_COMPANY_CONTEXT } from '../config/AgentConfigLoader.js';
 
 dotenv.config();
 
@@ -29,41 +43,20 @@ const openai = new OpenAI({
 });
 
 /**
- * Contexto da Digital Boost para manter conversas no escopo
+ * Contexto da empresa - agora carregado dinamicamente
+ * Mantem retrocompatibilidade com DIGITAL_BOOST_CONTEXT
+ *
+ * @param {string} tenantId - ID do tenant (opcional)
+ * @param {string} agentId - ID do agente (opcional)
+ * @returns {Promise<object>} Contexto da empresa
  */
-const DIGITAL_BOOST_CONTEXT = {
-  company: "Digital Boost",
-  services: [
-    "Marketing Digital",
-    "Gestão de Redes Sociais",
-    "Google Ads e Meta Ads",
-    "Automação de Marketing",
-    "E-commerce",
-    "SEO e Otimização",
-    "Consultoria Digital",
-    "Criação de Conteúdo",
-    "Landing Pages",
-    "Funis de Vendas"
-  ],
-  scope: [
-    "marketing digital",
-    "publicidade online",
-    "redes sociais", 
-    "automação",
-    "vendas online",
-    "e-commerce",
-    "SEO",
-    "tráfego pago",
-    "conversão",
-    "leads",
-    "ROI",
-    "campanhas",
-    "digital",
-    "online"
-  ],
-  agent_name: "ORBION",
-  agent_role: "Especialista Digital da Digital Boost"
-};
+async function getCompanyContext(tenantId = null, agentId = null) {
+  const configLoader = getConfigLoader();
+  return await configLoader.getCompanyContext(tenantId, agentId);
+}
+
+// Retrocompatibilidade: export padrao para codigo que usa DIGITAL_BOOST_CONTEXT
+const DIGITAL_BOOST_CONTEXT = DEFAULT_COMPANY_CONTEXT;
 
 /**
  * Verifica se a mensagem está dentro do escopo da Digital Boost
@@ -72,7 +65,7 @@ const DIGITAL_BOOST_CONTEXT = {
  */
 export async function analyzeMessageScope(message) {
   try {
-    console.log('🔍 Analisando escopo da mensagem...');
+    console.log(' Analisando escopo da mensagem...');
     
     const analysisPrompt = `
 Como especialista em comunicação empresarial, analise se esta mensagem está relacionada ao escopo de negócios da Digital Boost.
@@ -111,12 +104,12 @@ RESPONDA EM JSON:
     });
 
     const analysis = JSON.parse(response.choices[0].message.content);
-    console.log('🔍 Análise de escopo:', analysis);
+    console.log(' Análise de escopo:', analysis);
     
     return analysis;
     
   } catch (error) {
-    console.error('❌ Erro ao analisar escopo:', error);
+    console.error(' Erro ao analisar escopo:', error);
     return {
       inScope: true,
       confidence: 0.5,
@@ -136,7 +129,7 @@ RESPONDA EM JSON:
  */
 export async function generateIntelligentSalesResponse(incomingMessage, senderNumber, conversationHistory = []) {
   try {
-    console.log('🧠 Gerando resposta inteligente de vendas...');
+    console.log(' Gerando resposta inteligente de vendas...');
     
     // 1. Analisar escopo da mensagem
     const scopeAnalysis = await analyzeMessageScope(incomingMessage);
@@ -162,7 +155,7 @@ export async function generateIntelligentSalesResponse(incomingMessage, senderNu
     const hasSchedulingIntent = detectSchedulingIntent(incomingMessage);
 
     if (extractedEmail) {
-      console.log('📧 Email detectado na mensagem:', extractedEmail);
+      console.log(' Email detectado na mensagem:', extractedEmail);
 
       // Verificar se devemos agendar reunião
       if (salesAnalysis.current_stage === SALES_STAGES.EMAIL_COLLECTION ||
@@ -185,9 +178,9 @@ export async function generateIntelligentSalesResponse(incomingMessage, senderNu
           };
 
         } catch (error) {
-          console.error('❌ Erro ao agendar reunião:', error);
+          console.error(' Erro ao agendar reunião:', error);
           return {
-            response: `Recebi seu email! Vou processar o agendamento da reunião e te enviar os detalhes em instantes. Obrigado! 📅`,
+            response: `Recebi seu email! Vou processar o agendamento da reunião e te enviar os detalhes em instantes. Obrigado! `,
             actions: ['email_received'],
             stage: SALES_STAGES.MEETING_SCHEDULING
           };
@@ -197,10 +190,10 @@ export async function generateIntelligentSalesResponse(incomingMessage, senderNu
 
     // 4.1. Verificar se há intenção de agendamento sem email
     if (hasSchedulingIntent && !extractedEmail && salesAnalysis.ready_for_meeting) {
-      console.log('📅 Intenção de agendamento detectada - solicitando email');
+      console.log(' Intenção de agendamento detectada - solicitando email');
 
       return {
-        response: `Perfeito! Vou agendar nossa reunião estratégica. Para enviar o convite, preciso do seu email. Qual o melhor email para contato? 📧`,
+        response: `Perfeito! Vou agendar nossa reunião estratégica. Para enviar o convite, preciso do seu email. Qual o melhor email para contato? `,
         actions: ['request_email_for_scheduling'],
         stage: SALES_STAGES.EMAIL_COLLECTION
       };
@@ -223,9 +216,9 @@ export async function generateIntelligentSalesResponse(incomingMessage, senderNu
       actions.push('collect_email');
     }
     
-    console.log(`🎯 Estágio: ${salesAnalysis.current_stage} → ${salesAnalysis.next_stage}`);
-    console.log(`📊 Interesse: ${salesAnalysis.interest_level}/10`);
-    console.log(`🎬 Ações: ${actions.join(', ')}`);
+    console.log(` Estágio: ${salesAnalysis.current_stage}  ${salesAnalysis.next_stage}`);
+    console.log(` Interesse: ${salesAnalysis.interest_level}/10`);
+    console.log(` Ações: ${actions.join(', ')}`);
     
     return {
       response: salesResponse,
@@ -236,9 +229,9 @@ export async function generateIntelligentSalesResponse(incomingMessage, senderNu
     };
     
   } catch (error) {
-    console.error('❌ Erro ao gerar resposta inteligente:', error);
+    console.error(' Erro ao gerar resposta inteligente:', error);
     return {
-      response: `Obrigado pelo seu interesse! Com base no que você me contou, acredito que podemos ajudar muito no crescimento do seu negócio. Que tal conversarmos sobre uma estratégia específica para você? 🚀`,
+      response: `Obrigado pelo seu interesse! Com base no que você me contou, acredito que podemos ajudar muito no crescimento do seu negócio. Que tal conversarmos sobre uma estratégia específica para você? `,
       actions: ['fallback'],
       stage: SALES_STAGES.INTEREST_DISCOVERY
     };
@@ -253,7 +246,7 @@ export async function generateIntelligentSalesResponse(incomingMessage, senderNu
  */
 export async function generateRedirectResponse(message, scopeAnalysis) {
   try {
-    console.log('🔄 Gerando resposta de redirecionamento...');
+    console.log(' Gerando resposta de redirecionamento...');
     
     const redirectPrompt = `
 Como ORBION da Digital Boost, responda educadamente a uma mensagem que está fora do escopo de marketing digital.
@@ -287,13 +280,13 @@ Responda apenas com a mensagem:
     });
 
     const redirectResponse = response.choices[0].message.content.trim();
-    console.log('🔄 Resposta de redirecionamento gerada:', redirectResponse);
+    console.log(' Resposta de redirecionamento gerada:', redirectResponse);
     
     return redirectResponse;
     
   } catch (error) {
-    console.error('❌ Erro ao gerar redirecionamento:', error);
-    return "Obrigado pelo contato! Sou especialista em marketing digital da Digital Boost. Como posso ajudar a impulsionar seu negócio online? 🚀";
+    console.error(' Erro ao gerar redirecionamento:', error);
+    return "Obrigado pelo contato! Sou especialista em marketing digital da Digital Boost. Como posso ajudar a impulsionar seu negócio online? ";
   }
 }
 
@@ -306,7 +299,7 @@ Responda apenas com a mensagem:
  */
 export async function processIncomingMessage(senderNumber, message, messageType = 'text') {
   try {
-    console.log(`📥 Processando mensagem de ${senderNumber}: ${message.substring(0, 50)}...`);
+    console.log(` Processando mensagem de ${senderNumber}: ${message.substring(0, 50)}...`);
     
     // Salvar mensagem recebida no histórico
     await saveMessage(senderNumber, message, false, messageType);
@@ -317,14 +310,14 @@ export async function processIncomingMessage(senderNumber, message, messageType 
     // Verificar se é a primeira conversa e enviar áudio de apresentação
     let audioResult = null;
     if (isFirstConversation(conversationHistory)) {
-      console.log('👋 Primeira conversa detectada - enviando apresentação em áudio');
+      console.log(' Primeira conversa detectada - enviando apresentação em áudio');
       try {
         audioResult = await sendIntroductionAudio(senderNumber);
         
         // Aguardar 2 segundos para o áudio ser processado
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (audioError) {
-        console.error('❌ Erro ao enviar áudio de apresentação:', audioError);
+        console.error(' Erro ao enviar áudio de apresentação:', audioError);
         // Continua mesmo se o áudio falhar
       }
     }
@@ -340,14 +333,14 @@ export async function processIncomingMessage(senderNumber, message, messageType 
     await saveMessage(senderNumber, responseMetadata, true, 'text');
     
     // Log detalhado do processo de vendas
-    console.log('🎯 Processo de vendas executado:');
-    console.log(`   📍 Estágio: ${intelligentResponse.stage}`);
-    console.log(`   🎬 Ações: ${intelligentResponse.actions?.join(', ') || 'Nenhuma'}`);
+    console.log(' Processo de vendas executado:');
+    console.log(`    Estágio: ${intelligentResponse.stage}`);
+    console.log(`    Ações: ${intelligentResponse.actions?.join(', ') || 'Nenhuma'}`);
     if (intelligentResponse.analysis) {
-      console.log(`   📊 Interesse: ${intelligentResponse.analysis.interest_level}/10`);
-      console.log(`   🎯 Estratégia: ${intelligentResponse.analysis.sales_strategy}`);
+      console.log(`    Interesse: ${intelligentResponse.analysis.interest_level}/10`);
+      console.log(`    Estratégia: ${intelligentResponse.analysis.sales_strategy}`);
     }
-    console.log('✅ Mensagem processada com inteligência de vendas');
+    console.log(' Mensagem processada com inteligência de vendas');
     
     return {
       success: true,
@@ -366,16 +359,16 @@ export async function processIncomingMessage(senderNumber, message, messageType 
     };
     
   } catch (error) {
-    console.error('❌ Erro ao processar mensagem:', error);
+    console.error(' Erro ao processar mensagem:', error);
     
     // Resposta de fallback em caso de erro
-    const fallbackResponse = "Olá! Obrigado pelo contato. Sou o ORBION da Digital Boost. Como posso ajudar com seu marketing digital? 🚀";
+    const fallbackResponse = "Olá! Obrigado pelo contato. Sou a Leadly da Digital Boost. Como posso ajudar com seu marketing digital? ";
     
     try {
       await sendWhatsAppMessage(senderNumber, fallbackResponse);
       await saveMessage(senderNumber, fallbackResponse, true, 'text');
     } catch (sendError) {
-      console.error('❌ Erro ao enviar resposta de fallback:', sendError);
+      console.error(' Erro ao enviar resposta de fallback:', sendError);
     }
     
     return {
@@ -393,19 +386,19 @@ export async function processIncomingMessage(senderNumber, message, messageType 
  */
 export async function generateIntroductionAudio(senderNumber) {
   try {
-    console.log('🎤 Gerando áudio de apresentação do ORBION...');
+    console.log(' Gerando áudio de apresentação do ORBION...');
     
-    const introScript = `Olá! Eu sou o ORBION, assistente inteligente da Digital Boost. 
-    Somos especialistas em marketing digital, automação de processos, gestão de redes sociais e campanhas de ads. 
-    Estou aqui para ajudar a impulsionar seu negócio online e aumentar suas vendas através de estratégias digitais comprovadas. 
+    const introScript = `Olá! Eu sou a Leadly da Digital Boost.
+    Somos especialistas em marketing digital, automação de processos, gestão de redes sociais e campanhas de ads.
+    Estou aqui para ajudar a impulsionar seu negócio online e aumentar suas vendas através de estratégias digitais comprovadas.
     Vamos conversar sobre como podemos transformar seus resultados?`;
-    
-    console.log('📝 Script da apresentação:', introScript);
+
+    console.log(' Script da apresentação:', introScript);
     return introScript;
-    
+
   } catch (error) {
-    console.error('❌ Erro ao gerar apresentação:', error);
-    return `Olá! Eu sou o ORBION da Digital Boost, especialista em marketing digital. Como posso ajudar a impulsionar seu negócio online?`;
+    console.error(' Erro ao gerar apresentação:', error);
+    return `Olá! Eu sou a Leadly da Digital Boost, especialista em marketing digital. Como posso ajudar a impulsionar seu negócio online?`;
   }
 }
 
@@ -427,7 +420,7 @@ export function isFirstConversation(conversationHistory) {
  */
 export async function sendIntroductionAudio(senderNumber) {
   try {
-    console.log('🎵 Enviando áudio de apresentação para:', senderNumber);
+    console.log(' Enviando áudio de apresentação para:', senderNumber);
     
     // Gera script de apresentação
     const introScript = await generateIntroductionAudio(senderNumber);
@@ -445,7 +438,7 @@ export async function sendIntroductionAudio(senderNumber) {
     // Salva no histórico que enviamos apresentação
     await saveMessage(senderNumber, '[ÁUDIO] Apresentação ORBION - Digital Boost', true, 'audio');
     
-    console.log('🎵 Áudio de apresentação enviado com sucesso');
+    console.log(' Áudio de apresentação enviado com sucesso');
     
     return {
       success: true,
@@ -455,7 +448,7 @@ export async function sendIntroductionAudio(senderNumber) {
     };
     
   } catch (error) {
-    console.error('❌ Erro ao enviar apresentação em áudio:', error);
+    console.error(' Erro ao enviar apresentação em áudio:', error);
     throw error;
   }
 }

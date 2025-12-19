@@ -45,10 +45,17 @@ import aiInsightsRoutes from './ai-insights.routes.js';
 import notificationsRoutes from './notifications.routes.js';
 import cadenceRoutes from './cadence.routes.js';
 import prospectingRoutes from './prospecting.routes.js';
+import websiteRoutes from './website.routes.js';
+import emailOptInRoutes from './email-optin.routes.js';
+import agentsRoutes from './agents.routes.js';
+import channelsRoutes from './channels.routes.js';
+import webhooksInboundRoutes from './webhooks-inbound.routes.js';
+import crmIntegrationRoutes from './crm-integration.routes.js';
+import versionRoutes from './version.routes.js';
 
 const router = express.Router();
 
-console.log('📦 Montando rotas modulares...');
+console.log(' Montando rotas modulares...');
 
 // Mount all routes
 router.use(webhookRoutes);          // POST /api/webhook/evolution
@@ -89,9 +96,16 @@ router.use(aiInsightsRoutes);        // /api/ai-insights/*
 router.use(notificationsRoutes);     // /api/notifications/*
 router.use(cadenceRoutes);           // /api/cadences/* (Outbound Cadence Engine)
 router.use(prospectingRoutes);       // /api/prospecting/* (Auto Prospecting Engine)
+router.use(websiteRoutes);           // /api/website/* (Landing Page Forms)
+router.use(emailOptInRoutes);        // /api/email-optin/* (Email Opt-In before WhatsApp)
+router.use(agentsRoutes);            // /api/admin/agents/*, /api/agents/*, /api/config/* (Multi-Agent + Config)
+router.use(channelsRoutes);          // /api/agents/:agentId/channels/*, /api/integrations/* (Evolution One-Click)
+router.use(webhooksInboundRoutes);   // /api/webhooks/inbound/:publicId (Multi-tenant webhook receiver)
+router.use(crmIntegrationRoutes);    // /api/integrations/crm/:provider/* (Kommo, HubSpot, Pipedrive OAuth)
+router.use(versionRoutes);           // /api/version, /api/version/short, /health/version (P0-1)
 
-console.log('✅ Todas as rotas montadas com sucesso');
-console.log('📊 Rotas ativas:');
+console.log(' Todas as rotas montadas com sucesso');
+console.log(' Rotas ativas:');
 console.log('   - Webhook (1 rota)');
 console.log('   - Health (4 rotas)');
 console.log('   - Metrics (3 rotas)');
@@ -115,16 +129,21 @@ console.log('   - CRM Leads (8 rotas)');
 console.log('   - CRM Opportunities (10 rotas)');
 console.log('   - Meeting Analysis (17 rotas)');
 console.log('   - Automation Engine (12 rotas)');
-console.log('   - Auth (8 rotas) ✨ NEW');
-console.log('   - Command Center (6 rotas) ✨ NEW');
-console.log('   - Lead Scoring (10 rotas) ✨ NEW');
-console.log('   - Activities (11 rotas) ✨ NEW');
-console.log('   - Team Management (13 rotas) ✨ NEW');
-console.log('   - Forecasting (6 rotas) ✨ NEW');
-console.log('   - Reports Builder (3 rotas) ✨ NEW');
-console.log('   - AI Insights (5 rotas) ✨ NEW');
-console.log('   - Notifications (11 rotas) ✨ NEW');
-console.log('   - Cadence Engine (15 rotas) ✨ NEW');
-console.log('   Total: 223 rotas montadas');
+console.log('   - Auth (8 rotas)');
+console.log('   - Command Center (6 rotas)');
+console.log('   - Lead Scoring (10 rotas)');
+console.log('   - Activities (11 rotas)');
+console.log('   - Team Management (13 rotas)');
+console.log('   - Forecasting (6 rotas)');
+console.log('   - Reports Builder (3 rotas)');
+console.log('   - AI Insights (5 rotas)');
+console.log('   - Notifications (11 rotas)');
+console.log('   - Cadence Engine (15 rotas)');
+console.log('   - Email Opt-In (14 rotas)');
+console.log('   - Agent Management (30 rotas) - CRUD agentes');
+console.log('   - Agent Config (18 rotas) - SPIN, BANT, Objecoes');
+console.log('   - Channels/Integrations (6 rotas) - Evolution One-Click');
+console.log('   - CRM Integration OAuth (8 rotas) - Kommo, HubSpot, Pipedrive');
+console.log('   Total: 299 rotas montadas');
 
 export default router;

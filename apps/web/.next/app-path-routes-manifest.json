@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/page": "/",
+  "/(app)/campaigns/page": "/campaigns",
+  "/(app)/agents/new/page": "/agents/new",
+  "/(app)/settings/page": "/settings",
+  "/(app)/dashboard/page": "/dashboard",
+  "/(app)/agents/page": "/agents",
+  "/(app)/analytics/page": "/analytics",
+  "/(app)/crm/page": "/crm",
+  "/(auth)/register/page": "/register",
+  "/(auth)/login/page": "/login"
+}

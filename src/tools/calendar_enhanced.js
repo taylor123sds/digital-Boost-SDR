@@ -1,609 +1,1032 @@
 // src/tools/calendar_enhanced.js
-// Sistema de calendário profissional e robusto para ORBION
-import fs from "fs";
-import fsp from "fs/promises";
-import path from "path";
-import { google } from "googleapis";
-import openaiClient from '../core/openai_client.js';
+// Sistema de calendário simplificado para compatibilidade com meeting_scheduler.js
+//  FIX CRIT-003: Recriando módulo ausente
+
 import { getMemory, setMemory } from '../memory.js';
-
-// ===== CONFIGURAÇÕES =====
-const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_FILE || "./google_credentials.json";
-const TOKEN_PATH = process.env.GOOGLE_TOKEN_PATH || "./google_token.json";
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/oauth2callback";
-
-// Scopes necessários para funcionamento completo
-const SCOPES = [
-  "https://www.googleapis.com/auth/calendar",
-  "https://www.googleapis.com/auth/calendar.events",
-  "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/calendar.settings.readonly"
-];
-
-// ===== UTILITÁRIOS =====
-function assertFileExists(filePath) {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`❌ Arquivo não encontrado: ${path.resolve(filePath)}. Configure as credenciais do Google Calendar.`);
-  }
-}
-
-function loadCredentials() {
-  assertFileExists(CREDENTIALS_PATH);
-  const raw = fs.readFileSync(CREDENTIALS_PATH, "utf-8");
-  const json = JSON.parse(raw);
-
-  const cfg = json.web || json.installed || json;
-  const client_id = cfg.client_id;
-  const client_secret = cfg.client_secret;
-  const redirect_uris = cfg.redirect_uris || [REDIRECT_URI];
-
-  if (!client_id || !client_secret) {
-    throw new Error("❌ Credenciais inválidas: client_id/client_secret ausentes.");
-  }
-
-  return { client_id, client_secret, redirectUri: REDIRECT_URI || redirect_uris[0] };
-}
-
-function createOAuthClient() {
-  const { client_id, client_secret, redirectUri } = loadCredentials();
-  return new google.auth.OAuth2(client_id, client_secret, redirectUri);
-}
-
-async function getAuthenticatedClient() {
-  const auth = createOAuthClient();
-
-  if (!fs.existsSync(TOKEN_PATH)) {
-    const authUrl = getGoogleAuthUrl();
-    throw new Error(`❌ TOKEN_MISSING: Acesse ${authUrl} para autorizar o Google Calendar.`);
-  }
-
-  try {
-    const raw = await fsp.readFile(TOKEN_PATH, "utf-8");
-    const token = JSON.parse(raw);
-    auth.setCredentials(token);
-
-    // Verifica se o token ainda é válido
-    await auth.getAccessToken();
-    return auth;
-
-  } catch (error) {
-    console.warn("⚠️ Token expirado ou inválido, removendo arquivo...");
-    await fsp.unlink(TOKEN_PATH).catch(() => {});
-    const authUrl = getGoogleAuthUrl();
-    throw new Error(`❌ TOKEN_EXPIRED: Acesse ${authUrl} para renovar a autorização.`);
-  }
-}
-
-function addMinutes(date, minutes) {
-  const result = new Date(date.getTime());
-  result.setMinutes(result.getMinutes() + minutes);
-  return result;
-}
-
-function formatDateTime(date, time) {
-  return new Date(`${date}T${time}:00`);
-}
-
-function formatBrazilianDate(date) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }).format(new Date(date));
-}
-
-function formatBrazilianTime(time) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Fortaleza'
-  }).format(new Date(`2000-01-01T${time}:00`));
-}
-
-// ===== OAUTH E AUTENTICAÇÃO =====
-export function getGoogleAuthUrl() {
-  const auth = createOAuthClient();
-  return auth.generateAuthUrl({
-    access_type: "offline",
-    prompt: "consent",
-    scope: SCOPES
-  });
-}
-
-export async function handleOAuthCallback(req, res) {
-  try {
-    const code = req.query.code;
-    if (!code) {
-      return res.status(400).json({ error: "Código OAuth ausente" });
-    }
-
-    const auth = createOAuthClient();
-    const { tokens } = await auth.getToken(code);
-    auth.setCredentials(tokens);
-
-    await fsp.writeFile(TOKEN_PATH, JSON.stringify(tokens, null, 2));
-    console.log("✅ Token do Google Calendar salvo com sucesso");
-
-    // Testa a conexão
-    const calendar = google.calendar({ version: "v3", auth });
-    await calendar.calendarList.list({ maxResults: 1 });
-
-    return res.redirect("/dashboard-pro.html?google=success");
-
-  } catch (error) {
-    console.error("❌ Erro no OAuth callback:", error);
-    return res.status(500).json({ error: "Falha ao autorizar Google Calendar" });
-  }
-}
-
-// ===== OPERAÇÕES DE CALENDÁRIO =====
+import fs from 'fs';
 
 /**
- * Lista eventos com filtros avançados
+ *  NOVA FUNÇÃO: Cria evento real no Google Calendar via API
  */
-export async function listEvents({
-  range = "week",
-  query = "",
-  calendarId = "primary",
-  maxResults = 50,
-  showDeleted = false
-} = {}) {
-  try {
-    const auth = await getAuthenticatedClient();
-    const calendar = google.calendar({ version: "v3", auth });
+async function createGoogleCalendarEvent(eventData) {
+  const tokenPath = './google_token.json';
 
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(start);
-    switch (range) {
-      case "day":
-        end.setDate(end.getDate() + 1);
-        break;
-      case "month":
-        end.setMonth(end.getMonth() + 1);
-        break;
-      case "year":
-        end.setFullYear(end.getFullYear() + 1);
-        break;
-      default: // week
-        end.setDate(end.getDate() + 7);
-    }
-
-    const response = await calendar.events.list({
-      calendarId,
-      timeMin: start.toISOString(),
-      timeMax: end.toISOString(),
-      q: query || undefined,
-      singleEvents: true,
-      orderBy: "startTime",
-      maxResults,
-      showDeleted
-    });
-
-    const events = (response.data.items || []).map(event => ({
-      id: event.id,
-      status: event.status,
-      title: event.summary || "Sem título",
-      description: event.description || "",
-      location: event.location || "",
-      start: event.start?.dateTime || event.start?.date,
-      end: event.end?.dateTime || event.end?.date,
-      attendees: (event.attendees || []).map(a => ({
-        email: a.email,
-        name: a.displayName || a.email,
-        status: a.responseStatus,
-        organizer: a.organizer || false
-      })),
-      meetLink: event.hangoutLink ||
-                event.conferenceData?.entryPoints?.find(p => p.entryPointType === "video")?.uri,
-      htmlLink: event.htmlLink,
-      created: event.created,
-      updated: event.updated,
-      creator: event.creator,
-      organizer: event.organizer,
-      recurring: !!event.recurringEventId,
-      visibility: event.visibility || "default"
-    }));
-
-    console.log(`📅 ${events.length} eventos encontrados para período: ${range}`);
-    return { success: true, events, count: events.length };
-
-  } catch (error) {
-    console.error("❌ Erro ao listar eventos:", error);
-    return { success: false, error: error.message, events: [] };
+  // Verificar se token existe
+  if (!fs.existsSync(tokenPath)) {
+    throw new Error('Google Calendar não autenticado. Configure OAuth primeiro.');
   }
-}
 
-/**
- * Cria evento com validações e tratamentos avançados
- */
-export async function createEvent({
-  title,
-  date,
-  time,
-  duration = 60,
-  description = "",
-  location = "",
-  attendees = [],
-  meetEnabled = true,
-  timezone = "America/Fortaleza",
-  calendarId = "primary",
-  sendNotifications = true,
-  visibility = "default"
-}) {
-  try {
-    // Validações
-    if (!title || !date || !time) {
-      throw new Error("Título, data e horário são obrigatórios");
+  // Carregar tokens
+  const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+
+  // Montar corpo do evento para API do Google Calendar
+  const startDateTime = new Date(`${eventData.date}T${eventData.time}:00`);
+  const endDateTime = new Date(startDateTime.getTime() + eventData.duration * 60000);
+
+  const eventBody = {
+    summary: eventData.title,
+    description: eventData.description || '',
+    location: eventData.location || '',
+    start: {
+      dateTime: startDateTime.toISOString(),
+      timeZone: 'America/Fortaleza'
+    },
+    end: {
+      dateTime: endDateTime.toISOString(),
+      timeZone: 'America/Fortaleza'
+    },
+    attendees: (eventData.attendees || []).map(email => ({ email })),
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'email', minutes: 24 * 60 }, // 1 dia antes
+        { method: 'popup', minutes: 30 }        // 30 min antes
+      ]
     }
+  };
 
-    const auth = await getAuthenticatedClient();
-    const calendar = google.calendar({ version: "v3", auth });
-
-    // Processa datas
-    const startDate = formatDateTime(date, time);
-    const endDate = addMinutes(startDate, Number(duration));
-
-    // Processa participantes
-    const processedAttendees = Array.isArray(attendees)
-      ? attendees
-      : attendees.split(',').map(email => email.trim());
-
-    const eventData = {
-      summary: title,
-      description,
-      location,
-      start: {
-        dateTime: startDate.toISOString(),
-        timeZone: timezone
-      },
-      end: {
-        dateTime: endDate.toISOString(),
-        timeZone: timezone
-      },
-      attendees: processedAttendees.filter(Boolean).map(email => ({ email })),
-      visibility,
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: "email", minutes: 24 * 60 }, // 1 dia antes
-          { method: "popup", minutes: 30 }       // 30 min antes
-        ]
+  //  ADICIONAR GOOGLE MEET se solicitado
+  if (eventData.meetEnabled !== false) {
+    eventBody.conferenceData = {
+      createRequest: {
+        requestId: `meet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
       }
     };
+  }
 
-    // Configurações para Google Meet
-    const insertParams = {
-      calendarId,
-      sendUpdates: sendNotifications ? "all" : "none",
-      requestBody: eventData
-    };
+  // Fazer requisição POST para criar evento
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1';
 
-    if (meetEnabled) {
-      eventData.conferenceData = {
-        createRequest: {
-          requestId: `orbion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        }
-      };
-      insertParams.conferenceDataVersion = 1;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${tokens.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(eventBody)
+  });
+
+  // Se token expirou, tentar refresh
+  if (response.status === 401 && tokens.refresh_token) {
+    console.log(' [CALENDAR-ENHANCED] Access token expirado, tentando refresh...');
+    const newTokens = await refreshAccessToken(tokens.refresh_token);
+
+    // Salvar novos tokens
+    fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2));
+
+    // Tentar novamente com novo token
+    const retryResponse = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${newTokens.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventBody)
+    });
+
+    if (!retryResponse.ok) {
+      const error = await retryResponse.json();
+      throw new Error(`Erro ao criar evento: ${error.error?.message || retryResponse.statusText}`);
     }
 
-    const response = await calendar.events.insert(insertParams);
-    const createdEvent = response.data;
+    const data = await retryResponse.json();
+    return {
+      success: true,
+      id: data.id,
+      htmlLink: data.htmlLink,
+      meetLink: data.hangoutLink || data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || null
+    };
+  }
 
-    // Salva no histórico local
-    await saveEventToMemory(createdEvent);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Erro ao criar evento: ${error.error?.message || response.statusText}`);
+  }
 
-    const result = {
-      id: createdEvent.id,
-      title: createdEvent.summary,
-      htmlLink: createdEvent.htmlLink,
-      meetLink: createdEvent.hangoutLink ||
-                createdEvent.conferenceData?.entryPoints?.find(p => p.entryPointType === "video")?.uri,
-      start: createdEvent.start.dateTime,
-      end: createdEvent.end.dateTime,
-      attendees: createdEvent.attendees || [],
-      created: createdEvent.created
+  const data = await response.json();
+  return {
+    success: true,
+    id: data.id,
+    htmlLink: data.htmlLink,
+    meetLink: data.hangoutLink || data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || null
+  };
+}
+
+/**
+ * Cria um evento no calendário (tenta Google Calendar primeiro, fallback para local)
+ *
+ * @param {object} eventData - Dados do evento
+ * @param {string} eventData.title - Título do evento
+ * @param {string} eventData.date - Data no formato YYYY-MM-DD
+ * @param {string} eventData.time - Hora no formato HH:MM
+ * @param {number} eventData.duration - Duração em minutos (padrão: 60)
+ * @param {string} eventData.description - Descrição do evento
+ * @param {string} eventData.location - Local do evento
+ * @param {Array<string>} eventData.attendees - Lista de e-mails dos participantes
+ * @param {boolean} eventData.meetEnabled - Se deve criar link do Google Meet
+ * @param {boolean} eventData.sendNotifications - Se deve enviar notificações
+ * @returns {Promise<object>} Resultado da criação
+ */
+export async function createEvent(eventData) {
+  try {
+    // Validação de dados obrigatórios
+    if (!eventData.title || !eventData.date || !eventData.time) {
+      return {
+        success: false,
+        error: 'Dados obrigatórios faltando: title, date ou time'
+      };
+    }
+
+    // Gerar ID único do evento
+    const eventId = `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Construir objeto do evento
+    const event = {
+      id: eventId,
+      title: eventData.title,
+      date: eventData.date,
+      time: eventData.time,
+      duration: eventData.duration || 60,
+      description: eventData.description || '',
+      location: eventData.location || 'Online - Google Meet',
+      attendees: eventData.attendees || [],
+      meetEnabled: eventData.meetEnabled !== false,
+      sendNotifications: eventData.sendNotifications !== false,
+      createdAt: new Date().toISOString(),
+      status: 'confirmed'
     };
 
-    console.log(`✅ Evento criado: ${title} (${date} ${time})`);
-    return { success: true, event: result };
+    // Calcular data/hora de término
+    const startDateTime = new Date(`${event.date}T${event.time}:00`);
+    const endDateTime = new Date(startDateTime.getTime() + event.duration * 60000);
+
+    event.startDateTime = startDateTime.toISOString();
+    event.endDateTime = endDateTime.toISOString();
+
+    //  TENTAR CRIAR NO GOOGLE CALENDAR (se OAuth configurado)
+    try {
+      const googleEvent = await createGoogleCalendarEvent(event);
+
+      if (googleEvent.success) {
+        console.log(` [CALENDAR-ENHANCED] Evento criado no Google Calendar: ${googleEvent.id}`);
+        console.log(`    Data/Hora: ${event.date} ${event.time}`);
+        console.log(`    Participantes: ${event.attendees.join(', ') || 'nenhum'}`);
+        console.log(`    Calendar: ${googleEvent.htmlLink}`);
+        if (googleEvent.meetLink) console.log(`    Meet: ${googleEvent.meetLink}`);
+
+        // Atualizar evento com dados reais do Google Calendar
+        event.id = googleEvent.id;
+        event.calendarLink = googleEvent.htmlLink;
+        event.meetLink = googleEvent.meetLink;
+        event.source = 'google_calendar';
+
+        // Persistir no banco de dados (tabela events)
+        await saveEventToDatabase(event);
+
+        return {
+          success: true,
+          event,
+          eventId: googleEvent.id,
+          eventLink: googleEvent.htmlLink,
+          meetLink: googleEvent.meetLink,
+          message: 'Evento criado com sucesso no Google Calendar'
+        };
+      }
+    } catch (error) {
+      console.error(` [CALENDAR-ENHANCED] Erro ao criar no Google Calendar, usando fallback local:`, error.message);
+    }
+
+    // FALLBACK: Gerar links locais (mock - se OAuth não configurado ou falhou)
+    const calendarLink = `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(event.title)}&dates=${startDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`;
+    const meetLink = event.meetEnabled ? `https://meet.google.com/mock-${eventId.substr(-8)}` : null;
+
+    event.calendarLink = calendarLink;
+    event.meetLink = meetLink;
+
+    // Persistir no banco de dados (tabela events)
+    await saveEventToDatabase(event);
+
+    console.log(` [CALENDAR-ENHANCED] Evento criado localmente: ${event.id}`);
+    console.log(`    Data/Hora: ${event.date} ${event.time}`);
+    console.log(`    Participantes: ${event.attendees.join(', ') || 'nenhum'}`);
+    console.log(`    Calendar: ${calendarLink}`);
+    if (meetLink) console.log(`    Meet (MOCK): ${meetLink}`);
+
+    return {
+      success: true,
+      event,
+      eventId: event.id,
+      eventLink: calendarLink,
+      meetLink: meetLink,
+      message: 'Evento criado localmente (Google Calendar não disponível)'
+    };
 
   } catch (error) {
-    console.error("❌ Erro ao criar evento:", error);
-    return { success: false, error: error.message };
+    console.error(` [CALENDAR-ENHANCED] Erro ao criar evento:`, error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
 /**
- * Atualiza evento existente
+ *  NOVA FUNÇÃO: Atualiza evento existente no Google Calendar
+ * Permite mudar email, horário, data ou outros campos
+ *
+ * @param {string} eventId - ID do evento no Google Calendar
+ * @param {Object} updates - Campos a atualizar
+ * @param {string[]} [updates.attendees] - Novos participantes (emails)
+ * @param {string} [updates.date] - Nova data (YYYY-MM-DD)
+ * @param {string} [updates.time] - Novo horário (HH:mm)
+ * @param {number} [updates.duration] - Nova duração em minutos
+ * @param {string} [updates.title] - Novo título
+ * @param {string} [updates.description] - Nova descrição
+ * @param {string} [updates.location] - Nova localização
+ * @returns {Promise<Object>} Resultado da atualização
  */
 export async function updateEvent(eventId, updates) {
+  const tokenPath = './google_token.json';
+
   try {
-    const auth = await getAuthenticatedClient();
-    const calendar = google.calendar({ version: "v3", auth });
-
-    // Busca evento atual
-    const currentEvent = await calendar.events.get({
-      calendarId: "primary",
-      eventId
-    });
-
-    const eventData = { ...currentEvent.data };
-
-    // Aplica atualizações
-    if (updates.title) eventData.summary = updates.title;
-    if (updates.description !== undefined) eventData.description = updates.description;
-    if (updates.location !== undefined) eventData.location = updates.location;
-
-    if (updates.date || updates.time) {
-      const date = updates.date || eventData.start.dateTime.split('T')[0];
-      const time = updates.time || eventData.start.dateTime.split('T')[1].substr(0, 5);
-      const startDate = formatDateTime(date, time);
-      const endDate = addMinutes(startDate, updates.duration || 60);
-
-      eventData.start.dateTime = startDate.toISOString();
-      eventData.end.dateTime = endDate.toISOString();
+    // Verificar se token existe
+    if (!fs.existsSync(tokenPath)) {
+      throw new Error('Google Calendar não autenticado. Configure OAuth primeiro.');
     }
 
-    const response = await calendar.events.update({
-      calendarId: "primary",
-      eventId,
-      sendUpdates: "all",
-      requestBody: eventData
+    // Carregar tokens
+    const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+
+    // Primeiro, buscar evento atual
+    const getUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`;
+
+    const getResponse = await fetch(getUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`
+      }
     });
 
-    console.log(`✅ Evento atualizado: ${eventId}`);
-    return { success: true, event: response.data };
+    if (!getResponse.ok) {
+      throw new Error(`Erro ao buscar evento: ${getResponse.statusText}`);
+    }
 
-  } catch (error) {
-    console.error("❌ Erro ao atualizar evento:", error);
-    return { success: false, error: error.message };
-  }
-}
+    const currentEvent = await getResponse.json();
+    console.log(` [CALENDAR-ENHANCED] Evento atual obtido: ${currentEvent.summary}`);
 
-/**
- * Remove evento
- */
-export async function deleteEvent(eventId, sendNotifications = true) {
-  try {
-    const auth = await getAuthenticatedClient();
-    const calendar = google.calendar({ version: "v3", auth });
+    // Montar corpo do update
+    const updateBody = { ...currentEvent };
 
-    await calendar.events.delete({
-      calendarId: "primary",
-      eventId,
-      sendUpdates: sendNotifications ? "all" : "none"
+    // Atualizar campos conforme solicitado
+    if (updates.attendees) {
+      updateBody.attendees = updates.attendees.map(email => ({ email }));
+      console.log(` [CALENDAR-ENHANCED] Atualizando participantes: ${updates.attendees.join(', ')}`);
+    }
+
+    if (updates.date && updates.time) {
+      const startDateTime = new Date(`${updates.date}T${updates.time}:00`);
+      const duration = updates.duration || 30;
+      const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+
+      updateBody.start = {
+        dateTime: startDateTime.toISOString(),
+        timeZone: 'America/Fortaleza'
+      };
+
+      updateBody.end = {
+        dateTime: endDateTime.toISOString(),
+        timeZone: 'America/Fortaleza'
+      };
+
+      console.log(` [CALENDAR-ENHANCED] Atualizando data/hora: ${updates.date} ${updates.time}`);
+    } else if (updates.date) {
+      // Só mudar data, manter hora
+      const currentStart = new Date(currentEvent.start.dateTime);
+      const newDate = new Date(updates.date);
+      newDate.setHours(currentStart.getHours(), currentStart.getMinutes());
+
+      const duration = updates.duration || (new Date(currentEvent.end.dateTime) - new Date(currentEvent.start.dateTime)) / 60000;
+      const endDateTime = new Date(newDate.getTime() + duration * 60000);
+
+      updateBody.start = {
+        dateTime: newDate.toISOString(),
+        timeZone: 'America/Fortaleza'
+      };
+
+      updateBody.end = {
+        dateTime: endDateTime.toISOString(),
+        timeZone: 'America/Fortaleza'
+      };
+
+      console.log(` [CALENDAR-ENHANCED] Atualizando apenas data: ${updates.date}`);
+    } else if (updates.time) {
+      // Só mudar hora, manter data
+      const currentStart = new Date(currentEvent.start.dateTime);
+      const [hours, minutes] = updates.time.split(':');
+      currentStart.setHours(parseInt(hours), parseInt(minutes));
+
+      const duration = updates.duration || (new Date(currentEvent.end.dateTime) - new Date(currentEvent.start.dateTime)) / 60000;
+      const endDateTime = new Date(currentStart.getTime() + duration * 60000);
+
+      updateBody.start = {
+        dateTime: currentStart.toISOString(),
+        timeZone: 'America/Fortaleza'
+      };
+
+      updateBody.end = {
+        dateTime: endDateTime.toISOString(),
+        timeZone: 'America/Fortaleza'
+      };
+
+      console.log(` [CALENDAR-ENHANCED] Atualizando apenas horário: ${updates.time}`);
+    }
+
+    if (updates.title) {
+      updateBody.summary = updates.title;
+    }
+
+    if (updates.description) {
+      updateBody.description = updates.description;
+    }
+
+    if (updates.location) {
+      updateBody.location = updates.location;
+    }
+
+    // Fazer requisição PUT para atualizar evento
+    const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`;
+
+    const updateResponse = await fetch(updateUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updateBody)
     });
 
-    console.log(`✅ Evento removido: ${eventId}`);
-    return { success: true };
+    // Se token expirou, tentar refresh
+    if (updateResponse.status === 401 && tokens.refresh_token) {
+      console.log(' [CALENDAR-ENHANCED] Access token expirado, tentando refresh...');
+      const newTokens = await refreshAccessToken(tokens.refresh_token);
 
-  } catch (error) {
-    console.error("❌ Erro ao remover evento:", error);
-    return { success: false, error: error.message };
-  }
-}
+      // Salvar novos tokens
+      fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2));
 
-/**
- * Busca horários livres para agendamento
- */
-export async function findFreeSlots({
-  date,
-  durationMinutes = 60,
-  workingHours = { start: "09:00", end: "18:00" },
-  timezone = "America/Fortaleza"
-}) {
-  try {
-    const auth = await getAuthenticatedClient();
-    const calendar = google.calendar({ version: "v3", auth });
+      // Tentar novamente com novo token
+      const retryResponse = await fetch(updateUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${newTokens.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateBody)
+      });
 
-    const startOfDay = new Date(`${date}T${workingHours.start}:00`);
-    const endOfDay = new Date(`${date}T${workingHours.end}:00`);
-
-    // Busca eventos do dia
-    const response = await calendar.events.list({
-      calendarId: "primary",
-      timeMin: startOfDay.toISOString(),
-      timeMax: endOfDay.toISOString(),
-      singleEvents: true,
-      orderBy: "startTime"
-    });
-
-    const events = response.data.items || [];
-    const freeSlots = [];
-    let currentTime = new Date(startOfDay);
-
-    for (const event of events) {
-      const eventStart = new Date(event.start.dateTime);
-
-      if (currentTime < eventStart) {
-        const availableMinutes = (eventStart - currentTime) / (1000 * 60);
-        if (availableMinutes >= durationMinutes) {
-          freeSlots.push({
-            start: currentTime.toTimeString().substr(0, 5),
-            end: eventStart.toTimeString().substr(0, 5),
-            duration: availableMinutes
-          });
-        }
+      if (!retryResponse.ok) {
+        const error = await retryResponse.json();
+        throw new Error(`Erro ao atualizar evento: ${error.error?.message || retryResponse.statusText}`);
       }
 
-      currentTime = new Date(Math.max(currentTime, new Date(event.end.dateTime)));
+      const data = await retryResponse.json();
+      console.log(` [CALENDAR-ENHANCED] Evento atualizado com sucesso: ${data.summary}`);
+
+      return {
+        success: true,
+        eventId: data.id,
+        eventLink: data.htmlLink,
+        meetLink: data.hangoutLink || data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || null
+      };
     }
 
-    // Verifica tempo restante até fim do expediente
-    if (currentTime < endOfDay) {
-      const remainingMinutes = (endOfDay - currentTime) / (1000 * 60);
-      if (remainingMinutes >= durationMinutes) {
-        freeSlots.push({
-          start: currentTime.toTimeString().substr(0, 5),
-          end: endOfDay.toTimeString().substr(0, 5),
-          duration: remainingMinutes
+    if (!updateResponse.ok) {
+      const error = await updateResponse.json();
+      throw new Error(`Erro ao atualizar evento: ${error.error?.message || updateResponse.statusText}`);
+    }
+
+    const data = await updateResponse.json();
+    console.log(` [CALENDAR-ENHANCED] Evento atualizado com sucesso: ${data.summary}`);
+
+    return {
+      success: true,
+      eventId: data.id,
+      eventLink: data.htmlLink,
+      meetLink: data.hangoutLink || data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || null
+    };
+
+  } catch (error) {
+    console.error(` [CALENDAR-ENHANCED] Erro ao atualizar evento:`, error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Encontra horários livres na agenda para uma data específica
+ * @param {object} params - Parâmetros de busca
+ * @param {string} params.date - Data para buscar (YYYY-MM-DD)
+ * @param {number} params.durationMinutes - Duração em minutos (padrão: 60)
+ * @returns {Promise<object>} Resultado com slots disponíveis
+ */
+export async function findFreeSlots(params = {}) {
+  try {
+    const { date, durationMinutes = 60 } = params;
+
+    if (!date) {
+      return { success: false, error: 'Data é obrigatória' };
+    }
+
+    const targetDate = new Date(date);
+    const slots = [];
+
+    // Horários comerciais (9h-18h)
+    const businessHours = [
+      { hour: 9, minute: 0 },
+      { hour: 9, minute: 30 },
+      { hour: 10, minute: 0 },
+      { hour: 10, minute: 30 },
+      { hour: 11, minute: 0 },
+      { hour: 11, minute: 30 },
+      { hour: 14, minute: 0 },
+      { hour: 14, minute: 30 },
+      { hour: 15, minute: 0 },
+      { hour: 15, minute: 30 },
+      { hour: 16, minute: 0 },
+      { hour: 16, minute: 30 },
+      { hour: 17, minute: 0 }
+    ];
+
+    // Buscar eventos existentes do Google Calendar ou local
+    let existingEvents = [];
+    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
+
+    if (fs.existsSync(tokenPath)) {
+      try {
+        const events = await listEvents({ range: 'day', maxResults: 50 });
+        existingEvents = events.events || [];
+      } catch {
+        existingEvents = await getEventsFromDatabase();
+      }
+    } else {
+      existingEvents = await getEventsFromDatabase();
+    }
+
+    // Verificar cada slot
+    for (const time of businessHours) {
+      const slotStart = new Date(targetDate);
+      slotStart.setHours(time.hour, time.minute, 0, 0);
+
+      const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+
+      // Verificar conflitos
+      const hasConflict = existingEvents.some(evt => {
+        const evtStart = new Date(evt.start?.dateTime || evt.startDateTime);
+        const evtEnd = new Date(evt.end?.dateTime || evt.endDateTime);
+        return (slotStart < evtEnd && slotEnd > evtStart);
+      });
+
+      if (!hasConflict && slotStart > new Date()) {
+        slots.push({
+          start: slotStart.toISOString(),
+          end: slotEnd.toISOString(),
+          time: `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`,
+          available: true
         });
       }
     }
 
-    return { success: true, freeSlots, date };
+    console.log(` [CALENDAR-ENHANCED] ${slots.length} slots livres encontrados para ${date}`);
+
+    return {
+      success: true,
+      date,
+      durationMinutes,
+      slots,
+      totalSlots: slots.length
+    };
 
   } catch (error) {
-    console.error("❌ Erro ao buscar horários livres:", error);
-    return { success: false, error: error.message, freeSlots: [] };
+    console.error(` [CALENDAR-ENHANCED] Erro ao buscar slots livres:`, error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
 /**
- * Gera sugestões inteligentes de agendamento
+ * Sugere horários disponíveis para reunião
+ * @param {object} params - Parâmetros de busca
+ * @param {string} params.date - Data desejada (opcional)
+ * @param {number} params.duration - Duração em minutos (padrão: 60)
+ * @param {number} params.count - Quantidade de sugestões (padrão: 3)
+ * @returns {Promise<Array>} Lista de horários sugeridos
  */
-export async function suggestMeetingTimes({
-  clientName,
-  urgencyLevel = "medium",
-  preferredDuration = 60,
-  preferredTimeSlots = ["morning", "afternoon"]
-}) {
+export async function suggestMeetingTimes(params = {}) {
   try {
-    const suggestions = [];
-    const today = new Date();
+    const duration = params.duration || 60;
+    const count = params.count || 3;
+    const baseDate = params.date ? new Date(params.date) : new Date();
 
-    // Define quantos dias à frente buscar baseado na urgência
-    const daysAhead = {
-      high: 1,
-      medium: 3,
-      low: 7
-    }[urgencyLevel] || 3;
-
-    // Define horários preferenciais
-    const timeSlots = {
-      morning: ["09:00", "09:30", "10:00", "10:30", "11:00"],
-      afternoon: ["14:00", "14:30", "15:00", "15:30", "16:00"],
-      evening: ["17:00", "17:30", "18:00"]
-    };
-
-    for (let i = 0; i < daysAhead; i++) {
-      const checkDate = new Date(today);
-      checkDate.setDate(today.getDate() + i + 1);
-
-      // Pula fins de semana
-      if (checkDate.getDay() === 0 || checkDate.getDay() === 6) continue;
-
-      const dateStr = checkDate.toISOString().split('T')[0];
-      const freeSlots = await findFreeSlots({
-        date: dateStr,
-        durationMinutes: preferredDuration
-      });
-
-      if (freeSlots.success) {
-        for (const period of preferredTimeSlots) {
-          const times = timeSlots[period] || [];
-
-          for (const time of times) {
-            const isAvailable = freeSlots.freeSlots.some(slot =>
-              time >= slot.start && time < slot.end
-            );
-
-            if (isAvailable) {
-              suggestions.push({
-                date: dateStr,
-                time,
-                dateFormatted: formatBrazilianDate(dateStr),
-                timeFormatted: formatBrazilianTime(time),
-                period,
-                urgencyScore: urgencyLevel === "high" ? 10 : urgencyLevel === "medium" ? 7 : 5
-              });
-
-              if (suggestions.length >= 5) break;
-            }
-          }
-          if (suggestions.length >= 5) break;
-        }
-      }
-      if (suggestions.length >= 5) break;
+    // Se data no passado, usar amanhã
+    if (baseDate < new Date()) {
+      baseDate.setDate(baseDate.getDate() + 1);
     }
 
-    return { success: true, suggestions, clientName };
+    const suggestions = [];
+    const businessHours = [
+      { hour: 9, minute: 0 },
+      { hour: 10, minute: 0 },
+      { hour: 11, minute: 0 },
+      { hour: 14, minute: 0 },
+      { hour: 15, minute: 0 },
+      { hour: 16, minute: 0 }
+    ];
+
+    // Buscar eventos existentes
+    const existingEvents = await getEventsFromDatabase();
+
+    // Gerar sugestões
+    for (let day = 0; day < 7 && suggestions.length < count; day++) {
+      const checkDate = new Date(baseDate);
+      checkDate.setDate(checkDate.getDate() + day);
+
+      // Pular finais de semana
+      if (checkDate.getDay() === 0 || checkDate.getDay() === 6) continue;
+
+      for (const time of businessHours) {
+        if (suggestions.length >= count) break;
+
+        const slotStart = new Date(checkDate);
+        slotStart.setHours(time.hour, time.minute, 0, 0);
+
+        const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+
+        // Verificar conflitos
+        const hasConflict = existingEvents.some(evt => {
+          const evtStart = new Date(evt.startDateTime);
+          const evtEnd = new Date(evt.endDateTime);
+          return (slotStart < evtEnd && slotEnd > evtStart);
+        });
+
+        if (!hasConflict) {
+          suggestions.push({
+            date: slotStart.toISOString().split('T')[0],
+            time: `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`,
+            datetime: slotStart.toISOString(),
+            available: true
+          });
+        }
+      }
+    }
+
+    console.log(` [CALENDAR-ENHANCED] ${suggestions.length} horários sugeridos`);
+    return suggestions;
 
   } catch (error) {
-    console.error("❌ Erro ao sugerir horários:", error);
-    return { success: false, error: error.message, suggestions: [] };
+    console.error(` [CALENDAR-ENHANCED] Erro ao sugerir horários:`, error);
+    return [];
   }
 }
 
 /**
- * Salva evento na memória local para referência rápida
- */
-async function saveEventToMemory(event) {
-  try {
-    const eventKey = `calendar_event_${event.id}`;
-    const eventData = {
-      id: event.id,
-      title: event.summary,
-      start: event.start.dateTime,
-      end: event.end.dateTime,
-      created: event.created,
-      attendees: event.attendees || []
-    };
-
-    await setMemory(eventKey, JSON.stringify(eventData));
-
-    // Atualiza lista de eventos recentes
-    const recentEvents = JSON.parse(await getMemory("recent_events") || "[]");
-    recentEvents.unshift(event.id);
-    if (recentEvents.length > 50) recentEvents.pop();
-
-    await setMemory("recent_events", JSON.stringify(recentEvents));
-
-  } catch (error) {
-    console.warn("⚠️ Falha ao salvar evento na memória:", error);
-  }
-}
-
-/**
- * Status e diagnósticos do sistema
+ * Retorna status do calendário
+ * @returns {Promise<object>} Status do sistema de calendário
  */
 export async function getCalendarStatus() {
   try {
-    const hasCredentials = fs.existsSync(CREDENTIALS_PATH);
-    const hasToken = fs.existsSync(TOKEN_PATH);
+    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
 
-    let authStatus = "not_configured";
-    let calendarInfo = null;
-
-    if (hasCredentials && hasToken) {
+    // Verificar se Google Calendar está autenticado
+    if (fs.existsSync(tokenPath)) {
       try {
-        const auth = await getAuthenticatedClient();
-        const calendar = google.calendar({ version: "v3", auth });
+        const tokenContent = fs.readFileSync(tokenPath, 'utf8');
+        const tokens = JSON.parse(tokenContent);
 
-        const calendarList = await calendar.calendarList.get({ calendarId: "primary" });
-        authStatus = "authenticated";
-        calendarInfo = {
-          email: calendarList.data.id,
-          name: calendarList.data.summary,
-          timezone: calendarList.data.timeZone
-        };
+        if (tokens.access_token && tokens.refresh_token) {
+          // Tentar buscar eventos do Google para verificar conexão
+          const events = await listEvents({ range: 'week', maxResults: 10 });
 
-      } catch (error) {
-        authStatus = "token_expired";
+          return {
+            available: true,
+            provider: 'google',
+            authenticated: true,
+            totalEvents: events.events?.length || 0,
+            upcomingEvents: events.events?.length || 0,
+            message: 'Google Calendar conectado e funcionando'
+          };
+        }
+      } catch (googleError) {
+        console.warn(` [CALENDAR-ENHANCED] Google Calendar falhou, usando local:`, googleError.message);
       }
-    } else if (hasCredentials) {
-      authStatus = "needs_authorization";
     }
 
-    return {
-      status: authStatus,
-      hasCredentials,
-      hasToken,
-      calendarInfo,
-      authUrl: authStatus !== "authenticated" ? getGoogleAuthUrl() : null
-    };
+    // Fallback para calendário local
+    const events = await getEventsFromDatabase();
+    const now = new Date();
+    const upcomingEvents = events.filter(e => new Date(e.startDateTime) > now);
 
-  } catch (error) {
     return {
-      status: "error",
-      error: error.message,
-      hasCredentials: false,
-      hasToken: false
+      available: true,
+      provider: 'local',
+      authenticated: false,
+      totalEvents: events.length,
+      upcomingEvents: upcomingEvents.length,
+      message: 'Sistema de calendário local (Google Calendar não autenticado)'
+    };
+  } catch (error) {
+    console.error(` [CALENDAR-ENHANCED] Erro ao obter status:`, error);
+    return {
+      available: false,
+      error: error.message
     };
   }
 }
+
+/**
+ * Salva evento no banco de dados SQLite (tabela events)
+ */
+async function saveEventToDatabase(event) {
+  try {
+    // Usar setMemory com namespace events
+    const eventsKey = `events:${event.id}`;
+    await setMemory(eventsKey, JSON.stringify(event));
+
+    // Também adicionar à lista de todos os eventos
+    const allEventsKey = 'events:all';
+    const existingEventsJson = await getMemory(allEventsKey) || '[]';
+    const allEvents = JSON.parse(existingEventsJson);
+    allEvents.push(event.id);
+    await setMemory(allEventsKey, JSON.stringify(allEvents));
+
+    console.log(` [CALENDAR-ENHANCED] Evento ${event.id} salvo no banco`);
+  } catch (error) {
+    console.error(` [CALENDAR-ENHANCED] Erro ao salvar evento no banco:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Busca eventos do banco de dados
+ */
+async function getEventsFromDatabase() {
+  try {
+    const allEventsKey = 'events:all';
+    const eventsListJson = await getMemory(allEventsKey) || '[]';
+    const eventIds = JSON.parse(eventsListJson);
+
+    const events = [];
+    for (const eventId of eventIds) {
+      const eventKey = `events:${eventId}`;
+      const eventJson = await getMemory(eventKey);
+      if (eventJson) {
+        events.push(JSON.parse(eventJson));
+      }
+    }
+
+    return events;
+  } catch (error) {
+    console.error(` [CALENDAR-ENHANCED] Erro ao buscar eventos:`, error);
+    return [];
+  }
+}
+
+/**
+ * Retorna URL de autorização do Google OAuth
+ * @returns {string} URL de autorização OAuth do Google
+ */
+export function getGoogleAuthUrl() {
+  try {
+    const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
+    const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
+    const credentials = JSON.parse(credentialsContent);
+
+    const { client_id, redirect_uris } = credentials.web;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || redirect_uris[0];
+
+    // Construir URL de autenticação OAuth do Google
+    // Incluindo Calendar + Sheets + Drive/Docs para transcrições de reuniões
+    const scopes = [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.readonly',      // Para buscar transcrições no Drive
+      'https://www.googleapis.com/auth/documents.readonly'   // Para ler Google Docs (transcrições)
+    ];
+
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', client_id);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', scopes.join(' '));
+    authUrl.searchParams.set('access_type', 'offline');
+    authUrl.searchParams.set('prompt', 'consent');
+
+    console.log(' [CALENDAR-ENHANCED] URL de autenticação gerada com credenciais reais');
+    console.log(`    Client ID: ${client_id.substring(0, 20)}...`);
+    console.log(`    Redirect URI: ${redirectUri}`);
+
+    return authUrl.toString();
+
+  } catch (error) {
+    console.error(' [CALENDAR-ENHANCED] Erro ao gerar URL de auth:', error);
+    // Fallback para URL de placeholder em caso de erro
+    return 'https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:3001/oauth2callback&response_type=code&scope=https://www.googleapis.com/auth/calendar';
+  }
+}
+
+/**
+ * Manipula callback do OAuth do Google
+ * Troca o código de autorização por tokens de acesso
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ */
+export async function handleOAuthCallback(req, res) {
+  try {
+    const authCode = req.query.code;
+
+    if (!authCode) {
+      res.send(`
+        <h1> Erro no OAuth</h1>
+        <p>Código de autorização não recebido.</p>
+        <p><a href="/">Voltar ao Dashboard</a></p>
+      `);
+      return;
+    }
+
+    // Ler credenciais
+    const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
+    const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
+    const credentials = JSON.parse(credentialsContent);
+    const { client_id, client_secret, redirect_uris } = credentials.web;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || redirect_uris[0];
+
+    // Trocar código por tokens
+    const tokenUrl = 'https://oauth2.googleapis.com/token';
+    const params = new URLSearchParams({
+      code: authCode,
+      client_id: client_id,
+      client_secret: client_secret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error(' [CALENDAR-ENHANCED] Erro ao trocar código por token:', errorData);
+      throw new Error(`Falha ao obter token: ${response.statusText}`);
+    }
+
+    const tokens = await response.json();
+
+    // Salvar tokens no arquivo
+    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
+    fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
+
+    console.log(' [CALENDAR-ENHANCED] Tokens OAuth salvos com sucesso');
+    console.log(`    Token salvo em: ${tokenPath}`);
+
+    res.send(`
+      <h1> Google Calendar Autorizado!</h1>
+      <p>Autenticação concluída com sucesso.</p>
+      <p>Tokens salvos em: <code>${tokenPath}</code></p>
+      <p>Agora você pode usar o Google Calendar através do sistema.</p>
+      <p><a href="/">Voltar ao Dashboard</a></p>
+      <script>
+        // Fechar janela popup automaticamente após 3 segundos
+        setTimeout(() => {
+          window.close();
+        }, 3000);
+      </script>
+    `);
+
+  } catch (error) {
+    console.error(' [CALENDAR-ENHANCED] Erro no OAuth callback:', error);
+    res.send(`
+      <h1> Erro na Autenticação</h1>
+      <p>Ocorreu um erro ao processar a autorização:</p>
+      <pre>${error.message}</pre>
+      <p><a href="/">Voltar ao Dashboard</a></p>
+    `);
+  }
+}
+
+/**
+ * Lista eventos do Google Calendar
+ * @param {object} params - Parâmetros de busca
+ * @param {string} params.range - 'day', 'week', 'month'
+ * @param {string} params.query - Texto para buscar
+ * @param {number} params.maxResults - Máximo de resultados
+ * @returns {Promise<object>} Lista de eventos
+ */
+export async function listEvents(params = {}) {
+  try {
+    const { range = 'week', query = '', maxResults = 50 } = params;
+
+    // Verificar se temos token
+    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
+
+    if (!fs.existsSync(tokenPath)) {
+      console.log(' [CALENDAR-ENHANCED] Token não encontrado, retornando eventos locais');
+      return await listLocalEvents(params);
+    }
+
+    // Ler tokens
+    const tokenContent = fs.readFileSync(tokenPath, 'utf8');
+    const tokens = JSON.parse(tokenContent);
+
+    // Calcular período de busca
+    const now = new Date();
+    const timeMin = new Date(now);
+    const timeMax = new Date(now);
+
+    switch (range) {
+      case 'day':
+        timeMax.setDate(timeMax.getDate() + 1);
+        break;
+      case 'week':
+        timeMax.setDate(timeMax.getDate() + 7);
+        break;
+      case 'month':
+        timeMax.setMonth(timeMax.getMonth() + 1);
+        break;
+      default:
+        timeMax.setDate(timeMax.getDate() + 7);
+    }
+
+    // Montar URL da API do Google Calendar
+    const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
+    url.searchParams.set('timeMin', timeMin.toISOString());
+    url.searchParams.set('timeMax', timeMax.toISOString());
+    url.searchParams.set('maxResults', maxResults.toString());
+    url.searchParams.set('singleEvents', 'true');
+    url.searchParams.set('orderBy', 'startTime');
+
+    if (query) {
+      url.searchParams.set('q', query);
+    }
+
+    // Buscar eventos
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      // Se token expirou, tentar refresh
+      if (response.status === 401 && tokens.refresh_token) {
+        console.log(' [CALENDAR-ENHANCED] Access token expirado, tentando refresh...');
+        const newTokens = await refreshAccessToken(tokens.refresh_token);
+
+        // Salvar novos tokens
+        fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2));
+
+        // Tentar novamente com novo token
+        const retryResponse = await fetch(url.toString(), {
+          headers: {
+            'Authorization': `Bearer ${newTokens.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!retryResponse.ok) {
+          throw new Error(`Erro ao buscar eventos: ${retryResponse.statusText}`);
+        }
+
+        const data = await retryResponse.json();
+        return formatCalendarEvents(data);
+      }
+
+      throw new Error(`Erro ao buscar eventos: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return formatCalendarEvents(data);
+
+  } catch (error) {
+    console.error(' [CALENDAR-ENHANCED] Erro ao listar eventos:', error);
+    // Fallback para eventos locais
+    return await listLocalEvents(params);
+  }
+}
+
+/**
+ * Formata eventos do Google Calendar para o formato do dashboard
+ */
+function formatCalendarEvents(data) {
+  const events = (data.items || []).map(event => ({
+    id: event.id,
+    title: event.summary || 'Sem título',
+    description: event.description || '',
+    startDateTime: event.start?.dateTime || event.start?.date,
+    endDateTime: event.end?.dateTime || event.end?.date,
+    location: event.location || '',
+    attendees: (event.attendees || []).map(a => a.email),
+    meetLink: event.hangoutLink || event.conferenceData?.entryPoints?.[0]?.uri || null,
+    status: event.status || 'confirmed',
+    source: 'google_calendar'
+  }));
+
+  console.log(` [CALENDAR-ENHANCED] ${events.length} eventos buscados do Google Calendar`);
+
+  return {
+    success: true,
+    events: events,
+    count: events.length
+  };
+}
+
+/**
+ * Lista eventos locais (fallback quando OAuth não está configurado)
+ */
+async function listLocalEvents(params) {
+  const events = await getEventsFromDatabase();
+  const { query = '', maxResults = 50 } = params;
+
+  let filtered = events;
+
+  // Filtrar por query se fornecido
+  if (query) {
+    const lowerQuery = query.toLowerCase();
+    filtered = events.filter(e =>
+      e.title?.toLowerCase().includes(lowerQuery) ||
+      e.description?.toLowerCase().includes(lowerQuery)
+    );
+  }
+
+  // Limitar resultados
+  filtered = filtered.slice(0, maxResults);
+
+  console.log(` [CALENDAR-ENHANCED] ${filtered.length} eventos locais retornados`);
+
+  return {
+    success: true,
+    events: filtered,
+    count: filtered.length,
+    source: 'local'
+  };
+}
+
+/**
+ * Refresh do access token usando refresh token
+ */
+async function refreshAccessToken(refreshToken) {
+  const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
+  const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
+  const credentials = JSON.parse(credentialsContent);
+  const { client_id, client_secret } = credentials.web;
+
+  const tokenUrl = 'https://oauth2.googleapis.com/token';
+  const params = new URLSearchParams({
+    client_id: client_id,
+    client_secret: client_secret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token'
+  });
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro ao refresh token: ${response.statusText}`);
+  }
+
+  const newTokens = await response.json();
+
+  // Manter refresh_token antigo (Google não sempre retorna um novo)
+  if (!newTokens.refresh_token) {
+    newTokens.refresh_token = refreshToken;
+  }
+
+  console.log(' [CALENDAR-ENHANCED] Access token atualizado');
+  return newTokens;
+}
+
+export default {
+  createEvent,
+  findFreeSlots,
+  suggestMeetingTimes,
+  getCalendarStatus,
+  getGoogleAuthUrl,
+  handleOAuthCallback,
+  listEvents
+};

@@ -1,58 +1,86 @@
+# =============================================================================
+# LEADLY SDR Agent - Docker Compose para Producao (Hetzner)
+# =============================================================================
+#
+# Uso:
+#   docker-compose up -d              # Start all services
+#   docker-compose logs -f leadly     # View agent logs
+#   docker-compose down               # Stop all services
+#
+# =============================================================================
+
 services:
+  # ==========================================================================
+  # PostgreSQL - Database for Evolution API
+  # ==========================================================================
   postgres:
     container_name: evolution_postgres
     image: postgres:15-alpine
     restart: always
     environment:
-      POSTGRES_USER: evolution_user
-      POSTGRES_PASSWORD: evolution_pass_2025_secure
-      POSTGRES_DB: evolution_db
+      POSTGRES_USER: ${POSTGRES_USER:-evolution_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evolution_pass_2025_secure}
+      POSTGRES_DB: ${POSTGRES_DB:-evolution_db}
     volumes:
       - evolution_postgres_data:/var/lib/postgresql/data
     networks:
-      - evolution_network
-    ports:
-      - "5432:5432"
+      - leadly_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evolution_user} -d ${POSTGRES_DB:-evolution_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ==========================================================================
+  # Redis - Cache for Evolution API
+  # ==========================================================================
   redis:
     container_name: evolution_redis
     image: redis:7-alpine
     restart: always
-    command: redis-server --appendonly yes --requirepass evolution_redis_pass_2025_secure
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}
     volumes:
       - evolution_redis_data:/data
     networks:
-      - evolution_network
-    ports:
-      - "6379:6379"
+      - leadly_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ==========================================================================
+  # Evolution API - WhatsApp Integration
+  # ==========================================================================
   evolution-api:
     container_name: evolution_api
-    image: atendai/evolution-api:v2.0.10
+    image: atendai/evolution-api:v2.3.6
     restart: always
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - evolution_instances:/evolution/instances
       - evolution_store:/evolution/store
     networks:
-      - evolution_network
+      - leadly_network
     ports:
       - "8080:8080"
     environment:
       - SERVER_TYPE=http
       - SERVER_PORT=8080
-      - SERVER_URL=http://localhost:8080
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://localhost:8080}
       - CORS_ORIGIN=*
       - CORS_METHODS=GET,POST,PUT,DELETE
       - CORS_CREDENTIALS=true
       - LOG_LEVEL=ERROR,WARN,INFO
       - LOG_COLOR=true
-      - LOG_BAILEYS=error
+      - LOG_BAILEYS=info
       - DEL_INSTANCE=false
       - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://evolution_user:evolution_pass_2025_secure@postgres:5432/evolution_db?schema=evolution_api
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-evolution_user}:${POSTGRES_PASSWORD:-evolution_pass_2025_secure}@postgres:5432/${POSTGRES_DB:-evolution_db}?schema=evolution_api
       - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
       - DATABASE_SAVE_DATA_INSTANCE=true
       - DATABASE_SAVE_DATA_NEW_MESSAGE=true
@@ -60,20 +88,202 @@ services:
       - DATABASE_SAVE_DATA_CONTACTS=true
       - DATABASE_SAVE_DATA_CHATS=true
       - CACHE_REDIS_ENABLED=true
-      - CACHE_REDIS_URI=redis://:evolution_redis_pass_2025_secure@redis:6379
+      - CACHE_REDIS_URI=redis://:${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}@redis:6379
       - CACHE_REDIS_PREFIX_KEY=evolution_api
-      - AUTHENTICATION_API_KEY=ORBION_KEY_123456
-      - CONFIG_SESSION_PHONE_CLIENT=Evolution API  
-      - QRCODE_LIMIT=30
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-CHANGE_ME_SECURE_KEY}
+      - CONFIG_SESSION_PHONE_CLIENT=LEADLY
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - QRCODE_LIMIT=60
+      - QRCODE_COLOR=#18c5ff
       - WEBHOOK_GLOBAL_ENABLED=false
       - WEBSOCKET_ENABLED=false
+      - INSTANCE_EXPIRATION_TIME=false
+      - STORE_MESSAGES=true
+      - STORE_MESSAGE_UP=true
+      - STORE_CONTACTS=true
+      - STORE_CHATS=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==========================================================================
+  # LEADLY SDR Agent - AI-Powered Sales Agent (API only)
+  # ==========================================================================
+  # P0-3: Default is ROLE=api (HTTP only). Worker runs in separate service.
+  leadly:
+    container_name: leadly_agent
+    image: orbion-leadly:${GIT_COMMIT:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        GIT_BRANCH: ${GIT_BRANCH:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    restart: always
+    depends_on:
+      evolution-api:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./backups:/app/backups
+      - ./logs:/app/logs
+      - ./google_credentials.json:/app/google_credentials.json:ro
+      - ./google_token.json:/app/google_token.json
+    networks:
+      - leadly_network
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      # P0-3: ROLE controls process behavior
+      # - 'full': API + Worker (default, single-instance mode)
+      # - 'api': Only HTTP server (for horizontal scaling)
+      # - 'worker': Only background jobs (for job processing)
+      - ROLE=${ROLE:-api}
+      # OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      - OPENAI_EMB_MODEL=${OPENAI_EMB_MODEL:-text-embedding-3-small}
+      # Evolution API
+      - EVOLUTION_BASE_URL=http://evolution-api:8080
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-CHANGE_ME_SECURE_KEY}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE:-digitalboost}
+      - DATABASE_PATH=/app/data/orbion.db
+      # Google Sheets
+      - GOOGLE_LEADS_SHEET_ID=${GOOGLE_LEADS_SHEET_ID}
+      - GOOGLE_FUNIL_SHEET_ID=${GOOGLE_FUNIL_SHEET_ID}
+      # Email
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Digital Boost}
+      - SELLER_NAME=${SELLER_NAME:-Taylor}
+      # Security
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://yourdomain.com}
+      # ElevenLabs (optional)
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      # Prospecting
+      - PROSPECTING_AUTO_START=${PROSPECTING_AUTO_START:-false}
+      # Redis (for rate limiting and caching)
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}@redis:6379
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # LEADLY SDR Agent - Worker (Background Jobs Only)
+  # ==========================================================================
+  leadly-worker:
+    container_name: leadly_worker
+    image: orbion-leadly:${GIT_COMMIT:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        GIT_BRANCH: ${GIT_BRANCH:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    restart: always
+    depends_on:
+      evolution-api:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./backups:/app/backups
+      - ./logs:/app/logs
+      - ./google_credentials.json:/app/google_credentials.json:ro
+      - ./google_token.json:/app/google_token.json
+    networks:
+      - leadly_network
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - ROLE=worker
+      # OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      - OPENAI_EMB_MODEL=${OPENAI_EMB_MODEL:-text-embedding-3-small}
+      # Evolution API
+      - EVOLUTION_BASE_URL=http://evolution-api:8080
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-CHANGE_ME_SECURE_KEY}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE:-digitalboost}
+      - DATABASE_PATH=/app/data/orbion.db
+      # Google Sheets
+      - GOOGLE_LEADS_SHEET_ID=${GOOGLE_LEADS_SHEET_ID}
+      - GOOGLE_FUNIL_SHEET_ID=${GOOGLE_FUNIL_SHEET_ID}
+      # Email
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Digital Boost}
+      - SELLER_NAME=${SELLER_NAME:-Taylor}
+      # Security
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://yourdomain.com}
+      # ElevenLabs (optional)
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      # Prospecting
+      - PROSPECTING_AUTO_START=${PROSPECTING_AUTO_START:-false}
+      # Redis (for rate limiting and caching)
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}@redis:6379
+
+  # ==========================================================================
+  # P0-3: HORIZONTAL SCALING EXAMPLE (uncomment to use)
+  # ==========================================================================
+  # For horizontal scaling, you can run multiple API containers and a single
+  # worker container. This allows scaling HTTP handlers independently.
+  #
+  # Usage:
+  #   docker-compose up -d leadly-api --scale leadly-api=3
+  #   docker-compose up -d leadly-worker
+  # ==========================================================================
+  #
+  # leadly-api:
+  #   <<: *leadly-base  # Would need anchor definition
+  #   container_name: leadly_api
+  #   environment:
+  #     - ROLE=api
+  #   deploy:
+  #     replicas: 2
+  #
+  # leadly-worker:
+  #   <<: *leadly-base
+  #   container_name: leadly_worker
+  #   environment:
+  #     - ROLE=worker
+  #   ports: []  # Worker doesn't need ports
+  #   deploy:
+  #     replicas: 1  # Only one worker to avoid job duplication
+
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
   evolution_instances:
   evolution_store:
   evolution_postgres_data:
   evolution_redis_data:
 
+# =============================================================================
+# Networks
+# =============================================================================
 networks:
-  evolution_network:
+  leadly_network:
     driver: bridge

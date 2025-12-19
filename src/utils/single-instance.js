@@ -1,6 +1,6 @@
 /**
- * SINGLE INSTANCE MANAGER - ORBION
- * Garante que apenas uma instância do ORBION rode por vez
+ * SINGLE INSTANCE MANAGER - LEADLY
+ * Garante que apenas uma instância do LEADLY rode por vez
  */
 
 import fs from 'fs';
@@ -20,47 +20,77 @@ class SingleInstanceManager {
 
   /**
    * Verifica se já existe uma instância rodando
+   * NOTA: Em Docker, PID 1 é o processo principal - não devemos bloquear
    */
   async isRunning() {
     try {
+      // Skip instance check in Docker containers
+      const isDocker = process.env.NODE_ENV === 'production' ||
+                       fs.existsSync('/.dockerenv') ||
+                       process.env.DOCKER_CONTAINER === 'true';
+
+      if (isDocker) {
+        console.log(' Running in Docker - skipping instance check');
+        return { running: false };
+      }
+
       // 1. Verifica arquivo PID
       if (fs.existsSync(this.pidFile)) {
         const pid = fs.readFileSync(this.pidFile, 'utf8').trim();
+        const pidNum = parseInt(pid);
+
+        // PID 1 é o init do Docker, ignora
+        if (pidNum === 1 || pidNum === process.pid) {
+          this.cleanup();
+          return { running: false };
+        }
 
         // Verifica se o processo ainda existe
         try {
-          process.kill(parseInt(pid), 0); // Signal 0 apenas testa se o processo existe
-          console.log(`⚠️ Instância já rodando (PID: ${pid})`);
-          return { running: true, pid: parseInt(pid) };
+          process.kill(pidNum, 0); // Signal 0 apenas testa se o processo existe
+          console.log(` Instância já rodando (PID: ${pid})`);
+          return { running: true, pid: pidNum };
         } catch (error) {
           // Processo não existe mais, limpa arquivos órfãos
           this.cleanup();
         }
       }
 
-      // 2. Verifica porta
+      // 2. Verifica porta (já tem skip para Docker)
       const portInUse = await this.isPortInUse(this.port);
       if (portInUse) {
-        console.log(`⚠️ Porta ${this.port} já está em uso`);
+        console.log(` Porta ${this.port} já está em uso`);
         return { running: true, port: this.port };
       }
 
       return { running: false };
 
     } catch (error) {
-      console.error('❌ Erro ao verificar instância:', error.message);
+      console.error(' Erro ao verificar instância:', error.message);
       return { running: false };
     }
   }
 
   /**
    * Verifica se a porta está em uso
+   * NOTA: Em containers Docker, pula a verificação pois o Docker proxy aparece como "em uso"
    */
   async isPortInUse(port) {
+    // Skip port check in Docker containers (production mode or /.dockerenv exists)
+    const isDocker = process.env.NODE_ENV === 'production' ||
+                     fs.existsSync('/.dockerenv') ||
+                     process.env.DOCKER_CONTAINER === 'true';
+
+    if (isDocker) {
+      console.log(' Running in Docker/Production - skipping port check');
+      return false;
+    }
+
     return new Promise((resolve) => {
       const command = process.platform === 'win32'
         ? `netstat -an | findstr :${port}`
-        : `lsof -i :${port}`;
+        // Restrict to LISTEN to avoid false positives from ESTABLISHED/CLOSE_WAIT
+        : `lsof -nP -iTCP:${port} -sTCP:LISTEN`;
 
       const child = spawn('sh', ['-c', command], { stdio: 'pipe' });
 
@@ -90,19 +120,19 @@ class SingleInstanceManager {
    */
   async killPrevious() {
     try {
-      console.log('🔄 Terminando instâncias anteriores...');
+      console.log(' Terminando instâncias anteriores...');
 
       // 1. Mata pelo PID se existir
       if (fs.existsSync(this.pidFile)) {
         const pid = fs.readFileSync(this.pidFile, 'utf8').trim();
         try {
           process.kill(parseInt(pid), 'SIGTERM');
-          console.log(`✅ Processo ${pid} terminado`);
+          console.log(` Processo ${pid} terminado`);
 
           // Aguarda um momento para o processo terminar
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (error) {
-          console.log(`⚠️ Processo ${pid} já não existe`);
+          console.log(` Processo ${pid} já não existe`);
         }
       }
 
@@ -114,7 +144,7 @@ class SingleInstanceManager {
       await new Promise((resolve) => {
         const child = spawn('sh', ['-c', command], { stdio: 'pipe' });
         child.on('close', () => {
-          console.log(`✅ Processos na porta ${this.port} terminados`);
+          console.log(` Processos na porta ${this.port} terminados`);
           resolve();
         });
         child.on('error', () => resolve());
@@ -130,7 +160,7 @@ class SingleInstanceManager {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       if (await this.isPortInUse(this.port)) {
-        console.log('🚨 Forçando terminação...');
+        console.log(' Forçando terminação...');
         const forceCommand = process.platform === 'win32'
           ? `for /f "tokens=5" %a in ('netstat -aon ^| findstr :${this.port}') do taskkill /f /pid %a`
           : `lsof -ti:${this.port} | xargs kill -9 2>/dev/null || true`;
@@ -149,11 +179,11 @@ class SingleInstanceManager {
       // 4. Limpa arquivos
       this.cleanup();
 
-      console.log('✅ Limpeza concluída');
+      console.log(' Limpeza concluída');
       return true;
 
     } catch (error) {
-      console.error('❌ Erro ao matar instâncias:', error.message);
+      console.error(' Erro ao matar instâncias:', error.message);
       return false;
     }
   }
@@ -177,17 +207,17 @@ class SingleInstanceManager {
 
       fs.writeFileSync(this.lockFile, JSON.stringify(lockData, null, 2));
 
-      console.log(`✅ Instância registrada (PID: ${process.pid}, Porta: ${this.port})`);
+      console.log(` Instância registrada (PID: ${process.pid}, Porta: ${this.port})`);
 
       // Configura limpeza automática ao sair
       process.on('exit', () => this.cleanup());
       process.on('SIGINT', () => {
-        console.log('\n🛑 Encerrando ORBION...');
+        console.log('\n Encerrando LEADLY...');
         this.cleanup();
         process.exit(0);
       });
       process.on('SIGTERM', () => {
-        console.log('\n🛑 SIGTERM recebido, encerrando...');
+        console.log('\n SIGTERM recebido, encerrando...');
         this.cleanup();
         process.exit(0);
       });
@@ -195,7 +225,7 @@ class SingleInstanceManager {
       return true;
 
     } catch (error) {
-      console.error('❌ Erro ao registrar instância:', error.message);
+      console.error(' Erro ao registrar instância:', error.message);
       return false;
     }
   }
@@ -243,14 +273,14 @@ class SingleInstanceManager {
    * Força restart limpo
    */
   async forceRestart() {
-    console.log('🔄 FORÇA RESTART - Limpando tudo...');
+    console.log(' FORÇA RESTART - Limpando tudo...');
 
     await this.killPrevious();
 
     // Aguarda mais um pouco para garantir que tudo parou
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    console.log('✅ Sistema limpo, pronto para restart');
+    console.log(' Sistema limpo, pronto para restart');
     return true;
   }
 }

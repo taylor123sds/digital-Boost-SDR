@@ -2,6 +2,8 @@
 // Gerenciador de persistência para evitar salvamentos duplicados
 
 import crypto from 'crypto';
+import globalErrorHandler from '../utils/error_handler.js'; //  FIX GRAVE #6
+import log from '../utils/logger-wrapper.js';
 
 export class PersistenceManager {
   constructor() {
@@ -23,7 +25,7 @@ export class PersistenceManager {
       // Verificar se já está sendo salva
       if (this.pendingSaves.has(conversationId)) {
         this.duplicatesBlocked++;
-        console.log(`🚫 Salvamento duplicado bloqueado: ${conversationId}`);
+        log.warn('Salvamento duplicado bloqueado', { conversationId });
         return {
           saved: false,
           reason: 'duplicate_blocked',
@@ -51,9 +53,16 @@ export class PersistenceManager {
       // Adicionar à fila
       this.saveQueue.push(saveBundle);
 
-      // Processar fila se necessário
+      //  FIX GRAVE #6: Processar fila com error handling para promises
       if (!this.processing) {
-        setImmediate(() => this.processSaveQueue());
+        setImmediate(() => {
+          this.processSaveQueue().catch(error => {
+            log.error('Erro não capturado em processSaveQueue', error, { queueSize: this.saveQueue.length });
+            globalErrorHandler.logError('PERSISTENCE_QUEUE_ERROR', error, {
+              queueSize: this.saveQueue.length
+            });
+          });
+        });
       }
 
       // Limpar pendente após timeout
@@ -69,7 +78,7 @@ export class PersistenceManager {
 
     } catch (error) {
       this.errors++;
-      console.error('❌ PersistenceManager: Erro ao preparar salvamento:', error);
+      log.error('Erro ao preparar salvamento', error);
       return {
         saved: false,
         error: error.message
@@ -80,7 +89,10 @@ export class PersistenceManager {
   generateConversationId(from, userMessage, botResponse) {
     // Criar hash baseado em conteúdo + timestamp arredondado (para agrupar saves próximos)
     const timeWindow = Math.floor(Date.now() / 5000) * 5000; // Janela de 5 segundos
-    const content = `${from}_${userMessage.substring(0, 100)}_${botResponse.substring(0, 100)}_${timeWindow}`;
+    //  NULL-SAFE: Garantir que userMessage e botResponse são strings antes de substring
+    const safeUserMsg = (userMessage || '').toString().substring(0, 100);
+    const safeBotResp = (botResponse || '').toString().substring(0, 100);
+    const content = `${from}_${safeUserMsg}_${safeBotResp}_${timeWindow}`;
     return crypto.createHash('md5').update(content).digest('hex').slice(0, 16);
   }
 
@@ -103,7 +115,7 @@ export class PersistenceManager {
     if (this.processing || this.saveQueue.length === 0) return;
 
     this.processing = true;
-    console.log(`💾 Processando fila de salvamento: ${this.saveQueue.length} itens`);
+    log.info('Processando fila de salvamento', { queueSize: this.saveQueue.length });
 
     try {
       // Processar em lotes
@@ -118,7 +130,7 @@ export class PersistenceManager {
       }
 
     } catch (error) {
-      console.error('❌ Erro no processamento da fila:', error);
+      log.error('Erro no processamento da fila', error);
     } finally {
       this.processing = false;
     }
@@ -127,7 +139,7 @@ export class PersistenceManager {
   async saveBatch(batch) {
     if (!batch || batch.length === 0) return;
 
-    console.log(`💾 Salvando lote de ${batch.length} conversas`);
+    log.info('Salvando lote', { batchSize: batch.length });
 
     // Tentar importar funções de memória
     try {
@@ -148,10 +160,16 @@ export class PersistenceManager {
 
         } catch (error) {
           this.errors++;
-          console.error(`❌ Erro ao salvar conversa ${bundle.id}:`, error);
+          log.error('Erro ao salvar conversa', error, { bundleId: bundle.id });
 
-          // Recolocar na fila para retry
-          this.saveQueue.push(bundle);
+          //  FIX: Limite de retry para evitar loop infinito
+          bundle.retryCount = (bundle.retryCount || 0) + 1;
+          if (bundle.retryCount <= 3) {
+            this.saveQueue.push(bundle);
+            log.warn('Retry agendado', { bundleId: bundle.id, attempt: bundle.retryCount });
+          } else {
+            log.error('Bundle descartado após max retries', { bundleId: bundle.id, retries: bundle.retryCount });
+          }
 
           return { success: false, id: bundle.id, error: error.message };
         }
@@ -161,10 +179,10 @@ export class PersistenceManager {
       const successes = results.filter(r => r.success).length;
       const failures = results.filter(r => !r.success).length;
 
-      console.log(`💾 Lote processado: ${successes} sucessos, ${failures} falhas`);
+      log.info('Lote processado', { successes, failures, batchSize: batch.length });
 
     } catch (importError) {
-      console.error('❌ Erro ao importar funções de memória:', importError);
+      log.error('Erro ao importar funções de memória', importError);
       // Recolocar todo o lote na fila
       this.saveQueue.unshift(...batch);
     }
@@ -217,11 +235,11 @@ export class PersistenceManager {
           messageType
         );
 
-        console.log(`💾 Mensagem salva individualmente (tentativa ${attempt})`);
+        log.success('Mensagem salva individualmente', { attempt, from });
         return { saved: true, attempt };
 
       } catch (error) {
-        console.error(`❌ Tentativa ${attempt} falhou:`, error);
+        log.warn('Tentativa de salvamento falhou', { attempt, error: error.message, from });
 
         if (attempt === retries) {
           throw error;
@@ -240,7 +258,7 @@ export class PersistenceManager {
       return { saved: 0, failed: 0 };
     }
 
-    console.log(`💾 Iniciando salvamento em lote de ${conversations.length} conversas`);
+    log.start('Iniciando salvamento em lote', { total: conversations.length });
 
     let saved = 0;
     let failed = 0;
@@ -275,34 +293,35 @@ export class PersistenceManager {
       }
     }
 
-    console.log(`💾 Salvamento em lote concluído: ${saved} salvas, ${failed} falharam`);
+    log.success('Salvamento em lote concluído', { saved, failed, total: conversations.length });
     return { saved, failed };
   }
 
   // Limpeza de dados antigos
   async cleanup(daysOld = 90) {
     try {
-      console.log(`🧹 Iniciando limpeza de dados com mais de ${daysOld} dias`);
+      log.start('Iniciando limpeza de dados', { daysOld });
 
-      const { db } = await import('../memory.js');
+      //  FIX: Usar getDatabase() que verifica e reconecta se necessário
+      const { getDatabase } = await import('../db/index.js');
+      const db = getDatabase();
 
-      if (db && typeof db.run === 'function') {
+      if (db && typeof db.prepare === 'function') {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-        const result = db.run(
-          `DELETE FROM whatsapp_messages WHERE timestamp < ?`,
-          [cutoffDate.getTime()]
-        );
+        //  FIX: Usar API correta do better-sqlite3 (prepare().run()) e coluna correta (created_at)
+        const stmt = db.prepare(`DELETE FROM whatsapp_messages WHERE created_at < datetime(?, 'unixepoch')`);
+        const result = stmt.run(Math.floor(cutoffDate.getTime() / 1000));
 
-        console.log(`🧹 Limpeza concluída: ${result.changes} registros removidos`);
+        log.success('Limpeza concluída', { recordsRemoved: result.changes, daysOld });
         return result.changes;
       }
 
       return 0;
 
     } catch (error) {
-      console.error('❌ Erro na limpeza:', error);
+      log.error('Erro na limpeza', error, { daysOld });
       return 0;
     }
   }
@@ -325,11 +344,15 @@ export class PersistenceManager {
   // Verificação de saúde do sistema
   async healthCheck() {
     try {
-      const { db } = await import('../memory.js');
+      //  FIX: Usar getDatabase() que verifica e reconecta se necessário
+      const { getDatabase } = await import('../db/index.js');
+      const db = getDatabase();
 
       // Teste simples de conectividade com DB
-      if (db && typeof db.get === 'function') {
-        const result = db.get('SELECT COUNT(*) as count FROM whatsapp_messages LIMIT 1');
+      if (db && typeof db.prepare === 'function') {
+        //  FIX: Usar API correta do better-sqlite3 (prepare().get())
+        const stmt = db.prepare('SELECT COUNT(*) as count FROM whatsapp_messages');
+        const result = stmt.get();
 
         return {
           healthy: true,
@@ -360,14 +383,14 @@ export class PersistenceManager {
     this.saveQueue = [];
     this.pendingSaves.clear();
 
-    console.log(`🧹 PersistenceManager: Fila limpa (${cleared} itens removidos)`);
+    log.info('Fila limpa', { itemsRemoved: cleared });
     return cleared;
   }
 
   // Forçar processamento da fila
   async forceProcess() {
     if (!this.processing && this.saveQueue.length > 0) {
-      console.log('🔄 Forçando processamento da fila de salvamento');
+      log.info('Forçando processamento da fila', { queueSize: this.saveQueue.length });
       await this.processSaveQueue();
     }
   }

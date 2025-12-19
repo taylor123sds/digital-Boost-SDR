@@ -51,12 +51,12 @@ class GlobalErrorHandler {
         this.criticalErrors.push(errorInfo);
         this.logToFile('CRITICAL', errorInfo);
 
-        console.error('🚨 ERRO CRÍTICO:', errorInfo);
+        console.error(' ERRO CRÍTICO:', errorInfo);
 
         // Para erros críticos, não mata o processo imediatamente
         // Permite tempo para cleanup
         setTimeout(() => {
-            console.error('💀 Sistema será encerrado devido a erro crítico');
+            console.error(' Sistema será encerrado devido a erro crítico');
             process.exit(1);
         }, 5000);
     }
@@ -75,7 +75,7 @@ class GlobalErrorHandler {
         this.maintainLogSize();
         this.logToFile('ERROR', errorInfo);
 
-        console.error(`❌ [${operation}] ${errorInfo.message}`, context);
+        console.error(` [${operation}] ${errorInfo.message}`, context);
         return errorInfo;
     }
 
@@ -88,7 +88,7 @@ class GlobalErrorHandler {
         };
 
         this.logToFile('WARNING', warningInfo);
-        console.warn(`⚠️ ${warningInfo.message}`, context);
+        console.warn(` ${warningInfo.message}`, context);
     }
 
     logToFile(level, info) {

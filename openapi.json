@@ -1,0 +1,2783 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LEADLY API",
+    "version": "1.0.0",
+    "description": "AI-Powered SDR Agent API"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register new user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Logout user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get current user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/entitlements": {
+      "get": {
+        "summary": "Get team entitlements",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/agents": {
+      "get": {
+        "summary": "List agents",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "post": {
+        "summary": "Create agent",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/my": {
+      "get": {
+        "summary": "Deprecated: use /agents",
+        "tags": [
+          "Agents"
+        ],
+        "deprecated": true
+      }
+    },
+    "/agents/{id}": {
+      "get": {
+        "summary": "Get agent by ID",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "put": {
+        "summary": "Update agent",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "delete": {
+        "summary": "Delete agent",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{id}/channels/whatsapp": {
+      "post": {
+        "summary": "Connect WhatsApp",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{id}/evolution/qrcode": {
+      "get": {
+        "summary": "Get Evolution QR code",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{id}/evolution/status": {
+      "get": {
+        "summary": "Get Evolution status",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{id}/evolution/disconnect": {
+      "post": {
+        "summary": "Disconnect Evolution",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/funil/kanban": {
+      "get": {
+        "summary": "Get Kanban board",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/cards": {
+      "get": {
+        "summary": "Get cards",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/cards/{id}": {
+      "put": {
+        "summary": "Update card",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/stats": {
+      "get": {
+        "summary": "Get stats",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/qualificados": {
+      "get": {
+        "summary": "Get qualified leads",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/agendados": {
+      "get": {
+        "summary": "Get scheduled leads",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/convertidos": {
+      "get": {
+        "summary": "Get converted leads",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/perdidos": {
+      "get": {
+        "summary": "Get lost leads",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/pipelines": {
+      "get": {
+        "summary": "List pipelines",
+        "tags": [
+          "Pipeline"
+        ]
+      },
+      "post": {
+        "summary": "Create pipeline",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/pipelines/{id}": {
+      "get": {
+        "summary": "Get pipeline",
+        "tags": [
+          "Pipeline"
+        ]
+      },
+      "put": {
+        "summary": "Update pipeline",
+        "tags": [
+          "Pipeline"
+        ]
+      },
+      "delete": {
+        "summary": "Delete pipeline",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/pipelines/{id}/stages": {
+      "get": {
+        "summary": "Get pipeline stages",
+        "tags": [
+          "Pipeline"
+        ]
+      },
+      "post": {
+        "summary": "Create stage",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/leads": {
+      "get": {
+        "summary": "List leads",
+        "tags": [
+          "Leads"
+        ]
+      },
+      "post": {
+        "summary": "Create lead",
+        "tags": [
+          "Leads"
+        ]
+      }
+    },
+    "/leads/{id}": {
+      "get": {
+        "summary": "Get lead",
+        "tags": [
+          "Leads"
+        ]
+      },
+      "put": {
+        "summary": "Update lead",
+        "tags": [
+          "Leads"
+        ]
+      }
+    },
+    "/leads/ingest": {
+      "post": {
+        "summary": "Ingest leads",
+        "tags": [
+          "Leads"
+        ]
+      }
+    },
+    "/integrations": {
+      "get": {
+        "summary": "List integrations",
+        "tags": [
+          "Integrations"
+        ]
+      },
+      "post": {
+        "summary": "Create integration",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{id}": {
+      "get": {
+        "summary": "Get integration",
+        "tags": [
+          "Integrations"
+        ]
+      },
+      "delete": {
+        "summary": "Delete integration",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/crm/{provider}/oauth/start": {
+      "post": {
+        "summary": "Start OAuth flow",
+        "tags": [
+          "Integrations"
+        ]
+      },
+      "get": {
+        "summary": "GET /integrations/crm/{provider}/oauth/start",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/crm/{provider}/oauth/callback": {
+      "get": {
+        "summary": "OAuth callback",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/webhooks/inbound/{webhookPublicId}": {
+      "post": {
+        "summary": "Inbound webhook",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/webhook/health": {
+      "get": {
+        "summary": "Webhook health",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/team/users": {
+      "get": {
+        "summary": "List users",
+        "tags": [
+          "Team"
+        ]
+      },
+      "post": {
+        "summary": "Create user",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/users/{id}": {
+      "get": {
+        "summary": "Get user",
+        "tags": [
+          "Team"
+        ]
+      },
+      "put": {
+        "summary": "Update user",
+        "tags": [
+          "Team"
+        ]
+      },
+      "delete": {
+        "summary": "Delete user",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/teams": {
+      "get": {
+        "summary": "List teams",
+        "tags": [
+          "Team"
+        ]
+      },
+      "post": {
+        "summary": "Create team",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/teams/{id}": {
+      "get": {
+        "summary": "Get team",
+        "tags": [
+          "Team"
+        ]
+      },
+      "put": {
+        "summary": "Update team",
+        "tags": [
+          "Team"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /team/teams/{id}",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "summary": "Get dashboard stats",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/performance": {
+      "get": {
+        "summary": "Get performance",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/whatsapp/status": {
+      "get": {
+        "summary": "Get WhatsApp status",
+        "tags": [
+          "WhatsApp"
+        ]
+      }
+    },
+    "/whatsapp/send": {
+      "post": {
+        "summary": "Send message",
+        "tags": [
+          "WhatsApp"
+        ]
+      }
+    },
+    "/whatsapp/conversation/{phone}": {
+      "get": {
+        "summary": "Get conversation",
+        "tags": [
+          "WhatsApp"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/health/detailed": {
+      "get": {
+        "summary": "Detailed health",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/version": {
+      "get": {
+        "summary": "Get version",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/webhook/evolution": {
+      "post": {
+        "summary": "POST /webhook/evolution",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/webhook/coordinator/stats": {
+      "get": {
+        "summary": "GET /webhook/coordinator/stats",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/webhook/coordinator/emergency-cleanup": {
+      "post": {
+        "summary": "POST /webhook/coordinator/emergency-cleanup",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "GET /stats",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/admin/clear-cache": {
+      "post": {
+        "summary": "POST /admin/clear-cache",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/handlers-health": {
+      "get": {
+        "summary": "GET /admin/handlers-health",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/system-health": {
+      "get": {
+        "summary": "GET /admin/system-health",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/error-stats": {
+      "get": {
+        "summary": "GET /admin/error-stats",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/clear-old-errors": {
+      "post": {
+        "summary": "POST /admin/clear-old-errors",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/coordinator/stats": {
+      "get": {
+        "summary": "GET /admin/coordinator/stats",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/coordinator/emergency-cleanup": {
+      "post": {
+        "summary": "POST /admin/coordinator/emergency-cleanup",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/audio/stats": {
+      "get": {
+        "summary": "GET /admin/audio/stats",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/audio/status/{messageId}": {
+      "get": {
+        "summary": "GET /admin/audio/status/{messageId}",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/context/stats": {
+      "get": {
+        "summary": "GET /admin/context/stats",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/integrations/oauth/callback/{provider}": {
+      "get": {
+        "summary": "GET /integrations/oauth/callback/{provider}",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{integrationId}/disconnect": {
+      "post": {
+        "summary": "POST /integrations/{integrationId}/disconnect",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{integrationId}/sync": {
+      "post": {
+        "summary": "POST /integrations/{integrationId}/sync",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{integrationId}/pipelines": {
+      "get": {
+        "summary": "GET /integrations/{integrationId}/pipelines",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{integrationId}/leads": {
+      "post": {
+        "summary": "POST /integrations/{integrationId}/leads",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{integrationId}/test": {
+      "get": {
+        "summary": "GET /integrations/{integrationId}/test",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/learning/report": {
+      "get": {
+        "summary": "GET /learning/report",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/patterns": {
+      "get": {
+        "summary": "GET /learning/patterns",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/score/{contactId}": {
+      "get": {
+        "summary": "GET /learning/score/{contactId}",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/intelligence/dashboard": {
+      "get": {
+        "summary": "GET /learning/intelligence/dashboard",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/adaptations": {
+      "get": {
+        "summary": "GET /learning/adaptations",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/abandonment-patterns": {
+      "get": {
+        "summary": "GET /learning/abandonment-patterns",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/patterns/refresh": {
+      "post": {
+        "summary": "POST /learning/patterns/refresh",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/learning/experiments": {
+      "get": {
+        "summary": "GET /learning/experiments",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/ai-insights/sentiment": {
+      "get": {
+        "summary": "GET /ai-insights/sentiment",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai-insights/objections": {
+      "get": {
+        "summary": "GET /ai-insights/objections",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai-insights/best-practices": {
+      "get": {
+        "summary": "GET /ai-insights/best-practices",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai-insights/agent-performance": {
+      "get": {
+        "summary": "GET /ai-insights/agent-performance",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai-insights/recommendations": {
+      "get": {
+        "summary": "GET /ai-insights/recommendations",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/command-center/overview": {
+      "get": {
+        "summary": "GET /command-center/overview",
+        "tags": [
+          "CommandCenter"
+        ]
+      }
+    },
+    "/command-center/tasks/urgent": {
+      "get": {
+        "summary": "GET /command-center/tasks/urgent",
+        "tags": [
+          "CommandCenter"
+        ]
+      }
+    },
+    "/command-center/hot-leads": {
+      "get": {
+        "summary": "GET /command-center/hot-leads",
+        "tags": [
+          "CommandCenter"
+        ]
+      }
+    },
+    "/command-center/activity-feed": {
+      "get": {
+        "summary": "GET /command-center/activity-feed",
+        "tags": [
+          "CommandCenter"
+        ]
+      }
+    },
+    "/command-center/pipeline-summary": {
+      "get": {
+        "summary": "GET /command-center/pipeline-summary",
+        "tags": [
+          "CommandCenter"
+        ]
+      }
+    },
+    "/command-center/performance": {
+      "get": {
+        "summary": "GET /command-center/performance",
+        "tags": [
+          "CommandCenter"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "GET /metrics",
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/summary": {
+      "get": {
+        "summary": "GET /metrics/summary",
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/reset": {
+      "post": {
+        "summary": "POST /metrics/reset",
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/calibration/test": {
+      "post": {
+        "summary": "POST /calibration/test",
+        "tags": [
+          "Calibration"
+        ]
+      }
+    },
+    "/calibration/status": {
+      "get": {
+        "summary": "GET /calibration/status",
+        "tags": [
+          "Calibration"
+        ]
+      }
+    },
+    "/activities": {
+      "get": {
+        "summary": "GET /activities",
+        "tags": [
+          "Activities"
+        ]
+      },
+      "post": {
+        "summary": "POST /activities",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/timeline": {
+      "get": {
+        "summary": "GET /activities/timeline",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/overdue": {
+      "get": {
+        "summary": "GET /activities/overdue",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/today": {
+      "get": {
+        "summary": "GET /activities/today",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/upcoming": {
+      "get": {
+        "summary": "GET /activities/upcoming",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/stats": {
+      "get": {
+        "summary": "GET /activities/stats",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/{id}": {
+      "get": {
+        "summary": "GET /activities/{id}",
+        "tags": [
+          "Activities"
+        ]
+      },
+      "put": {
+        "summary": "PUT /activities/{id}",
+        "tags": [
+          "Activities"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /activities/{id}",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/{id}/complete": {
+      "put": {
+        "summary": "PUT /activities/{id}/complete",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/activities/{id}/reschedule": {
+      "put": {
+        "summary": "PUT /activities/{id}/reschedule",
+        "tags": [
+          "Activities"
+        ]
+      }
+    },
+    "/reports/summary": {
+      "get": {
+        "summary": "GET /reports/summary",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/templates": {
+      "get": {
+        "summary": "GET /reports/templates",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/generate": {
+      "post": {
+        "summary": "POST /reports/generate",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/export/{format}": {
+      "get": {
+        "summary": "GET /reports/export/{format}",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/tts/elevenlabs": {
+      "post": {
+        "summary": "POST /tts/elevenlabs",
+        "tags": [
+          "Voice"
+        ]
+      }
+    },
+    "/chat": {
+      "post": {
+        "summary": "POST /chat",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/dashboard/voice-navigate": {
+      "post": {
+        "summary": "POST /dashboard/voice-navigate",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/execute-navigation": {
+      "post": {
+        "summary": "POST /dashboard/execute-navigation",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/voice-commands": {
+      "get": {
+        "summary": "GET /dashboard/voice-commands",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/email-optin/status": {
+      "get": {
+        "summary": "GET /email-optin/status",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/stats": {
+      "get": {
+        "summary": "GET /email-optin/stats",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/start": {
+      "post": {
+        "summary": "POST /email-optin/start",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/stop": {
+      "post": {
+        "summary": "POST /email-optin/stop",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/pause": {
+      "post": {
+        "summary": "POST /email-optin/pause",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/resume": {
+      "post": {
+        "summary": "POST /email-optin/resume",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/import": {
+      "post": {
+        "summary": "POST /email-optin/import",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/send-single": {
+      "post": {
+        "summary": "POST /email-optin/send-single",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/pending": {
+      "get": {
+        "summary": "GET /email-optin/pending",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/sent": {
+      "get": {
+        "summary": "GET /email-optin/sent",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/eligible": {
+      "get": {
+        "summary": "GET /email-optin/eligible",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/config": {
+      "post": {
+        "summary": "POST /email-optin/config",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/email-optin/mark-eligible": {
+      "post": {
+        "summary": "POST /email-optin/mark-eligible",
+        "tags": [
+          "EmailOptIn"
+        ]
+      }
+    },
+    "/cadences": {
+      "get": {
+        "summary": "GET /cadences",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/stats": {
+      "get": {
+        "summary": "GET /cadences/stats",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/pipeline-view": {
+      "get": {
+        "summary": "GET /cadences/pipeline-view",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/{id}": {
+      "get": {
+        "summary": "GET /cadences/{id}",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/{id}/steps": {
+      "get": {
+        "summary": "GET /cadences/{id}/steps",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/{id}/enroll": {
+      "post": {
+        "summary": "POST /cadences/{id}/enroll",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/enrollments/active": {
+      "get": {
+        "summary": "GET /cadences/enrollments/active",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/enrollments/{id}/pause": {
+      "put": {
+        "summary": "PUT /cadences/enrollments/{id}/pause",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/enrollments/{id}/resume": {
+      "put": {
+        "summary": "PUT /cadences/enrollments/{id}/resume",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/enrollments/{id}/respond": {
+      "put": {
+        "summary": "PUT /cadences/enrollments/{id}/respond",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/actions/pending": {
+      "get": {
+        "summary": "GET /cadences/actions/pending",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/actions/execute": {
+      "post": {
+        "summary": "POST /cadences/actions/execute",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/cadences/advance-day": {
+      "post": {
+        "summary": "POST /cadences/advance-day",
+        "tags": [
+          "Cadence"
+        ]
+      }
+    },
+    "/ports/status": {
+      "get": {
+        "summary": "GET /ports/status",
+        "tags": [
+          "Ports"
+        ]
+      }
+    },
+    "/ports/available": {
+      "get": {
+        "summary": "GET /ports/available",
+        "tags": [
+          "Ports"
+        ]
+      }
+    },
+    "/ports/release/{port}": {
+      "post": {
+        "summary": "POST /ports/release/{port}",
+        "tags": [
+          "Ports"
+        ]
+      }
+    },
+    "/pipeline": {
+      "get": {
+        "summary": "GET /pipeline",
+        "tags": [
+          "Pipeline"
+        ]
+      },
+      "post": {
+        "summary": "POST /pipeline",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/pipeline/stats": {
+      "get": {
+        "summary": "GET /pipeline/stats",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/pipeline/{id}/stage": {
+      "put": {
+        "summary": "PUT /pipeline/{id}/stage",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/pipeline/{id}": {
+      "put": {
+        "summary": "PUT /pipeline/{id}",
+        "tags": [
+          "Pipeline"
+        ]
+      },
+      "get": {
+        "summary": "GET /pipeline/{id}",
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    },
+    "/debug/sheets": {
+      "get": {
+        "summary": "GET /debug/sheets",
+        "tags": [
+          "Debug"
+        ]
+      }
+    },
+    "/automations": {
+      "get": {
+        "summary": "GET /automations",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "post": {
+        "summary": "POST /automations",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/{id}": {
+      "get": {
+        "summary": "GET /automations/{id}",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "put": {
+        "summary": "PUT /automations/{id}",
+        "tags": [
+          "Automation"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /automations/{id}",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/{id}/toggle": {
+      "post": {
+        "summary": "POST /automations/{id}/toggle",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/{id}/run": {
+      "post": {
+        "summary": "POST /automations/{id}/run",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/{id}/executions": {
+      "get": {
+        "summary": "GET /automations/{id}/executions",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/executions/recent": {
+      "get": {
+        "summary": "GET /automations/executions/recent",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/engine/stats": {
+      "get": {
+        "summary": "GET /automations/engine/stats",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/engine/initialize": {
+      "post": {
+        "summary": "POST /automations/engine/initialize",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/templates": {
+      "get": {
+        "summary": "GET /automations/templates",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/automations/templates/{templateId}/install": {
+      "post": {
+        "summary": "POST /automations/templates/{templateId}/install",
+        "tags": [
+          "Automation"
+        ]
+      }
+    },
+    "/funil/bant": {
+      "get": {
+        "summary": "GET /funil/bant",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/bant/{contactId}": {
+      "get": {
+        "summary": "GET /funil/bant/{contactId}",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/leads/update-stage": {
+      "post": {
+        "summary": "POST /leads/update-stage",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/funil/cleanup-prospecting": {
+      "post": {
+        "summary": "POST /funil/cleanup-prospecting",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/sheets-sync/enable": {
+      "post": {
+        "summary": "POST /funil/sheets-sync/enable",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/sheets-sync/disable": {
+      "post": {
+        "summary": "POST /funil/sheets-sync/disable",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/sync-to-sheets": {
+      "post": {
+        "summary": "POST /funil/sync-to-sheets",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/funil/pipeline-unificado": {
+      "get": {
+        "summary": "GET /funil/pipeline-unificado",
+        "tags": [
+          "Funil"
+        ]
+      }
+    },
+    "/leads/ingest/stats": {
+      "get": {
+        "summary": "GET /leads/ingest/stats",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/forecasting/pipeline-weighted": {
+      "get": {
+        "summary": "GET /forecasting/pipeline-weighted",
+        "tags": [
+          "Forecasting"
+        ]
+      }
+    },
+    "/forecasting/scenarios": {
+      "get": {
+        "summary": "GET /forecasting/scenarios",
+        "tags": [
+          "Forecasting"
+        ]
+      }
+    },
+    "/forecasting/velocity": {
+      "get": {
+        "summary": "GET /forecasting/velocity",
+        "tags": [
+          "Forecasting"
+        ]
+      }
+    },
+    "/forecasting/win-rate": {
+      "get": {
+        "summary": "GET /forecasting/win-rate",
+        "tags": [
+          "Forecasting"
+        ]
+      }
+    },
+    "/forecasting/trends": {
+      "get": {
+        "summary": "GET /forecasting/trends",
+        "tags": [
+          "Forecasting"
+        ]
+      }
+    },
+    "/forecasting/monthly": {
+      "get": {
+        "summary": "GET /forecasting/monthly",
+        "tags": [
+          "Forecasting"
+        ]
+      }
+    },
+    "/website/contact": {
+      "post": {
+        "summary": "POST /website/contact",
+        "tags": [
+          "Website"
+        ]
+      }
+    },
+    "/website/newsletter": {
+      "post": {
+        "summary": "POST /website/newsletter",
+        "tags": [
+          "Website"
+        ]
+      }
+    },
+    "/website/health": {
+      "get": {
+        "summary": "GET /website/health",
+        "tags": [
+          "Website"
+        ]
+      }
+    },
+    "/agents/{agentId}/channels/evolution/connect": {
+      "post": {
+        "summary": "POST /agents/{agentId}/channels/evolution/connect",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/channels/evolution/status": {
+      "get": {
+        "summary": "GET /agents/{agentId}/channels/evolution/status",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/channels/evolution/qrcode": {
+      "get": {
+        "summary": "GET /agents/{agentId}/channels/evolution/qrcode",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/channels/evolution/disconnect": {
+      "post": {
+        "summary": "POST /agents/{agentId}/channels/evolution/disconnect",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/integrations/{integrationId}": {
+      "get": {
+        "summary": "GET /integrations/{integrationId}",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/integrations/{integrationId}/status": {
+      "get": {
+        "summary": "GET /integrations/{integrationId}/status",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/crm/opportunities": {
+      "get": {
+        "summary": "GET /crm/opportunities",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "post": {
+        "summary": "POST /crm/opportunities",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/pipeline": {
+      "get": {
+        "summary": "GET /crm/opportunities/pipeline",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/{id}": {
+      "get": {
+        "summary": "GET /crm/opportunities/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "put": {
+        "summary": "PUT /crm/opportunities/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /crm/opportunities/{id}",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/{id}/stage": {
+      "put": {
+        "summary": "PUT /crm/opportunities/{id}/stage",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/{id}/win": {
+      "post": {
+        "summary": "POST /crm/opportunities/{id}/win",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/{id}/lose": {
+      "post": {
+        "summary": "POST /crm/opportunities/{id}/lose",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/{id}/products": {
+      "post": {
+        "summary": "POST /crm/opportunities/{id}/products",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/opportunities/{id}/products/{productId}": {
+      "delete": {
+        "summary": "DELETE /crm/opportunities/{id}/products/{productId}",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/contacts": {
+      "get": {
+        "summary": "GET /crm/contacts",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "post": {
+        "summary": "POST /crm/contacts",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/contacts/stats": {
+      "get": {
+        "summary": "GET /crm/contacts/stats",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/contacts/{id}": {
+      "get": {
+        "summary": "GET /crm/contacts/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "put": {
+        "summary": "PUT /crm/contacts/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /crm/contacts/{id}",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/contacts/{id}/consent": {
+      "post": {
+        "summary": "POST /crm/contacts/{id}/consent",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/contacts/{id}/score": {
+      "put": {
+        "summary": "PUT /crm/contacts/{id}/score",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/leads": {
+      "get": {
+        "summary": "GET /crm/leads",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "post": {
+        "summary": "POST /crm/leads",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/leads/stats": {
+      "get": {
+        "summary": "GET /crm/leads/stats",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/leads/{id}": {
+      "get": {
+        "summary": "GET /crm/leads/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "put": {
+        "summary": "PUT /crm/leads/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /crm/leads/{id}",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/leads/{id}/status": {
+      "put": {
+        "summary": "PUT /crm/leads/{id}/status",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/leads/{id}/bant": {
+      "put": {
+        "summary": "PUT /crm/leads/{id}/bant",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/leads/{id}/convert": {
+      "post": {
+        "summary": "POST /crm/leads/{id}/convert",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/accounts": {
+      "get": {
+        "summary": "GET /crm/accounts",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "post": {
+        "summary": "POST /crm/accounts",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/accounts/stats": {
+      "get": {
+        "summary": "GET /crm/accounts/stats",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/crm/accounts/{id}": {
+      "get": {
+        "summary": "GET /crm/accounts/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "put": {
+        "summary": "PUT /crm/accounts/{id}",
+        "tags": [
+          "CRM"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /crm/accounts/{id}",
+        "tags": [
+          "CRM"
+        ]
+      }
+    },
+    "/analytics/whatsapp-stats": {
+      "get": {
+        "summary": "GET /analytics/whatsapp-stats",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/agent-metrics": {
+      "get": {
+        "summary": "GET /analytics/agent-metrics",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/overview": {
+      "get": {
+        "summary": "GET /analytics/overview",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/top-contacts": {
+      "get": {
+        "summary": "GET /analytics/top-contacts",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/hourly": {
+      "get": {
+        "summary": "GET /analytics/hourly",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/p2/stats": {
+      "get": {
+        "summary": "GET /analytics/p2/stats",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/p2/abandonment-patterns": {
+      "get": {
+        "summary": "GET /analytics/p2/abandonment-patterns",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/p2/experiments": {
+      "get": {
+        "summary": "GET /analytics/p2/experiments",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/p2/sentiment-summary": {
+      "get": {
+        "summary": "GET /analytics/p2/sentiment-summary",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/p2/insights-report": {
+      "get": {
+        "summary": "GET /analytics/p2/insights-report",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/p2/create-experiment": {
+      "post": {
+        "summary": "POST /analytics/p2/create-experiment",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/learning/outcomes": {
+      "get": {
+        "summary": "GET /analytics/learning/outcomes",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/learning/abandonment-job": {
+      "get": {
+        "summary": "GET /analytics/learning/abandonment-job",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/learning/detect-abandonments": {
+      "post": {
+        "summary": "POST /analytics/learning/detect-abandonments",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/learning/abandonment-hotspots": {
+      "get": {
+        "summary": "GET /analytics/learning/abandonment-hotspots",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/learning/full-report": {
+      "get": {
+        "summary": "GET /analytics/learning/full-report",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/learning/activity": {
+      "get": {
+        "summary": "GET /analytics/learning/activity",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/status": {
+      "get": {
+        "summary": "GET /analytics/optimizer/status",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/run-cycle": {
+      "post": {
+        "summary": "POST /analytics/optimizer/run-cycle",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/stage-health": {
+      "get": {
+        "summary": "GET /analytics/optimizer/stage-health",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/optimizations": {
+      "get": {
+        "summary": "GET /analytics/optimizer/optimizations",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/start": {
+      "post": {
+        "summary": "POST /analytics/optimizer/start",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/stop": {
+      "post": {
+        "summary": "POST /analytics/optimizer/stop",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/optimizer/detect-risk": {
+      "post": {
+        "summary": "POST /analytics/optimizer/detect-risk",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/maturity-level": {
+      "get": {
+        "summary": "GET /analytics/maturity-level",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/team/users/{id}/performance": {
+      "get": {
+        "summary": "GET /team/users/{id}/performance",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/leaderboard": {
+      "get": {
+        "summary": "GET /team/leaderboard",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/teams": {
+      "get": {
+        "summary": "GET /teams",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/teams/{id}/members": {
+      "post": {
+        "summary": "POST /team/teams/{id}/members",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/teams/{id}/members/{userId}": {
+      "delete": {
+        "summary": "DELETE /team/teams/{id}/members/{userId}",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/team/teams/{id}/performance": {
+      "get": {
+        "summary": "GET /team/teams/{id}/performance",
+        "tags": [
+          "Team"
+        ]
+      }
+    },
+    "/dashboard/leads": {
+      "get": {
+        "summary": "GET /dashboard/leads",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/google/auth-url": {
+      "get": {
+        "summary": "GET /google/auth-url",
+        "tags": [
+          "Google"
+        ]
+      }
+    },
+    "/google/auth-status": {
+      "get": {
+        "summary": "GET /google/auth-status",
+        "tags": [
+          "Google"
+        ]
+      }
+    },
+    "/calendar/status": {
+      "get": {
+        "summary": "GET /calendar/status",
+        "tags": [
+          "Calendar"
+        ]
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "GET /events",
+        "tags": [
+          "Calendar"
+        ]
+      },
+      "post": {
+        "summary": "POST /events",
+        "tags": [
+          "Calendar"
+        ]
+      }
+    },
+    "/events/{eventId}": {
+      "put": {
+        "summary": "PUT /events/{eventId}",
+        "tags": [
+          "Calendar"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /events/{eventId}",
+        "tags": [
+          "Calendar"
+        ]
+      }
+    },
+    "/calendar/free-slots": {
+      "get": {
+        "summary": "GET /calendar/free-slots",
+        "tags": [
+          "Calendar"
+        ]
+      }
+    },
+    "/calendar/suggest-times": {
+      "post": {
+        "summary": "POST /calendar/suggest-times",
+        "tags": [
+          "Calendar"
+        ]
+      }
+    },
+    "/campaign/run": {
+      "post": {
+        "summary": "POST /campaign/run",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/whatsapp/campaign-status": {
+      "get": {
+        "summary": "GET /whatsapp/campaign-status",
+        "tags": [
+          "WhatsApp"
+        ]
+      }
+    },
+    "/whatsapp/intelligent-campaign": {
+      "post": {
+        "summary": "POST /whatsapp/intelligent-campaign",
+        "tags": [
+          "WhatsApp"
+        ]
+      }
+    },
+    "/prospecting/start": {
+      "post": {
+        "summary": "POST /prospecting/start",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/stop": {
+      "post": {
+        "summary": "POST /prospecting/stop",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/pause": {
+      "post": {
+        "summary": "POST /prospecting/pause",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/resume": {
+      "post": {
+        "summary": "POST /prospecting/resume",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/status": {
+      "get": {
+        "summary": "GET /prospecting/status",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/metrics": {
+      "get": {
+        "summary": "GET /prospecting/metrics",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/history": {
+      "get": {
+        "summary": "GET /prospecting/history",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/config": {
+      "post": {
+        "summary": "POST /prospecting/config",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/template": {
+      "post": {
+        "summary": "POST /prospecting/template",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/manual": {
+      "post": {
+        "summary": "POST /prospecting/manual",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/test": {
+      "post": {
+        "summary": "POST /prospecting/test",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/reset": {
+      "post": {
+        "summary": "POST /prospecting/reset",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/sync/status": {
+      "get": {
+        "summary": "GET /prospecting/sync/status",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/sync/now": {
+      "post": {
+        "summary": "POST /prospecting/sync/now",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/prospecting/prospects/stats": {
+      "get": {
+        "summary": "GET /prospecting/prospects/stats",
+        "tags": [
+          "Prospecting"
+        ]
+      }
+    },
+    "/agents/{agentId}": {
+      "get": {
+        "summary": "GET /agents/{agentId}",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "put": {
+        "summary": "PUT /agents/{agentId}",
+        "tags": [
+          "Agents"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /agents/{agentId}",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/admin/agents": {
+      "get": {
+        "summary": "GET /admin/agents",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/agents/{agentId}/permissions": {
+      "get": {
+        "summary": "GET /agents/{agentId}/permissions",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/duplicate": {
+      "post": {
+        "summary": "POST /agents/{agentId}/duplicate",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/evolution/status": {
+      "get": {
+        "summary": "GET /agents/{agentId}/evolution/status",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/evolution/create": {
+      "post": {
+        "summary": "POST /agents/{agentId}/evolution/create",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/evolution/qrcode": {
+      "get": {
+        "summary": "GET /agents/{agentId}/evolution/qrcode",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/evolution/disconnect": {
+      "post": {
+        "summary": "POST /agents/{agentId}/evolution/disconnect",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/agents/{agentId}/evolution": {
+      "delete": {
+        "summary": "DELETE /agents/{agentId}/evolution",
+        "tags": [
+          "Agents"
+        ]
+      }
+    },
+    "/evolution/instances": {
+      "get": {
+        "summary": "GET /evolution/instances",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/meetings/transcriptions/fetch-by-event": {
+      "post": {
+        "summary": "POST /meetings/transcriptions/fetch-by-event",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/transcriptions/fetch-by-type": {
+      "post": {
+        "summary": "POST /meetings/transcriptions/fetch-by-type",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/transcriptions/fetch-recent": {
+      "post": {
+        "summary": "POST /meetings/transcriptions/fetch-recent",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/transcriptions/{id}": {
+      "get": {
+        "summary": "GET /meetings/transcriptions/{id}",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/transcriptions": {
+      "get": {
+        "summary": "GET /meetings/transcriptions",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/analyze/{transcriptionId}": {
+      "post": {
+        "summary": "POST /meetings/analyze/{transcriptionId}",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/analyze/quick": {
+      "post": {
+        "summary": "POST /meetings/analyze/quick",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/analysis/{id}": {
+      "get": {
+        "summary": "GET /meetings/analysis/{id}",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/analysis/by-meeting/{meetingId}": {
+      "get": {
+        "summary": "GET /meetings/analysis/by-meeting/{meetingId}",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/scores/excellent": {
+      "get": {
+        "summary": "GET /meetings/scores/excellent",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/scores/bant-qualified": {
+      "get": {
+        "summary": "GET /meetings/scores/bant-qualified",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/scores/stats": {
+      "get": {
+        "summary": "GET /meetings/scores/stats",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/insights/high-priority": {
+      "get": {
+        "summary": "GET /meetings/insights/high-priority",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/insights/{id}/status": {
+      "patch": {
+        "summary": "PATCH /meetings/insights/{id}/status",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/insights/stats": {
+      "get": {
+        "summary": "GET /meetings/insights/stats",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/auth/google/url": {
+      "get": {
+        "summary": "GET /meetings/auth/google/url",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/meetings/auth/google/callback": {
+      "post": {
+        "summary": "POST /meetings/auth/google/callback",
+        "tags": [
+          "Meetings"
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "GET /notifications",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "post": {
+        "summary": "POST /notifications",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "summary": "GET /notifications/unread-count",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}": {
+      "get": {
+        "summary": "GET /notifications/{id}",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /notifications/{id}",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/broadcast": {
+      "post": {
+        "summary": "POST /notifications/broadcast",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "put": {
+        "summary": "PUT /notifications/{id}/read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/read-all": {
+      "put": {
+        "summary": "PUT /notifications/read-all",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/old": {
+      "delete": {
+        "summary": "DELETE /notifications/old",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "summary": "GET /notifications/preferences",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "put": {
+        "summary": "PUT /notifications/preferences",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/clientes": {
+      "get": {
+        "summary": "GET /clientes",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/clientes/from-opportunity": {
+      "post": {
+        "summary": "POST /clientes/from-opportunity",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/clientes/{id}": {
+      "get": {
+        "summary": "GET /clientes/{id}",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/clientes/{id}/status": {
+      "put": {
+        "summary": "PUT /clientes/{id}/status",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/clientes/{id}/greeting": {
+      "post": {
+        "summary": "POST /clientes/{id}/greeting",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/clientes/{id}/followup": {
+      "post": {
+        "summary": "POST /clientes/{id}/followup",
+        "tags": [
+          "Misc"
+        ]
+      }
+    },
+    "/version/short": {
+      "get": {
+        "summary": "GET /version/short",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/scoring/rules": {
+      "get": {
+        "summary": "GET /scoring/rules",
+        "tags": [
+          "Scoring"
+        ]
+      },
+      "post": {
+        "summary": "POST /scoring/rules",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/rules/{id}": {
+      "get": {
+        "summary": "GET /scoring/rules/{id}",
+        "tags": [
+          "Scoring"
+        ]
+      },
+      "put": {
+        "summary": "PUT /scoring/rules/{id}",
+        "tags": [
+          "Scoring"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /scoring/rules/{id}",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/rules/{id}/toggle": {
+      "put": {
+        "summary": "PUT /scoring/rules/{id}/toggle",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/calculate/{leadId}": {
+      "post": {
+        "summary": "POST /scoring/calculate/{leadId}",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/calculate-all": {
+      "post": {
+        "summary": "POST /scoring/calculate-all",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/leaderboard": {
+      "get": {
+        "summary": "GET /scoring/leaderboard",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/lead/{leadId}": {
+      "get": {
+        "summary": "GET /scoring/lead/{leadId}",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/lead/{leadId}/history": {
+      "get": {
+        "summary": "GET /scoring/lead/{leadId}/history",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/scoring/stats": {
+      "get": {
+        "summary": "GET /scoring/stats",
+        "tags": [
+          "Scoring"
+        ]
+      }
+    },
+    "/auth/create-user": {
+      "post": {
+        "summary": "POST /auth/create-user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/password": {
+      "put": {
+        "summary": "PUT /auth/password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "summary": "GET /auth/sessions",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "delete": {
+        "summary": "DELETE /auth/sessions",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify": {
+      "post": {
+        "summary": "POST /auth/verify",
+        "tags": [
+          "Auth"
+        ]
+      }
+    }
+  }
+}

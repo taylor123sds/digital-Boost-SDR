@@ -9,8 +9,20 @@
 import express from 'express';
 import { leadRepository } from '../../repositories/lead.repository.js';
 import { getDatabase } from '../../db/connection.js';
+import { extractTenantId, getTenantColumnForTable } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
+
+function getTenantFilters(db, tableName, tenantId, alias) {
+  const tenantColumn = getTenantColumnForTable(tableName, db);
+  const qualifiedColumn = tenantColumn ? (alias ? `${alias}.${tenantColumn}` : tenantColumn) : null;
+  return {
+    tenantColumn,
+    tenantWhere: qualifiedColumn ? `WHERE ${qualifiedColumn} = ?` : '',
+    tenantAnd: qualifiedColumn ? `AND ${qualifiedColumn} = ?` : '',
+    tenantParam: tenantColumn ? [tenantId] : []
+  };
+}
 
 /**
  * GET /api/funil/bant
@@ -20,9 +32,15 @@ router.get('/api/funil/bant', async (req, res) => {
   try {
     // Importar stateManager para dados BANT detalhados
     const { getLeadState } = await import('../../utils/stateManager.js');
+    const tenantId = extractTenantId(req);
 
     // Buscar leads do SQLite (fonte primaria)
-    const sqliteLeads = leadRepository.findAll({ limit: 500, orderBy: 'updated_at', order: 'DESC' });
+    const sqliteLeads = leadRepository.findAll({
+      limit: 500,
+      orderBy: 'updated_at',
+      order: 'DESC',
+      tenantId
+    });
 
     // Formatar leads do SQLite para o formato esperado pelo frontend
     const funnelLeadsPromises = sqliteLeads.map(async (lead) => {
@@ -127,7 +145,7 @@ router.get('/api/funil/bant', async (req, res) => {
       avgScore: funnelLeads.reduce((sum, l) => sum + l.score, 0) / (funnelLeads.length || 1)
     };
 
-    console.log(`✅ [FUNIL-BANT] ${funnelLeads.length} leads carregados do SQLite`);
+    console.log(` [FUNIL-BANT] ${funnelLeads.length} leads carregados do SQLite`);
 
     res.json({
       success: true,
@@ -137,7 +155,7 @@ router.get('/api/funil/bant', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar funil BANT:', error);
+    console.error(' Erro ao buscar funil BANT:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -154,7 +172,8 @@ router.get('/api/funil/bant', async (req, res) => {
 router.get('/api/funil/stats', async (req, res) => {
   try {
     // Use LeadRepository for stats (SQLite primary)
-    const stats = leadRepository.getFunnelStats();
+    const tenantId = extractTenantId(req);
+    const stats = leadRepository.getFunnelStats('pipeline_outbound_solar', tenantId);
 
     res.json({
       success: true,
@@ -190,7 +209,7 @@ router.get('/api/funil/stats', async (req, res) => {
 router.get('/api/funil/bant/:contactId', async (req, res) => {
   try {
     const { contactId } = req.params;
-    const { getLeadState } = await import('../../utils/stateManager.js'); // ✅ FIX: Use canonical stateManager
+    const { getLeadState } = await import('../../utils/stateManager.js'); //  FIX: Use canonical stateManager
     const state = await getLeadState(contactId);
 
     if (!state || !state.bantStages) {
@@ -206,7 +225,7 @@ router.get('/api/funil/bant/:contactId', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Erro ao buscar lead do funil:', error);
+    console.error(' Erro ao buscar lead do funil:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -270,7 +289,7 @@ router.post('/api/leads/update-stage', async (req, res) => {
       // É um agente - atualizar currentAgent
       leadState.currentAgent = stage;
     } else if (stage === 'completed') {
-      // ✅ FIX: "completed" não é um currentAgent válido
+      //  FIX: "completed" não é um currentAgent válido
       // Usar metadata.conversationCompleted = true e manter currentAgent = scheduler
       leadState.currentAgent = 'scheduler'; // Manter no scheduler
       if (!leadState.metadata) leadState.metadata = {};
@@ -287,7 +306,7 @@ router.post('/api/leads/update-stage', async (req, res) => {
     // Salvar estado atualizado
     await saveLeadState(leadState);
 
-    console.log(`✅ [FUNIL-UPDATE] Lead ${leadId} movido para estágio ${stage}`);
+    console.log(` [FUNIL-UPDATE] Lead ${leadId} movido para estágio ${stage}`);
 
     res.json({
       success: true,
@@ -299,7 +318,7 @@ router.post('/api/leads/update-stage', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ [FUNIL-UPDATE] Erro ao atualizar estágio:', error);
+    console.error(' [FUNIL-UPDATE] Erro ao atualizar estágio:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -316,18 +335,23 @@ router.post('/api/funil/cleanup-prospecting', async (req, res) => {
   try {
     const { moveLeadFromProspectingToFunil } = await import('../../utils/sheetsManager.js');
     const db = getDatabase();
+    const tenantId = extractTenantId(req);
+    const leadFilter = getTenantFilters(db, 'leads', tenantId, 'l');
+    const messageFilter = getTenantFilters(db, 'whatsapp_messages', tenantId, 'wm');
 
     // Buscar todos os leads que têm mensagens (já foram prospectados)
     const prospectedLeads = db.prepare(`
       SELECT DISTINCT l.whatsapp
-      FROM leads l
+      FROM leads l /* tenant-guard: ignore */
       WHERE EXISTS (
-        SELECT 1 FROM whatsapp_messages wm
+        SELECT 1 FROM whatsapp_messages wm /* tenant-guard: ignore */
         WHERE wm.phone_number = l.whatsapp
+        ${messageFilter.tenantAnd}
       )
-    `).all();
+      ${leadFilter.tenantAnd}
+    `).all(...messageFilter.tenantParam, ...leadFilter.tenantParam);
 
-    console.log(`📊 [CLEANUP] Encontrados ${prospectedLeads.length} leads já prospectados`);
+    console.log(` [CLEANUP] Encontrados ${prospectedLeads.length} leads já prospectados`);
 
     const results = {
       total: prospectedLeads.length,
@@ -347,11 +371,11 @@ router.post('/api/funil/cleanup-prospecting', async (req, res) => {
         }
       } catch (err) {
         results.errors++;
-        console.error(`❌ Erro ao remover ${lead.whatsapp}:`, err.message);
+        console.error(` Erro ao remover ${lead.whatsapp}:`, err.message);
       }
     }
 
-    console.log(`✅ [CLEANUP] Concluído: ${results.removed} removidos, ${results.notFound} não encontrados, ${results.errors} erros`);
+    console.log(` [CLEANUP] Concluído: ${results.removed} removidos, ${results.notFound} não encontrados, ${results.errors} erros`);
 
     res.json({
       success: true,
@@ -360,7 +384,7 @@ router.post('/api/funil/cleanup-prospecting', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ [CLEANUP] Erro:', error);
+    console.error(' [CLEANUP] Erro:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -422,6 +446,10 @@ router.post('/api/funil/sync-to-sheets', async (req, res) => {
     }
 
     const db = getDatabase();
+    const tenantId = extractTenantId(req);
+    const leadFilter = getTenantFilters(db, 'leads', tenantId, 'l');
+    const messageFilter = getTenantFilters(db, 'whatsapp_messages', tenantId);
+    const leadStateFilter = getTenantFilters(db, 'lead_states', tenantId);
 
     // Headers para a planilha unificada
     const HEADERS = [
@@ -438,13 +466,20 @@ router.post('/api/funil/sync-to-sheets', async (req, res) => {
         l.*,
         ps.name as stage_name,
         ps.color as stage_color,
-        (SELECT COUNT(*) FROM whatsapp_messages WHERE phone_number = l.whatsapp) as total_messages,
-        (SELECT MAX(created_at) FROM whatsapp_messages WHERE phone_number = l.whatsapp) as last_message,
-        (SELECT message_count FROM lead_states WHERE phone_number = l.whatsapp) as state_message_count
-      FROM leads l
-      LEFT JOIN pipeline_stages ps ON l.stage_id = ps.id
+        (SELECT COUNT(*) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as total_messages,
+        (SELECT MAX(created_at) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as last_message,
+        (SELECT message_count FROM lead_states WHERE phone_number = l.whatsapp ${leadStateFilter.tenantAnd}) as state_message_count
+      FROM leads l /* tenant-guard: ignore */
+      LEFT JOIN pipeline_stages ps /* tenant-guard: ignore */ ON l.stage_id = ps.id
+      WHERE 1=1
+      ${leadFilter.tenantAnd}
       ORDER BY l.updated_at DESC
-    `).all();
+    `).all(
+      ...leadFilter.tenantParam,
+      ...messageFilter.tenantParam,
+      ...messageFilter.tenantParam,
+      ...leadStateFilter.tenantParam
+    );
 
     // Preparar dados para a planilha
     const rows = leads.map(lead => [
@@ -479,7 +514,7 @@ router.post('/api/funil/sync-to-sheets', async (req, res) => {
         await writeSheet(SHEET_ID, `${SHEET_NAME}!A2:R${rows.length + 1}`, rows);
       }
 
-      console.log(`✅ [SYNC-SHEETS] ${rows.length} leads sincronizados para ${SHEET_NAME}`);
+      console.log(` [SYNC-SHEETS] ${rows.length} leads sincronizados para ${SHEET_NAME}`);
 
       res.json({
         success: true,
@@ -501,7 +536,7 @@ router.post('/api/funil/sync-to-sheets', async (req, res) => {
       });
     } catch (sheetError) {
       // Se a aba não existe, tentar criar
-      console.error('❌ [SYNC-SHEETS] Erro ao escrever:', sheetError.message);
+      console.error(' [SYNC-SHEETS] Erro ao escrever:', sheetError.message);
 
       // Fallback: usar a aba existente 'funil'
       await writeSheet(SHEET_ID, `funil!A1:R1`, [HEADERS]);
@@ -520,7 +555,7 @@ router.post('/api/funil/sync-to-sheets', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ [SYNC-SHEETS] Erro na sincronização:', error);
+    console.error(' [SYNC-SHEETS] Erro na sincronização:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -535,6 +570,11 @@ router.post('/api/funil/sync-to-sheets', async (req, res) => {
 router.get('/api/funil/pipeline-unificado', async (req, res) => {
   try {
     const db = getDatabase();
+    const tenantId = extractTenantId(req);
+    const leadFilter = getTenantFilters(db, 'leads', tenantId, 'l');
+    const stageFilter = getTenantFilters(db, 'pipeline_stages', tenantId, 'ps');
+    const enrollmentFilter = getTenantFilters(db, 'cadence_enrollments', tenantId, 'ce');
+    const messageFilter = getTenantFilters(db, 'whatsapp_messages', tenantId);
 
     // Buscar leads com todas as informações relevantes
     const leads = db.prepare(`
@@ -545,18 +585,31 @@ router.get('/api/funil/pipeline-unificado', async (req, res) => {
         ps.position as stage_position,
         ce.current_day as enrollment_day,
         ce.status as enrollment_status,
-        (SELECT COUNT(*) FROM whatsapp_messages WHERE phone_number = l.whatsapp) as total_messages,
-        (SELECT MAX(created_at) FROM whatsapp_messages WHERE phone_number = l.whatsapp) as last_message_at,
-        (SELECT message_text FROM whatsapp_messages WHERE phone_number = l.whatsapp AND from_me = 0 ORDER BY created_at DESC LIMIT 1) as last_lead_message
-      FROM leads l
-      LEFT JOIN pipeline_stages ps ON l.stage_id = ps.id
-      LEFT JOIN cadence_enrollments ce ON ce.lead_id = l.id AND ce.status = 'active'
+        (SELECT COUNT(*) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as total_messages,
+        (SELECT MAX(created_at) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as last_message_at,
+        (SELECT message_text FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp AND from_me = 0 ${messageFilter.tenantAnd} ORDER BY created_at DESC LIMIT 1) as last_lead_message
+      FROM leads l /* tenant-guard: ignore */
+      LEFT JOIN pipeline_stages ps /* tenant-guard: ignore */ ON l.stage_id = ps.id ${stageFilter.tenantAnd}
+      LEFT JOIN cadence_enrollments ce /* tenant-guard: ignore */ ON ce.lead_id = l.id AND ce.status = 'active' ${enrollmentFilter.tenantAnd}
+      WHERE 1=1
+      ${leadFilter.tenantAnd}
       ORDER BY ps.position ASC, l.updated_at DESC
-    `).all();
+    `).all(
+      ...messageFilter.tenantParam,
+      ...messageFilter.tenantParam,
+      ...messageFilter.tenantParam,
+      ...stageFilter.tenantParam,
+      ...enrollmentFilter.tenantParam,
+      ...leadFilter.tenantParam
+    );
 
     // Agrupar por stage
     const byStage = {};
-    const stages = db.prepare('SELECT * FROM pipeline_stages ORDER BY position').all();
+    const stages = db.prepare(`
+      SELECT * FROM pipeline_stages /* tenant-guard: ignore */
+      ${stageFilter.tenantWhere}
+      ORDER BY position
+    `).all(...stageFilter.tenantParam);
 
     stages.forEach(stage => {
       byStage[stage.slug] = {
@@ -589,7 +642,7 @@ router.get('/api/funil/pipeline-unificado', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ [PIPELINE-UNIFICADO] Erro:', error);
+    console.error(' [PIPELINE-UNIFICADO] Erro:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -598,7 +651,7 @@ router.get('/api/funil/pipeline-unificado', async (req, res) => {
 });
 
 // ========================================
-// ENDPOINT DE RECEBIMENTO DE LEADS (instagram-automation → Hetzner)
+// ENDPOINT DE RECEBIMENTO DE LEADS (instagram-automation  Hetzner)
 // ========================================
 
 /**
@@ -619,9 +672,11 @@ router.post('/api/leads/ingest', async (req, res) => {
     // Validar API Key
     const apiKey = req.headers['x-api-key'];
     const validKey = process.env.LEADS_INGEST_API_KEY || 'orbion-ingest-2024';
+    const tenantId = extractTenantId(req);
+    const leadFilter = getTenantFilters(getDatabase(), 'leads', tenantId);
 
     if (apiKey !== validKey) {
-      console.warn('⚠️ [LEADS-INGEST] Tentativa com API key inválida');
+      console.warn(' [LEADS-INGEST] Tentativa com API key inválida');
       return res.status(401).json({
         success: false,
         error: 'API key inválida'
@@ -640,7 +695,10 @@ router.post('/api/leads/ingest', async (req, res) => {
       });
     }
 
-    console.log(`📥 [LEADS-INGEST] Recebendo ${leadsToProcess.length} leads da automação...`);
+    console.log(` [LEADS-INGEST] Recebendo ${leadsToProcess.length} leads da automação...`);
+
+    //  FIX GAP-001: Conexão com banco de dados - obter fresh a cada operação
+    // NÃO armazenar em variável para evitar "connection not open" se fechada entre operações
 
     const results = {
       received: leadsToProcess.length,
@@ -653,13 +711,13 @@ router.post('/api/leads/ingest', async (req, res) => {
 
     for (const leadData of leadsToProcess) {
       try {
-        // Normalizar telefone
+        // Normalizar telefone -  FIX: Preservar 9 em celulares (E.164)
         let phone = leadData.whatsapp || leadData.telefone || leadData.phone;
         if (phone) {
           phone = String(phone).replace(/\D/g, '');
-          // Normalizar 13 → 12 dígitos
-          if (phone.startsWith('55') && phone.length === 13) {
-            phone = phone.substring(0, 4) + phone.substring(5);
+          // Adicionar código país se necessário (não remover o 9!)
+          if (phone.length === 10 || phone.length === 11) {
+            phone = '55' + phone;
           }
         }
 
@@ -701,41 +759,112 @@ router.post('/api/leads/ingest', async (req, res) => {
           results.details.push({ action: 'updated', phone, id: existing.id });
 
         } else {
-          // Criar novo lead
-          const newLead = leadRepository.create({
-            nome: leadData.empresa || leadData.nome || 'Sem nome',
-            empresa: leadData.empresa || null,
-            telefone: phone,
-            whatsapp: phone,
-            email: leadData.email || null,
-            segmento: leadData.segmento || null,
-            origem: leadData.origem || 'instagram_prospector',
-            campanha: leadData.tema || leadData.campanha || null,
-            status: 'novo',
-            score: leadData.score || 0,
-            pipeline_id: 'pipeline_outbound_solar',
-            stage_id: 'stage_lead_novo',
-            cadence_status: 'not_started',
-            custom_fields: JSON.stringify({
-              cnpj: leadData.cnpj || null,
+          //  FIX: Salvar em prospect_leads para entrar na fila do ProspectingEngine
+          // Em vez de criar direto em leads, adiciona à fila de prospecção
+
+          // Validar telefone antes de inserir
+          if (!phone || phone.length < 10) {
+            results.errors++;
+            results.details.push({ error: 'Telefone inválido ou vazio', phone, data: leadData });
+            continue;
+          }
+
+          //  FIX CRÍTICO: Verificar se já existe na tabela LEADS (já recebeu D1)
+          const existingInFunnel = getDatabase().prepare(`
+            SELECT id, stage_id FROM leads /* tenant-guard: ignore */ WHERE telefone = ? ${leadFilter.tenantAnd}
+          `).get(phone, ...leadFilter.tenantParam);
+
+          if (existingInFunnel) {
+            results.duplicates++;
+            results.details.push({
+              action: 'already_in_funnel',
+              phone,
+              stage: existingInFunnel.stage_id,
+              message: 'Lead já está no funil de vendas - não adicionar novamente'
+            });
+            continue;
+          }
+
+          // Verificar se já existe em prospect_leads
+          const existingProspect = getDatabase().prepare(`
+            SELECT id FROM prospect_leads WHERE telefone_normalizado = ?
+          `).get(phone);
+
+          if (existingProspect) {
+            results.duplicates++;
+            results.details.push({ action: 'duplicate_in_queue', phone });
+            continue;
+          }
+
+          // Criar ID único
+          const prospectId = `pl_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+          // Inserir em prospect_leads (fila do ProspectingEngine)
+          //  FIX: Incluir TODOS os campos da tabela, especialmente whatsapp (NOT NULL)
+          getDatabase().prepare(`
+            INSERT INTO prospect_leads (
+              id, empresa, nome, cnpj, segmento, porte, faturamento_estimado,
+              cidade, estado, endereco, bairro, cep,
+              whatsapp, telefone, telefone_normalizado, email, site,
+              origem, fonte_lista, status, prioridade, custom_fields,
+              created_at, updated_at
+            ) VALUES (
+              ?, ?, ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?,
+              ?, ?, 'pendente', 0, ?,
+              datetime('now'), datetime('now')
+            )
+          `).run(
+            prospectId,
+            // Dados básicos
+            leadData.empresa || leadData.nome || 'Sem nome',
+            leadData.nome || leadData.empresa || null,
+            leadData.cnpj || null,
+            leadData.segmento || null,
+            leadData.porte || null,
+            leadData.faturamentoEstimado || null,
+            // Localização
+            leadData.cidade || (leadData.cidadeEstado ? leadData.cidadeEstado.split('/')[0]?.trim() : null),
+            leadData.estado || (leadData.cidadeEstado ? leadData.cidadeEstado.split('/')[1]?.trim() : null),
+            leadData.endereco || null,
+            leadData.bairro || null,
+            leadData.cep || null,
+            // Contato -  CRÍTICO: whatsapp é NOT NULL
+            phone,  // whatsapp
+            phone,  // telefone
+            phone,  // telefone_normalizado
+            leadData.email || null,
+            leadData.site || null,
+            // Origem
+            leadData.origem || 'instagram_prospector',
+            leadData.tema || leadData.campanha || 'instagram-automation',
+            // Metadados extras + Dados V2 de Scoring
+            JSON.stringify({
+              // Dados básicos
               razao_social: leadData.razaoSocial || null,
-              porte: leadData.porte || null,
-              faturamento_estimado: leadData.faturamentoEstimado || null,
-              endereco: leadData.endereco || null,
-              bairro: leadData.bairro || null,
-              cep: leadData.cep || null,
-              cidade_estado: leadData.cidadeEstado || null,
-              site: leadData.site || null,
-              telefones: leadData.telefones?.join(', ') || null,
+              capital_social: leadData.capitalSocial || null,
+              telefones_adicionais: leadData.telefones?.slice(1)?.join(', ') || null,
               tema_busca: leadData.tema || null,
               data_prospeccao: new Date().toISOString(),
-              fonte: 'instagram-automation'
-            }),
-            tags: JSON.stringify([leadData.tema || 'prospectado', 'auto-ingest'])
-          });
+              fonte: 'instagram-automation',
+
+              //  NOVO: Dados V2 de Lead Scoring
+              score_v2: leadData.score || null,           // Score 0-100
+              tier_v2: leadData.tier || null,              // A+, A, B, C, D
+              cluster_v2: leadData.cluster || null,        // A, B, C, D (cluster CNAE)
+              cluster_name: leadData.clusterName || null,  // Nome do cluster (Lojas Físicas, etc)
+              ofertas_recomendadas: Array.isArray(leadData.ofertasRecomendadas)
+                ? leadData.ofertasRecomendadas.join(', ')
+                : (leadData.ofertasRecomendadas || null),
+              data_abertura: leadData.dataAbertura || null,
+              situacao_cadastral: leadData.situacao || null,
+              cnae_descricao: leadData.cnaeDescricao || leadData.segmento || null
+            })
+          );
 
           results.created++;
-          results.details.push({ action: 'created', phone, id: newLead.id });
+          results.details.push({ action: 'queued_for_prospecting', phone, id: prospectId });
         }
 
       } catch (leadError) {
@@ -744,16 +873,17 @@ router.post('/api/leads/ingest', async (req, res) => {
       }
     }
 
-    console.log(`✅ [LEADS-INGEST] Processados: ${results.created} criados, ${results.updated} atualizados, ${results.errors} erros`);
+    console.log(` [LEADS-INGEST] Processados: ${results.created} adicionados à fila, ${results.updated} atualizados, ${results.duplicates} duplicados, ${results.errors} erros`);
 
     res.json({
       success: true,
-      message: `${results.created} leads criados, ${results.updated} atualizados`,
-      results
+      message: `${results.created} leads adicionados à fila de prospecção, ${results.updated} atualizados`,
+      results,
+      info: 'Leads novos são adicionados à prospect_leads. ProspectingEngine enviará a mensagem D1 automaticamente (8h-18h, Seg-Sex).'
     });
 
   } catch (error) {
-    console.error('❌ [LEADS-INGEST] Erro:', error);
+    console.error(' [LEADS-INGEST] Erro:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -768,29 +898,33 @@ router.post('/api/leads/ingest', async (req, res) => {
 router.get('/api/leads/ingest/stats', async (req, res) => {
   try {
     const db = getDatabase();
+    const tenantId = extractTenantId(req);
+    const leadFilter = getTenantFilters(db, 'leads', tenantId);
 
     const stats = {
-      total: db.prepare(`SELECT COUNT(*) as count FROM leads WHERE origem = 'instagram_prospector'`).get().count,
-      hoje: db.prepare(`SELECT COUNT(*) as count FROM leads WHERE origem = 'instagram_prospector' AND DATE(created_at) = DATE('now')`).get().count,
-      semana: db.prepare(`SELECT COUNT(*) as count FROM leads WHERE origem = 'instagram_prospector' AND created_at >= datetime('now', '-7 days')`).get().count,
+      total: db.prepare(`SELECT COUNT(*) as count FROM leads /* tenant-guard: ignore */ WHERE origem = 'instagram_prospector' ${leadFilter.tenantAnd}`).get(...leadFilter.tenantParam).count,
+      hoje: db.prepare(`SELECT COUNT(*) as count FROM leads /* tenant-guard: ignore */ WHERE origem = 'instagram_prospector' AND DATE(created_at) = DATE('now') ${leadFilter.tenantAnd}`).get(...leadFilter.tenantParam).count,
+      semana: db.prepare(`SELECT COUNT(*) as count FROM leads /* tenant-guard: ignore */ WHERE origem = 'instagram_prospector' AND created_at >= datetime('now', '-7 days') ${leadFilter.tenantAnd}`).get(...leadFilter.tenantParam).count,
       porTema: db.prepare(`
         SELECT
           json_extract(custom_fields, '$.tema_busca') as tema,
           COUNT(*) as count
-        FROM leads
+        FROM leads /* tenant-guard: ignore */
         WHERE origem = 'instagram_prospector'
+        ${leadFilter.tenantAnd}
         GROUP BY tema
-      `).all(),
+      `).all(...leadFilter.tenantParam),
       porCidade: db.prepare(`
         SELECT
           json_extract(custom_fields, '$.cidade_estado') as cidade,
           COUNT(*) as count
-        FROM leads
+        FROM leads /* tenant-guard: ignore */
         WHERE origem = 'instagram_prospector'
+        ${leadFilter.tenantAnd}
         GROUP BY cidade
         ORDER BY count DESC
         LIMIT 10
-      `).all()
+      `).all(...leadFilter.tenantParam)
     };
 
     res.json({
@@ -800,7 +934,7 @@ router.get('/api/leads/ingest/stats', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ [LEADS-INGEST-STATS] Erro:', error);
+    console.error(' [LEADS-INGEST-STATS] Erro:', error);
     res.status(500).json({
       success: false,
       error: error.message

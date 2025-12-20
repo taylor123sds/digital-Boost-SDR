@@ -127,11 +127,24 @@ export function configureExpress(app) {
  * @param {Express} app - Instância do Express
  */
 export function configureSPAFallback(app) {
-  // Servir index.html para todas as rotas /app/* que não são arquivos estáticos
+  // Redirect raiz para /app (URL canônica)
+  app.get('/', (req, res) => {
+    res.redirect('/app');
+  });
+
+  // Servir assets estáticos do SPA em /app
+  app.use('/app', express.static(path.join(__dirname, '../../public/app'), {
+    setHeaders: (res) => {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }));
+
+  // Fallback SPA: qualquer rota /app/* serve index.html
   app.get('/app/*', (req, res) => {
     res.sendFile(path.join(__dirname, '../../public/app/index.html'));
   });
-  console.log(' SPA fallback configurado para /app/*');
+
+  console.log(' SPA configurado: / → /app (redirect) + /app/* (fallback)');
 }
 
 /**

@@ -15,8 +15,10 @@ WORKDIR /build
 # Copy frontend package files
 COPY apps/web-vite/package.json apps/web-vite/package-lock.json ./
 
-# Install frontend dependencies (using ci for reproducible builds)
-RUN npm ci
+# Install frontend dependencies
+# --legacy-peer-deps: resolve peer dep conflicts
+# --ignore-optional: skip platform-specific optional deps like @rollup/rollup-darwin-arm64
+RUN npm install --legacy-peer-deps --ignore-optional
 
 # Copy frontend source files
 COPY apps/web-vite/ ./

@@ -12,13 +12,13 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /build
 
-# Copy frontend package files
-COPY apps/web-vite/package.json apps/web-vite/package-lock.json ./
+# Copy only package.json (NOT package-lock.json)
+# This allows npm to resolve platform-specific deps for linux-musl
+COPY apps/web-vite/package.json ./
 
-# Install frontend dependencies
-# --legacy-peer-deps: resolve peer dep conflicts
-# --ignore-optional: skip platform-specific optional deps like @rollup/rollup-darwin-arm64
-RUN npm install --legacy-peer-deps --ignore-optional
+# Install frontend dependencies with fresh resolution
+# npm will fetch correct platform binaries (rollup-linux-x64-musl) for Alpine
+RUN npm install --legacy-peer-deps
 
 # Copy frontend source files
 COPY apps/web-vite/ ./

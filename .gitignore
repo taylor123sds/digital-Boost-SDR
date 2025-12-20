@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 package-lock.json
+!apps/web-vite/package-lock.json
 
 # Environment variables (contém API keys sensíveis)
 .env

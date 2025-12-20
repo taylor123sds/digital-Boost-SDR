@@ -1,7 +1,31 @@
 # =============================================================================
 # LEADLY SDR Agent - Production Dockerfile
 # =============================================================================
-# Build with: docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) -t orbion-leadly:$(git rev-parse --short HEAD) .
+# Multi-stage build: React SPA + Node.js backend
+# Build with: docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) -t orbion-leadly .
+# =============================================================================
+
+# =============================================================================
+# Stage 1: Build React SPA (apps/web-vite)
+# =============================================================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /build
+
+# Copy frontend source
+COPY apps/web-vite/package.json apps/web-vite/package-lock.json* ./
+
+# Install frontend dependencies
+RUN npm install
+
+# Copy frontend source files
+COPY apps/web-vite/ ./
+
+# Build the React app (outputs to dist/)
+RUN npm run build
+
+# =============================================================================
+# Stage 2: Build final image with backend + frontend
 # =============================================================================
 FROM node:20-alpine
 
@@ -33,6 +57,9 @@ COPY public/ ./public/
 COPY prompts/ ./prompts/
 COPY ecosystem.config.cjs ./
 COPY start-orbion.js ./
+
+# Copy React SPA build from frontend-builder stage
+COPY --from=frontend-builder /build/dist/ ./public/app/
 
 # Create BUILD_INFO.json with version metadata
 RUN echo "{\"commit\":\"${GIT_COMMIT}\",\"branch\":\"${GIT_BRANCH}\",\"buildDate\":\"${BUILD_DATE}\",\"nodeVersion\":\"$(node -v)\"}" > BUILD_INFO.json

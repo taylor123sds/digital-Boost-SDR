@@ -12,7 +12,8 @@ import { extractTenantId } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
 
-router.use(authenticate, enforceIsolation, requireTenant);
+// Limit auth middleware to the forecasting API scope to avoid /app/* conflicts.
+router.use('/api/forecasting', authenticate, enforceIsolation, requireTenant);
 
 //  CORREÇÃO: Usar conexão singleton do db/connection.js
 function getDb() {

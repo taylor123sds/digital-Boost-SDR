@@ -12,7 +12,8 @@ import { extractTenantId } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
 
-router.use(authenticate, enforceIsolation, requireTenant);
+// Limit auth middleware to the pipeline API scope to avoid /app/* conflicts.
+router.use('/api/pipeline', authenticate, enforceIsolation, requireTenant);
 
 /**
  * GET /api/pipeline

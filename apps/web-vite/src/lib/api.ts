@@ -460,7 +460,7 @@ class ApiClient {
   }
 
   async testIntegration(integrationId: string) {
-    return this.request<{ success: boolean; data?: any }>(`/integrations/${integrationId}/test`);
+    return this.request<{ success: boolean; data?: any; error?: string }>(`/integrations/${integrationId}/test`);
   }
 
   async disconnectIntegration(integrationId: string) {

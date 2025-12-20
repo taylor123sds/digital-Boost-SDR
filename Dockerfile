@@ -12,11 +12,11 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /build
 
-# Copy frontend source
-COPY apps/web-vite/package.json apps/web-vite/package-lock.json* ./
+# Copy frontend package files
+COPY apps/web-vite/package.json apps/web-vite/package-lock.json ./
 
-# Install frontend dependencies
-RUN npm install
+# Install frontend dependencies (using ci for reproducible builds)
+RUN npm ci
 
 # Copy frontend source files
 COPY apps/web-vite/ ./

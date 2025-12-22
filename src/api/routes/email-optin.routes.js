@@ -15,7 +15,7 @@ import express from 'express';
 import { getEmailOptInEngine } from '../../automation/EmailOptInEngine.js';
 import { getDatabase } from '../../db/index.js';
 import { normalizePhone } from '../../utils/phone_normalizer.js';
-import { extractTenantId, getTenantColumnForTable } from '../../utils/tenantCompat.js';
+import { appendTenantColumns, extractTenantId, getTenantColumnForTable } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
 
@@ -69,10 +69,11 @@ router.get('/api/email-optin/stats', (req, res) => {
  */
 router.post('/api/email-optin/start', async (req, res) => {
   try {
+    const tenantId = extractTenantId(req);
     const engine = getEmailOptInEngine();
     const config = req.body.config || {};
 
-    const result = await engine.start({ config });
+    const result = await engine.start({ config, tenantId });
 
     res.json({
       success: result.success,
@@ -156,8 +157,9 @@ router.post('/api/email-optin/import', async (req, res) => {
       });
     }
 
+    const tenantId = extractTenantId(req);
     const engine = getEmailOptInEngine();
-    const result = await engine.importLeads(leads);
+    const result = await engine.importLeads(leads, tenantId);
 
     res.json({
       success: true,
@@ -178,6 +180,7 @@ router.post('/api/email-optin/import', async (req, res) => {
 router.post('/api/email-optin/send-single', async (req, res) => {
   try {
     const { email, nome, empresa, telefone } = req.body;
+    const tenantId = extractTenantId(req);
 
     if (!email) {
       return res.status(400).json({
@@ -199,15 +202,20 @@ router.post('/api/email-optin/send-single', async (req, res) => {
       const phoneNormalized = telefone ? normalizePhone(telefone) : '';
 
       try {
+        let columns = ['email', 'telefone', 'nome', 'empresa', 'status', 'message_id', 'sent_at'];
+        let values = [email.toLowerCase().trim(), phoneNormalized, nome, empresa, 'sent', result.messageId, new Date().toISOString()];
+        ({ columns, values } = appendTenantColumns(db, 'email_optins', columns, values, tenantId));
+        const placeholders = columns.map(() => '?').join(', ');
+
         db.prepare(`
-          INSERT INTO email_optins (email, telefone, nome, empresa, status, message_id, sent_at)
-          VALUES (?, ?, ?, ?, 'sent', ?, datetime('now'))
+          INSERT INTO email_optins (${columns.join(', ')})
+          VALUES (${placeholders})
           ON CONFLICT(email) DO UPDATE SET
             status = 'sent',
             message_id = excluded.message_id,
             sent_at = datetime('now'),
             updated_at = datetime('now')
-        `).run(email.toLowerCase().trim(), phoneNormalized, nome, empresa, result.messageId);
+        `).run(...values);
       } catch (e) {
         console.error('[EMAIL-OPTIN] Erro ao registrar email:', e.message);
       }

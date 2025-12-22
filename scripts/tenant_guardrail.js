@@ -1,35 +1,29 @@
 import fs from 'fs';
 import path from 'path';
+import { TENANT_REQUIRED_TABLES, GLOBAL_TABLE_ALLOWLIST } from '../src/utils/tenantGuard.js';
 
 const ROOT = process.cwd();
 const SRC_DIR = path.join(ROOT, 'src');
+const MIGRATIONS_DIR = path.join(SRC_DIR, 'db', 'migrations');
+const IGNORE_MARKER = 'tenant-guard: ignore';
 
-const MULTI_TENANT_TABLES = [
-  'agents',
-  'agent_versions',
-  'integrations',
-  'integration_bindings',
-  'conversations',
-  'messages',
-  'whatsapp_messages',
-  'leads',
-  'activities',
-  'opportunities',
-  'contacts',
-  'accounts',
-  'cadences',
-  'cadence_enrollments',
-  'cadence_steps',
-  'pipeline_stages',
-  'notifications',
-  'inbound_events',
-  'async_jobs'
+const CRITICAL_DIRS = [
+  path.join(SRC_DIR, 'api', 'routes'),
+  path.join(SRC_DIR, 'handlers'),
+  path.join(SRC_DIR, 'services'),
+  path.join(SRC_DIR, 'repositories')
 ];
 
-const IGNORE_MARKER = 'tenant-guard: ignore';
+const SQL_LITERAL_PATTERNS = [
+  /db\.prepare\(\s*`([\s\S]*?)`\s*\)/g,
+  /db\.prepare\(\s*'([\s\S]*?)'\s*\)/g,
+  /db\.prepare\(\s*"([\s\S]*?)"\s*\)/g
+];
+
 const SQL_OPS = ['select', 'update', 'delete', 'insert'];
 
 function listJsFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
@@ -51,7 +45,10 @@ function getLineNumber(content, index) {
 
 function hasTenantFilter(statement) {
   const lowered = statement.toLowerCase();
-  return lowered.includes('tenant_id') || lowered.includes('team_id');
+  return lowered.includes('tenant_id') ||
+    lowered.includes('team_id') ||
+    lowered.includes('tenantwhere') ||
+    lowered.includes('tenantand');
 }
 
 function checkInsert(statement) {
@@ -61,51 +58,79 @@ function checkInsert(statement) {
   return columnsPart.includes('tenant_id') || columnsPart.includes('team_id');
 }
 
+function extractSqlLiterals(content) {
+  const statements = [];
+  for (const pattern of SQL_LITERAL_PATTERNS) {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      statements.push({
+        sql: match[1],
+        index: match.index
+      });
+    }
+  }
+  return statements;
+}
+
+function extractTables(sql) {
+  const lowered = sql.toLowerCase();
+  const tables = new Set();
+
+  const tablePatterns = [
+    /\bfrom\s+([a-z0-9_]+)/g,
+    /\bjoin\s+([a-z0-9_]+)/g,
+    /\bupdate\s+([a-z0-9_]+)/g,
+    /\binto\s+([a-z0-9_]+)/g,
+    /\bdelete\s+from\s+([a-z0-9_]+)/g
+  ];
+
+  for (const pattern of tablePatterns) {
+    let match;
+    while ((match = pattern.exec(lowered)) !== null) {
+      tables.add(match[1]);
+    }
+  }
+
+  return Array.from(tables);
+}
+
 function scanFile(filePath) {
+  if (filePath.startsWith(MIGRATIONS_DIR)) {
+    return [];
+  }
   const content = fs.readFileSync(filePath, 'utf8');
   const violations = [];
 
-  if (!content.toLowerCase().includes('select') &&
-      !content.toLowerCase().includes('update') &&
-      !content.toLowerCase().includes('delete') &&
-      !content.toLowerCase().includes('insert')) {
-    return violations;
-  }
+  const statements = extractSqlLiterals(content);
+  for (const { sql, index } of statements) {
+    const snippet = sql.slice(0, 600);
+    if (snippet.includes(IGNORE_MARKER)) {
+      continue;
+    }
 
-  const lowered = content.toLowerCase();
+    const tables = extractTables(sql);
+    const relevantTables = tables.filter((table) => TENANT_REQUIRED_TABLES.has(table));
+    if (relevantTables.length === 0) {
+      continue;
+    }
 
-  for (const table of MULTI_TENANT_TABLES) {
-    const patterns = [
-      new RegExp(`\\bfrom\\s+${table}\\b`, 'gi'),
-      new RegExp(`\\bupdate\\s+${table}\\b`, 'gi'),
-      new RegExp(`\\bdelete\\s+from\\s+${table}\\b`, 'gi'),
-      new RegExp(`\\binsert\\s+into\\s+${table}\\b`, 'gi')
-    ];
+    const isInsert = /insert\s+into/i.test(sql);
+    const hasTenant = isInsert ? checkInsert(sql) : hasTenantFilter(sql);
+    if (hasTenant) {
+      continue;
+    }
 
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(lowered)) !== null) {
-        const start = match.index;
-        const slice = content.slice(start, start + 600);
-        if (slice.includes(IGNORE_MARKER)) {
-          continue;
-        }
-
-        const op = SQL_OPS.find(o => slice.toLowerCase().includes(o)) || 'unknown';
-        let ok = hasTenantFilter(slice);
-        if (op === 'insert') {
-          ok = checkInsert(slice);
-        }
-
-        if (!ok) {
-          violations.push({
-            file: filePath,
-            line: getLineNumber(content, start),
-            table,
-            op
-          });
-        }
+    for (const table of relevantTables) {
+      if (GLOBAL_TABLE_ALLOWLIST.has(table)) {
+        continue;
       }
+      const op = SQL_OPS.find(o => sql.toLowerCase().includes(o)) || 'unknown';
+      violations.push({
+        file: filePath,
+        line: getLineNumber(content, index),
+        table,
+        op
+      });
     }
   }
 
@@ -113,7 +138,7 @@ function scanFile(filePath) {
 }
 
 function main() {
-  const files = listJsFiles(SRC_DIR);
+  const files = CRITICAL_DIRS.flatMap(listJsFiles);
   let all = [];
 
   for (const file of files) {

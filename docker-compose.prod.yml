@@ -145,6 +145,8 @@ services:
       - GIT_COMMIT=${GIT_COMMIT}
       - GIT_BRANCH=${GIT_BRANCH}
       - BUILD_TIME=${BUILD_TIME}
+      - IMAGE_TAG=${APP_VERSION}
+      - IMAGE_TAG=${APP_VERSION}
       # OpenAI
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
@@ -181,6 +183,28 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ==========================================================================
+  # LEADLY SDR Agent - Migrations (run on deploy with profile "migrate")
+  # ==========================================================================
+  leadly-migrate:
+    image: ghcr.io/taylor123sds/orbion-leadly:${APP_VERSION:?APP_VERSION is required}
+    profiles: ["migrate"]
+    depends_on:
+      evolution-api:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=/app/data/orbion.db
+      - APP_VERSION=${APP_VERSION}
+      - GIT_COMMIT=${GIT_COMMIT}
+      - GIT_BRANCH=${GIT_BRANCH}
+      - BUILD_TIME=${BUILD_TIME}
+      - IMAGE_TAG=${APP_VERSION}
+    command: ["node", "src/db/migrate.js"]
 
   # ==========================================================================
   # LEADLY Worker - Background Jobs (IMAGEM PRE-CONSTRUIDA)

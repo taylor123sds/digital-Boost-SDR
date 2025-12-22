@@ -4,6 +4,7 @@
  */
 
 import { BaseModel } from './BaseModel.js';
+import { DEFAULT_TENANT_ID, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 export class Account extends BaseModel {
   constructor() {
@@ -42,14 +43,20 @@ export class Account extends BaseModel {
   /**
    * Get account with related contacts
    */
-  findByIdWithContacts(accountId) {
+  findByIdWithContacts(accountId, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
       const account = this.findById(accountId);
       if (!account) return null;
 
-      const contacts = db.prepare('SELECT * FROM contacts WHERE account_id = ?').all(accountId);
-      const opportunities = db.prepare('SELECT * FROM opportunities WHERE account_id = ?').all(accountId);
+      const contactsTenant = getTenantColumnForTable('contacts', db);
+      const opportunitiesTenant = getTenantColumnForTable('opportunities', db);
+      const contactsClause = contactsTenant ? ` AND ${contactsTenant} = ?` : '';
+      const opportunitiesClause = opportunitiesTenant ? ` AND ${opportunitiesTenant} = ?` : '';
+      const contacts = db.prepare(`SELECT * FROM contacts WHERE account_id = ?${contactsClause}`)
+        .all(...(contactsTenant ? [accountId, tenantId] : [accountId]));
+      const opportunities = db.prepare(`SELECT * FROM opportunities WHERE account_id = ?${opportunitiesClause}`)
+        .all(...(opportunitiesTenant ? [accountId, tenantId] : [accountId]));
 
       return {
         ...account,
@@ -66,23 +73,29 @@ export class Account extends BaseModel {
   /**
    * Get account statistics
    */
-  getStats() {
+  getStats(tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
-      const total = db.prepare('SELECT COUNT(*) as count FROM accounts').get().count;
+      const tenantColumn = getTenantColumnForTable('accounts', db);
+      const tenantWhere = tenantColumn ? ` WHERE ${tenantColumn} = ?` : '';
+      const tenantParams = tenantColumn ? [tenantId] : [];
+      const total = db.prepare(`SELECT COUNT(*) as count FROM accounts${tenantWhere}`).get(...tenantParams).count;
+      const byTypeWhere = tenantColumn ? ` WHERE ${tenantColumn} = ?` : '';
       const byType = db.prepare(`
         SELECT tipo, COUNT(*) as count
         FROM accounts
+        ${byTypeWhere}
         GROUP BY tipo
-      `).all();
+      `).all(...tenantParams);
+      const bySetorWhere = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const bySetor = db.prepare(`
         SELECT setor, COUNT(*) as count
         FROM accounts
-        WHERE setor IS NOT NULL
+        WHERE setor IS NOT NULL${bySetorWhere}
         GROUP BY setor
         ORDER BY count DESC
         LIMIT 10
-      `).all();
+      `).all(...(tenantColumn ? [tenantId] : []));
 
       return { total, byType, bySetor };
     } catch (error) {

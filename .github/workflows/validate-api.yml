@@ -19,3 +19,7 @@ jobs:
           node-version: '20'
       - name: Validate FE API calls
         run: node scripts/validate-api-calls.js
+      - name: Validate canonical tenant id usage
+        run: node scripts/check-tenant-id-usage.js
+      - name: Tenant isolation test
+        run: node test/test-tenant-isolation.js

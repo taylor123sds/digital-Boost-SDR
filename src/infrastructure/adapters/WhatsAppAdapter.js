@@ -6,11 +6,9 @@
 
 import axios from 'axios';
 import { ExternalServiceError } from '../../utils/errors/index.js';
-import {
-  sendWhatsAppMessage,
-  sendWhatsAppAudio,
-  sendWhatsAppMedia
-} from '../../tools/whatsapp.js';
+import fs from 'fs';
+import path from 'path';
+import { getOutboundDeduplicator } from '../../utils/OutboundDeduplicator.js';
 
 /**
  * WhatsApp Adapter
@@ -24,6 +22,7 @@ export class WhatsAppAdapter {
   constructor(config, logger) {
     this.config = config;
     this.logger = logger;
+    this.instanceName = config?.evolution?.instance || 'default';
 
     // Create axios instance for Evolution API
     this.client = axios.create({
@@ -36,6 +35,34 @@ export class WhatsAppAdapter {
     });
   }
 
+  normalizeNumber(number) {
+    return number.toString().trim().replace('@s.whatsapp.net', '').replace('@c.us', '');
+  }
+
+  maybeDedup(number, text, source) {
+    try {
+      const outboundDedup = getOutboundDeduplicator();
+      const dedupCheck = outboundDedup.check(number, text, {
+        source,
+        skipCooldown: true
+      });
+
+      if (!dedupCheck.allowed) {
+        this.logger.warn('Outbound message blocked by dedup', {
+          number,
+          reason: dedupCheck.reason
+        });
+        return { blocked: true, reason: dedupCheck.reason };
+      }
+    } catch (error) {
+      this.logger.warn('Outbound dedup check failed (fail-open)', {
+        error: error.message
+      });
+    }
+
+    return { blocked: false };
+  }
+
   /**
    * Send text message
    * @param {string} phoneNumber - Recipient phone number
@@ -46,32 +73,47 @@ export class WhatsAppAdapter {
     const startTime = Date.now();
 
     try {
+      if (!this.config?.evolution?.apiKey) {
+        throw new Error('EVOLUTION_API_KEY not configured');
+      }
+
       this.logger.debug('Sending text message', {
         phoneNumber,
         textLength: text.length
       });
 
-      const response = await sendWhatsAppMessage(phoneNumber, text);
-      if (response?.blocked) {
+      const formattedNumber = this.normalizeNumber(phoneNumber);
+      const sanitizedText = String(text).trim();
+      const dedupResult = this.maybeDedup(formattedNumber, sanitizedText, 'WhatsAppAdapter.sendTextMessage');
+      if (dedupResult.blocked) {
         return {
           success: false,
           blocked: true,
-          reason: response.reason
+          reason: dedupResult.reason
         };
       }
+
+      const response = await this.client.post(
+        `/message/sendText/${this.instanceName}`,
+        {
+          number: formattedNumber,
+          text: sanitizedText
+        }
+      );
 
       const duration = Date.now() - startTime;
 
       this.logger.info('Text message sent', {
         duration,
         phoneNumber,
-        messageId: response?.key?.id
+        messageId: response?.data?.key?.id
       });
 
       return {
         success: true,
-        messageId: response?.key?.id,
-        timestamp: response?.messageTimestamp
+        messageId: response?.data?.key?.id,
+        timestamp: response?.data?.messageTimestamp,
+        raw: response?.data
       };
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -100,25 +142,35 @@ export class WhatsAppAdapter {
     const startTime = Date.now();
 
     try {
+      if (!this.config?.evolution?.apiKey) {
+        throw new Error('EVOLUTION_API_KEY not configured');
+      }
+
       this.logger.debug('Sending audio message', {
         phoneNumber,
         audioType: typeof audio === 'string' ? 'url' : 'buffer'
       });
 
-      const response = await sendWhatsAppMedia(phoneNumber, audio, { type: 'audio' });
+      const formattedNumber = this.normalizeNumber(phoneNumber);
+      const payload = await this.buildMediaPayload(formattedNumber, audio, { type: 'audio' });
+      const response = await this.client.post(
+        `/message/sendMedia/${this.instanceName}`,
+        payload
+      );
 
       const duration = Date.now() - startTime;
 
       this.logger.info('Audio message sent', {
         duration,
         phoneNumber,
-        messageId: response?.key?.id
+        messageId: response?.data?.key?.id
       });
 
       return {
         success: true,
-        messageId: response?.key?.id,
-        timestamp: response?.messageTimestamp
+        messageId: response?.data?.key?.id,
+        timestamp: response?.data?.messageTimestamp,
+        raw: response?.data
       };
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -148,27 +200,37 @@ export class WhatsAppAdapter {
     const startTime = Date.now();
 
     try {
+      if (!this.config?.evolution?.apiKey) {
+        throw new Error('EVOLUTION_API_KEY not configured');
+      }
+
       this.logger.debug('Sending media message', {
         phoneNumber,
         mediaUrl,
         type: options.type || 'image'
       });
 
-      const response = await sendWhatsAppMedia(phoneNumber, mediaUrl, options);
+      const formattedNumber = this.normalizeNumber(phoneNumber);
+      const payload = await this.buildMediaPayload(formattedNumber, mediaUrl, options);
+      const endpoint = options.type === 'document'
+        ? `/message/sendDocument/${this.instanceName}`
+        : `/message/sendMedia/${this.instanceName}`;
+      const response = await this.client.post(endpoint, payload);
 
       const duration = Date.now() - startTime;
 
       this.logger.info('Media message sent', {
         duration,
         phoneNumber,
-        messageId: response?.key?.id,
+        messageId: response?.data?.key?.id,
         type: options.type
       });
 
       return {
         success: true,
-        messageId: response?.key?.id,
-        timestamp: response?.messageTimestamp
+        messageId: response?.data?.key?.id,
+        timestamp: response?.data?.messageTimestamp,
+        raw: response?.data
       };
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -185,6 +247,40 @@ export class WhatsAppAdapter {
         error
       );
     }
+  }
+
+  async buildMediaPayload(formattedNumber, media, options = {}) {
+    const type = options.type || 'image';
+    const isUrl = typeof media === 'string' && media.startsWith('http');
+    const isBuffer = Buffer.isBuffer(media);
+    const isFilePath = typeof media === 'string' && !isUrl && fs.existsSync(media);
+
+    const payload = {
+      number: formattedNumber,
+      caption: options.caption || '',
+      fileName: options.fileName
+    };
+
+    if (isUrl) {
+      if (type === 'audio') {
+        payload.audioUrl = media;
+      } else {
+        payload.mediaUrl = media;
+      }
+      return payload;
+    }
+
+    if (isBuffer || isFilePath) {
+      const buffer = isBuffer ? media : fs.readFileSync(media);
+      payload.media = buffer.toString('base64');
+      payload.mediatype = type;
+      if (!payload.fileName && isFilePath) {
+        payload.fileName = path.basename(media);
+      }
+      return payload;
+    }
+
+    throw new Error('Invalid media payload. Provide URL, file path, or Buffer.');
   }
 
   /**

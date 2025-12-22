@@ -9,9 +9,11 @@ import express from 'express';
 import globalErrorHandler from '../../utils/error_handler.js';
 import { leadRepository } from '../../repositories/lead.repository.js';
 import { triggerCampaign } from '../../tools/campaign_trigger.js';
+import { sendWhatsAppText } from '../../services/whatsappAdapterProvider.js';
 import { extractTenantId } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
+const inMemoryCampaigns = new Map();
 
 /**
  * POST /api/whatsapp/send
@@ -19,41 +21,26 @@ const router = express.Router();
  */
 router.post('/api/whatsapp/send', async (req, res) => {
   try {
-    const { to, message } = req.body;
+    const { to, message, phone } = req.body;
+    const target = to || phone;
 
-    if (!to || !message) {
+    if (!target || !message) {
       return res.status(400).json({
         error: 'Numero (to) e mensagem (message) sao obrigatorios'
       });
     }
 
-    // Usar o Evolution API diretamente
-    const EVOLUTION_BASE_URL = process.env.EVOLUTION_BASE_URL || 'http://localhost:8080';
-    const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'ORBION_KEY_123456';
-    const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'digitalboost';
-
     const { success, data: result, error } = await globalErrorHandler.safeAsync(
       'WHATSAPP_SEND_MESSAGE',
       async () => {
-        const response = await globalErrorHandler.withTimeout(
+        return globalErrorHandler.withTimeout(
           'WHATSAPP_API_REQUEST',
-          () => fetch(`${EVOLUTION_BASE_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': EVOLUTION_API_KEY
-            },
-            body: JSON.stringify({
-              number: to,
-              text: message
-            })
-          }),
-          15000, // 15 segundos timeout para API externa
-          { to, messageLength: message.length }
+          () => sendWhatsAppText(target, message),
+          15000,
+          { to: target, messageLength: message.length }
         );
-        return response.json();
       },
-      { to, message: message.substring(0, 100) }
+      { to: target, message: message.substring(0, 100) }
     );
 
     if (!success) {
@@ -64,17 +51,17 @@ router.post('/api/whatsapp/send', async (req, res) => {
       });
     }
 
-    if (result && result.status === 'success') {
-      console.log(`[WHATSAPP] Mensagem enviada para ${to}: ${message}`);
+    if (result && result.success !== false) {
+      console.log(`[WHATSAPP] Mensagem enviada para ${target}: ${message}`);
       res.json({
         success: true,
         message: 'Mensagem enviada com sucesso',
-        data: result,
-        to,
+        data: result?.raw || result,
+        to: target,
         text: message
       });
     } else {
-      console.log(`[WHATSAPP] Erro ao enviar mensagem para ${to}:`, result);
+      console.log(`[WHATSAPP] Erro ao enviar mensagem para ${target}:`, result);
       res.status(400).json({
         success: false,
         error: 'Erro ao enviar mensagem',
@@ -90,6 +77,53 @@ router.post('/api/whatsapp/send', async (req, res) => {
       message: error.message
     });
   }
+});
+
+/**
+ * GET /api/campaigns
+ * List campaigns (in-memory placeholder)
+ */
+router.get('/api/campaigns', async (_req, res) => {
+  const campaigns = Array.from(inMemoryCampaigns.values());
+  res.json(campaigns);
+});
+
+/**
+ * GET /api/campaigns/:id
+ * Get campaign by id (in-memory placeholder)
+ */
+router.get('/api/campaigns/:id', async (req, res) => {
+  const campaign = inMemoryCampaigns.get(req.params.id);
+  if (!campaign) {
+    return res.status(404).json({ error: 'Campaign not found' });
+  }
+  res.json(campaign);
+});
+
+/**
+ * POST /api/campaigns
+ * Create campaign (in-memory placeholder)
+ */
+router.post('/api/campaigns', async (req, res) => {
+  const { name, status = 'draft', type = 'prospecting' } = req.body || {};
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  const id = `cmp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const payload = {
+    id,
+    name,
+    status,
+    type,
+    totalLeads: 0,
+    sentCount: 0,
+    responseRate: 0,
+    createdAt: new Date().toISOString()
+  };
+
+  inMemoryCampaigns.set(id, payload);
+  res.status(201).json(payload);
 });
 
 /**
@@ -305,6 +339,7 @@ router.get('/api/leads', async (req, res) => {
  */
 router.post('/api/leads/update-stage', async (req, res) => {
   try {
+    const tenantId = extractTenantId(req);
     const { leadId, contactId, newStage, stageId } = req.body;
 
     const id = leadId || contactId;
@@ -319,7 +354,7 @@ router.post('/api/leads/update-stage', async (req, res) => {
 
     console.log(`[LEADS-API] Updating lead ${id} to stage ${stage}`);
 
-    const result = leadRepository.updateStage(id, stage);
+    const result = leadRepository.updateStage(id, stage, null, tenantId);
 
     if (result) {
       res.json({

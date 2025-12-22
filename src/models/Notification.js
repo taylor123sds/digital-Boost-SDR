@@ -4,6 +4,7 @@
  */
 
 import { BaseModel } from './BaseModel.js';
+import { DEFAULT_TENANT_ID, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 export class Notification extends BaseModel {
   constructor() {
@@ -13,14 +14,17 @@ export class Notification extends BaseModel {
   /**
    * Find notifications for a user
    */
-  findByUser(userId, { limit = 50, offset = 0, unreadOnly = false } = {}) {
+  findByUser(userId, { tenantId = DEFAULT_TENANT_ID, limit = 50, offset = 0, unreadOnly = false } = {}) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       let query = `
         SELECT * FROM notifications
-        WHERE user_id = ?
+        WHERE user_id = ?${tenantClause}
       `;
       const params = [userId];
+      if (tenantColumn) params.push(tenantId);
 
       if (unreadOnly) {
         query += ' AND is_read = 0';
@@ -39,14 +43,16 @@ export class Notification extends BaseModel {
   /**
    * Get unread count for a user
    */
-  getUnreadCount(userId) {
+  getUnreadCount(userId, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         SELECT COUNT(*) as count FROM notifications
-        WHERE user_id = ? AND is_read = 0
+        WHERE user_id = ? AND is_read = 0${tenantClause}
       `);
-      const result = stmt.get(userId);
+      const result = tenantColumn ? stmt.get(userId, tenantId) : stmt.get(userId);
       return result?.count || 0;
     } catch (error) {
       throw error;
@@ -56,18 +62,20 @@ export class Notification extends BaseModel {
   /**
    * Get unread count by priority
    */
-  getUnreadCountByPriority(userId) {
+  getUnreadCountByPriority(userId, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         SELECT
           priority,
           COUNT(*) as count
         FROM notifications
-        WHERE user_id = ? AND is_read = 0
+        WHERE user_id = ? AND is_read = 0${tenantClause}
         GROUP BY priority
       `);
-      const results = stmt.all(userId);
+      const results = tenantColumn ? stmt.all(userId, tenantId) : stmt.all(userId);
 
       return {
         urgent: results.find(r => r.priority === 'urgent')?.count || 0,
@@ -91,15 +99,17 @@ export class Notification extends BaseModel {
   /**
    * Mark all notifications as read for a user
    */
-  markAllAsRead(userId) {
+  markAllAsRead(userId, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         UPDATE notifications
         SET is_read = 1, read_at = datetime('now')
-        WHERE user_id = ? AND is_read = 0
+        WHERE user_id = ? AND is_read = 0${tenantClause}
       `);
-      const result = stmt.run(userId);
+      const result = tenantColumn ? stmt.run(userId, tenantId) : stmt.run(userId);
       return result.changes;
     } catch (error) {
       throw error;
@@ -109,16 +119,20 @@ export class Notification extends BaseModel {
   /**
    * Find by type
    */
-  findByType(userId, type, { limit = 50, offset = 0 } = {}) {
+  findByType(userId, type, { tenantId = DEFAULT_TENANT_ID, limit = 50, offset = 0 } = {}) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         SELECT * FROM notifications
-        WHERE user_id = ? AND type = ?
+        WHERE user_id = ? AND type = ?${tenantClause}
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
       `);
-      return stmt.all(userId, type, limit, offset);
+      return tenantColumn
+        ? stmt.all(userId, type, tenantId, limit, offset)
+        : stmt.all(userId, type, limit, offset);
     } catch (error) {
       throw error;
     }
@@ -127,15 +141,17 @@ export class Notification extends BaseModel {
   /**
    * Find by entity
    */
-  findByEntity(entityType, entityId) {
+  findByEntity(entityType, entityId, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         SELECT * FROM notifications
-        WHERE entity_type = ? AND entity_id = ?
+        WHERE entity_type = ? AND entity_id = ?${tenantClause}
         ORDER BY created_at DESC
       `);
-      return stmt.all(entityType, entityId);
+      return tenantColumn ? stmt.all(entityType, entityId, tenantId) : stmt.all(entityType, entityId);
     } catch (error) {
       throw error;
     }
@@ -144,15 +160,18 @@ export class Notification extends BaseModel {
   /**
    * Delete old notifications (cleanup)
    */
-  deleteOld(daysOld = 30) {
+  deleteOld(daysOld = 30, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         DELETE FROM notifications
         WHERE created_at < datetime('now', '-' || ? || ' days')
           AND is_read = 1
+          ${tenantClause}
       `);
-      const result = stmt.run(daysOld);
+      const result = tenantColumn ? stmt.run(daysOld, tenantId) : stmt.run(daysOld);
       return result.changes;
     } catch (error) {
       throw error;
@@ -162,18 +181,20 @@ export class Notification extends BaseModel {
   /**
    * Create notification for multiple users
    */
-  createForUsers(userIds, notificationData) {
+  createForUsers(userIds, notificationData, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('notifications', db);
       const stmt = db.prepare(`
-        INSERT INTO notifications (id, user_id, type, title, message, priority, entity_type, entity_id, action_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO notifications (${tenantColumn ? 'tenant_id, ' : ''}id, user_id, type, title, message, priority, entity_type, entity_id, action_url)
+        VALUES (${tenantColumn ? '?, ' : ''}?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const results = [];
       for (const userId of userIds) {
         const id = this.generateId();
         stmt.run(
+          ...(tenantColumn ? [tenantId] : []),
           id,
           userId,
           notificationData.type,

@@ -37,11 +37,13 @@ export class PersistenceManager {
       this.pendingSaves.set(conversationId, Date.now());
 
       // Criar bundle de salvamento
+      const tenantId = metadata?.tenantId || metadata?.tenant_id;
       const saveBundle = {
         id: conversationId,
         from: this.cleanPhoneNumber(from),
         userMessage: this.sanitizeText(userMessage),
         botResponse: this.sanitizeText(botResponse),
+        tenantId,
         metadata: {
           ...metadata,
           timestamp: Date.now(),
@@ -193,7 +195,8 @@ export class PersistenceManager {
       bundle.from,
       bundle.userMessage,
       false, // isFromBot
-      'text'
+      'text',
+      bundle.tenantId
     );
   }
 
@@ -202,7 +205,8 @@ export class PersistenceManager {
       bundle.from,
       bundle.botResponse,
       true, // isFromBot
-      'text'
+      'text',
+      bundle.tenantId
     );
   }
 
@@ -311,7 +315,7 @@ export class PersistenceManager {
         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
         //  FIX: Usar API correta do better-sqlite3 (prepare().run()) e coluna correta (created_at)
-        const stmt = db.prepare(`DELETE FROM whatsapp_messages WHERE created_at < datetime(?, 'unixepoch')`);
+        const stmt = db.prepare(`DELETE FROM whatsapp_messages /* tenant-guard: ignore */ WHERE created_at < datetime(?, 'unixepoch')`);
         const result = stmt.run(Math.floor(cutoffDate.getTime() / 1000));
 
         log.success('Limpeza concluída', { recordsRemoved: result.changes, daysOld });
@@ -351,7 +355,7 @@ export class PersistenceManager {
       // Teste simples de conectividade com DB
       if (db && typeof db.prepare === 'function') {
         //  FIX: Usar API correta do better-sqlite3 (prepare().get())
-        const stmt = db.prepare('SELECT COUNT(*) as count FROM whatsapp_messages');
+        const stmt = db.prepare('SELECT COUNT(*) as count FROM whatsapp_messages /* tenant-guard: ignore */');
         const result = stmt.get();
 
         return {

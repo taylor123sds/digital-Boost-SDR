@@ -21,7 +21,7 @@ import { leadRepository } from '../repositories/lead.repository.js';
 import { getLeadsFromGoogleSheets } from '../tools/google_sheets.js';
 import { moveLeadFromProspectingToFunil } from '../utils/sheetsManager.js';
 import { getNextProspect, updateProspectStatus, moveProspectToLeads, getProspectStats } from '../services/ProspectImportService.js';
-import { sendWhatsAppMessage } from '../tools/whatsapp.js';
+import { sendWhatsAppText } from '../services/whatsappAdapterProvider.js';
 import { saveLeadState, getLeadState } from '../utils/stateManager.js';
 import { createInitialState } from '../schemas/leadState.schema.js';
 import { normalizePhone } from '../utils/phone_normalizer.js';
@@ -29,6 +29,7 @@ import log from '../utils/logger-wrapper.js';
 import { acquireFirstContactLock, markFirstMessageSent, wasFirstMessageSent } from '../utils/first_contact_lock.js';
 import { getCadenceEngine } from './CadenceEngine.js';
 import simpleBotDetector from '../security/SimpleBotDetector.js';
+import { DEFAULT_TENANT_ID, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TIMEZONE HELPER - HORÁRIO DE BRASÍLIA (UTC-3)
@@ -105,6 +106,7 @@ class ProspectingEngine {
     this.state = EngineState.STOPPED;
     this.timerId = null;
     this.schedulerId = null;      // Timer do agendador diário
+    this.tenantId = DEFAULT_TENANT_ID;
 
     // Fila de processamento
     this.queue = [];
@@ -272,6 +274,9 @@ Se não tiver interesse, só me avisa que não insisto!`;
   _initDatabase() {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const leadsTenantColumn = getTenantColumnForTable('leads', db);
+      const prospectingTenantColumn = getTenantColumnForTable('prospecting_log', db);
 
       db.exec(`
         CREATE TABLE IF NOT EXISTS prospecting_log (
@@ -319,6 +324,9 @@ Se não tiver interesse, só me avisa que não insisto!`;
     // Merge configurações
     if (options.config) {
       this.config = { ...this.config, ...options.config };
+    }
+    if (options.tenantId) {
+      this.tenantId = options.tenantId;
     }
 
     // Reset métricas da sessão
@@ -463,6 +471,9 @@ Se não tiver interesse, só me avisa que não insisto!`;
 
       // 3.  NOVO FLUXO: Buscar leads da tabela leads COM whatsapp_eligible=1
       // Esses leads já receberam email de opt-in e estão prontos para WhatsApp
+      const leadsTenantClause = leadsTenantColumn ? ` AND l.${leadsTenantColumn} = ?` : '';
+      const prospectingTenantClause = prospectingTenantColumn ? ` AND pl.${prospectingTenantColumn} = ?` : '';
+
       let query = `
         SELECT l.*,
                l.telefone as telefone_normalizado,
@@ -470,15 +481,17 @@ Se não tiver interesse, só me avisa que não insisto!`;
                l.empresa as _empresa,
                l.cidade as _cidade,
                l.email as _email
-        FROM leads l
+        FROM leads /* tenant-guard: ignore */ l
         WHERE l.whatsapp_eligible = 1
           AND l.cadence_status = 'not_started'
           AND l.telefone IS NOT NULL
           AND l.telefone != ''
+          ${leadsTenantClause}
           AND NOT EXISTS (
             SELECT 1 FROM prospecting_log pl
             WHERE pl.phone = l.telefone
               AND pl.status IN ('sent', 'success')
+              ${prospectingTenantClause}
           )
       `;
 
@@ -488,7 +501,10 @@ Se não tiver interesse, só me avisa que não insisto!`;
 
       query += ` ORDER BY l.created_at ASC LIMIT ?`;
 
-      const params = [...excludePhones, this.config.maxPerDay || 100];
+      const params = [];
+      if (leadsTenantColumn) params.push(tenantId);
+      if (prospectingTenantColumn) params.push(tenantId);
+      params.push(...excludePhones, this.config.maxPerDay || 100);
       let prospects = [];
 
       try {
@@ -556,18 +572,25 @@ Se não tiver interesse, só me avisa que não insisto!`;
    */
   async _loadQueueFallback(excludePhones, excludePlaceholders) {
     const db = getDatabase();
+    const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+    const prospectTenantColumn = getTenantColumnForTable('prospect_leads', db);
+    const leadsTenantColumn = getTenantColumnForTable('leads', db);
 
     // Usar sistema antigo (prospect_leads)
+    const prospectTenantClause = prospectTenantColumn ? ` AND p.${prospectTenantColumn} = ?` : '';
+    const leadsTenantClause = leadsTenantColumn ? ` AND l.${leadsTenantColumn} = ?` : '';
     let query = `
       SELECT p.*
-      FROM prospect_leads p
+      FROM prospect_leads /* tenant-guard: ignore */ p
       WHERE p.status = 'pendente'
         AND p.telefone_normalizado IS NOT NULL
         AND p.telefone_normalizado != ''
+        ${prospectTenantClause}
         AND NOT EXISTS (
-          SELECT 1 FROM leads l
+          SELECT 1 FROM leads /* tenant-guard: ignore */ l
           WHERE l.telefone = p.telefone_normalizado
              OR l.whatsapp = p.telefone_normalizado
+              ${leadsTenantClause}
         )
     `;
 
@@ -577,7 +600,10 @@ Se não tiver interesse, só me avisa que não insisto!`;
 
     query += ` ORDER BY p.prioridade DESC, p.created_at ASC LIMIT ?`;
 
-    const params = [...excludePhones, this.config.maxPerDay || 100];
+    const params = [];
+    if (prospectTenantColumn) params.push(tenantId);
+    if (leadsTenantColumn) params.push(tenantId);
+    params.push(...excludePhones, this.config.maxPerDay || 100);
     return db.prepare(query).all(...params);
   }
 
@@ -760,12 +786,16 @@ Se não tiver interesse, só me avisa que não insisto!`;
     const phones = new Set();
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const tenantColumn = getTenantColumnForTable('prospecting_log', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         SELECT phone FROM prospecting_log
         WHERE date(created_at) = date('now')
         AND status IN ('sent', 'success')
+        ${tenantClause}
       `);
-      const rows = stmt.all();
+      const rows = tenantColumn ? stmt.all(tenantId) : stmt.all();
       rows.forEach(row => phones.add(row.phone));
     } catch (e) {
       // Ignore
@@ -782,14 +812,19 @@ Se não tiver interesse, só me avisa que não insisto!`;
    */
   _wasEverProspected(phone) {
     const db = getDatabase();
+    const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+    const prospectingTenantColumn = getTenantColumnForTable('prospecting_log', db);
+    const leadsTenantColumn = getTenantColumnForTable('leads', db);
+    const cadenceTenantColumn = getTenantColumnForTable('cadence_enrollments', db);
+    const whatsappTenantColumn = getTenantColumnForTable('whatsapp_messages', db);
 
     // 1. Verificar na tabela prospecting_log (mais confiável)
     try {
       const prospectingResult = db.prepare(`
         SELECT 1 FROM prospecting_log
-        WHERE phone = ? AND status IN ('sent', 'success')
+        WHERE phone = ? AND status IN ('sent', 'success')${prospectingTenantColumn ? ` AND ${prospectingTenantColumn} = ?` : ''}
         LIMIT 1
-      `).get(phone);
+      `).get(...(prospectingTenantColumn ? [phone, tenantId] : [phone]));
 
       if (prospectingResult) {
         log.info(`[PROSPECTING]  Lead ${phone} já foi prospectado anteriormente (prospecting_log)`);
@@ -805,10 +840,10 @@ Se não tiver interesse, só me avisa que não insisto!`;
     // Leads novos devem estar APENAS em prospect_leads até receberem D1
     try {
       const leadsResult = db.prepare(`
-        SELECT id, stage_id FROM leads
-        WHERE telefone = ?
+        SELECT id, stage_id FROM leads /* tenant-guard: ignore */
+        WHERE telefone = ?${leadsTenantColumn ? ` AND ${leadsTenantColumn} = ?` : ''}
         LIMIT 1
-      `).get(phone);
+      `).get(...(leadsTenantColumn ? [phone, tenantId] : [phone]));
 
       if (leadsResult) {
         //  SE EXISTE EM LEADS = JÁ FOI PROSPECTADO (recebeu D1)
@@ -825,11 +860,11 @@ Se não tiver interesse, só me avisa que não insisto!`;
         SELECT 1 FROM cadence_actions_log cal
         JOIN cadence_enrollments ce ON cal.enrollment_id = ce.id
         JOIN leads l ON ce.lead_id = l.id
-        WHERE l.telefone = ?
+        WHERE l.telefone = ?${leadsTenantColumn ? ` AND l.${leadsTenantColumn} = ?` : ''}
           AND cal.action_type = 'send_message'
           AND cal.status = 'sent'
         LIMIT 1
-      `).get(phone);
+      `).get(...(leadsTenantColumn ? [phone, tenantId] : [phone]));
 
       if (actionResult) {
         log.info(`[PROSPECTING]  Lead ${phone} já recebeu mensagem (cadence_actions_log)`);
@@ -842,11 +877,11 @@ Se não tiver interesse, só me avisa que não insisto!`;
     // 3. Verificar na tabela cadence_enrollments
     try {
       const cadenceResult = db.prepare(`
-        SELECT 1 FROM cadence_enrollments e
+        SELECT 1 FROM cadence_enrollments /* tenant-guard: ignore */ e
         JOIN leads l ON e.lead_id = l.id
-        WHERE l.telefone = ?
+        WHERE l.telefone = ?${leadsTenantColumn ? ` AND l.${leadsTenantColumn} = ?` : ''}${cadenceTenantColumn ? ` AND e.${cadenceTenantColumn} = ?` : ''}
         LIMIT 1
-      `).get(phone);
+      `).get(...(cadenceTenantColumn || leadsTenantColumn ? [phone, ...(leadsTenantColumn ? [tenantId] : []), ...(cadenceTenantColumn ? [tenantId] : [])] : [phone]));
 
       if (cadenceResult) {
         log.info(`[PROSPECTING]  Lead ${phone} já está em cadência`);
@@ -859,10 +894,10 @@ Se não tiver interesse, só me avisa que não insisto!`;
     // 4. Verificar na tabela whatsapp_messages (interações anteriores)
     try {
       const messagesResult = db.prepare(`
-        SELECT 1 FROM whatsapp_messages
-        WHERE phone_number = ?
+        SELECT 1 FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE phone_number = ?${whatsappTenantColumn ? ` AND ${whatsappTenantColumn} = ?` : ''}
         LIMIT 1
-      `).get(phone);
+      `).get(...(whatsappTenantColumn ? [phone, tenantId] : [phone]));
 
       if (messagesResult) {
         log.info(`[PROSPECTING]  Lead ${phone} já tem histórico de mensagens`);
@@ -1107,7 +1142,7 @@ Se não tiver interesse, só me avisa que não insisto!`;
 
     // 3. Enviar mensagem WhatsApp
     try {
-      const sendResult = await sendWhatsAppMessage(phone, message);
+      const sendResult = await sendWhatsAppText(phone, message);
 
       if (!sendResult || sendResult.error) {
         const errorMsg = sendResult?.error || 'Falha no envio';
@@ -1238,7 +1273,7 @@ Se não tiver interesse, só me avisa que não insisto!`;
         bant_score: 0,
         origem: 'prospecção_automática',
         status: 'novo'
-      });
+      }, this.tenantId);
       log.info('[PROSPECTING] Lead adicionado ao funil SQLite');
     } catch (e) {
       log.warn('[PROSPECTING] Erro ao atualizar funil SQLite', e);
@@ -1286,7 +1321,7 @@ Se não tiver interesse, só me avisa que não insisto!`;
 
       //  FIX: Buscar lead existente pelo telefone ao invés de criar duplicado
       // O lead já foi criado/atualizado pelo leadRepository.upsert() acima (linha ~1048)
-      const existingLead = leadRepository.findByPhone(phone);
+      const existingLead = leadRepository.findByPhone(phone, this.tenantId);
       const leadId = existingLead?.id || `lead_${phone}`;
 
       // Inscrever na cadência (skipInitialAction=true porque D1 já foi enviado acima)

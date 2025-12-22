@@ -92,6 +92,7 @@ export class WebhookController {
         type: incomingMessageDTO.type,
         messageId: incomingMessageDTO.messageId,
         timestamp: incomingMessageDTO.timestamp,
+        tenantId: options.tenantId,
         metadata: {
           ...metadata,
           fromWhatsApp: true,
@@ -134,7 +135,8 @@ export class WebhookController {
         await this.sendMessageUseCase.execute({
           phoneNumber: from,
           text: result.aiResponse.preHandoffMessage,
-          type: 'text'
+          type: 'text',
+          tenantId: options.tenantId
         });
 
         // Wait 1.5s for user to read
@@ -145,7 +147,8 @@ export class WebhookController {
       await this.sendMessageUseCase.execute({
         phoneNumber: from,
         text: aiResponseText,
-        type: 'text'
+        type: 'text',
+        tenantId: options.tenantId
       });
 
       this.logger.info('Main response sent successfully', { from });
@@ -160,7 +163,8 @@ export class WebhookController {
         await this.sendMessageUseCase.execute({
           phoneNumber: from,
           text: result.aiResponse.followUpMessage,
-          type: 'text'
+          type: 'text',
+          tenantId: options.tenantId
         });
 
         this.logger.info('Follow-up message sent successfully', { from });
@@ -186,7 +190,8 @@ export class WebhookController {
           await this.sendMessageUseCase.execute({
             phoneNumber: from,
             text: 'Tive um problema ao gerar o áudio. Posso te explicar por mensagem de texto?',
-            type: 'text'
+            type: 'text',
+            tenantId: options.tenantId
           });
         }
       }
@@ -211,7 +216,8 @@ export class WebhookController {
         await this.sendMessageUseCase.execute({
           phoneNumber: from,
           text: 'Desculpe, houve um problema no processamento. Pode repetir?',
-          type: 'text'
+          type: 'text',
+          tenantId: options.tenantId
         });
       } catch (sendError) {
         this.logger.error('Failed to send error message', {
@@ -261,7 +267,7 @@ export class WebhookController {
    * @param {string} message - User message
    * @returns {Promise<Object>} Opt-out result
    */
-  async handleOptOut(phoneNumber, message) {
+  async handleOptOut(phoneNumber, message, tenantId = null) {
     try {
       const { classifyOptOutIntent } = await import('../../tools/intelligent_opt_out.js');
       const optOutCheck = classifyOptOutIntent(message, phoneNumber);
@@ -282,7 +288,8 @@ export class WebhookController {
       await this.sendMessageUseCase.execute({
         phoneNumber,
         text: optOutCheck.message,
-        type: 'text'
+        type: 'text',
+        tenantId
       });
 
       // Publish opt-out event

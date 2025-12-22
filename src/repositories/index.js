@@ -6,14 +6,12 @@
  * P0-5: Tenant ID Naming Convention (UPDATED)
  * - Canonical column name: 'tenant_id' (per ARCHITECTURE_DECISIONS.md)
  * - Use BaseTenantRepository for tenant-aware tables
- * - For legacy tables using 'team_id', override getTenantColumn()
- * - All new tables should use 'tenant_id'
+ * - All tables should use 'tenant_id'
  */
 
 export { BaseRepository } from './base.repository.js';
 export {
   BaseTenantRepository,
-  LegacyTenantRepository,
   createTenantRepository
 } from './base-tenant.repository.js';
 export { StateRepository } from './state.repository.js';

@@ -4,20 +4,63 @@
 
 import { getMemory, setMemory } from '../memory.js';
 import fs from 'fs';
+import { getGoogleCalendarTokenService } from '../services/GoogleCalendarTokenService.js';
+import { getIntegrationOAuthService } from '../services/IntegrationOAuthService.js';
 
-/**
- *  NOVA FUNÇÃO: Cria evento real no Google Calendar via API
- */
-async function createGoogleCalendarEvent(eventData) {
-  const tokenPath = './google_token.json';
+const isProduction = process.env.NODE_ENV === 'production';
 
-  // Verificar se token existe
+function getLegacyTokenPath() {
+  return process.env.GOOGLE_TOKEN_PATH || './google_token.json';
+}
+
+async function loadTokens(options = {}) {
+  const { tenantId, integrationId, accountEmail } = options;
+  const tokenService = getGoogleCalendarTokenService(console);
+
+  if (tenantId) {
+    const stored = tokenService.getTokens({ tenantId, integrationId, accountEmail });
+    if (stored?.tokens) {
+      return stored.tokens;
+    }
+    if (isProduction) {
+      throw new Error('Google Calendar não autenticado para este tenant.');
+    }
+  }
+
+  if (isProduction) {
+    throw new Error('Google Calendar tokens must be stored in DB for production.');
+  }
+
+  const tokenPath = getLegacyTokenPath();
   if (!fs.existsSync(tokenPath)) {
     throw new Error('Google Calendar não autenticado. Configure OAuth primeiro.');
   }
 
-  // Carregar tokens
-  const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+  console.warn('[DEPRECATED] Using legacy google_token.json for Calendar tokens.');
+  return JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+}
+
+async function storeTokens(tokens, options = {}) {
+  const { tenantId, integrationId, accountEmail } = options;
+  if (!tenantId) {
+    if (isProduction) {
+      throw new Error('tenantId is required to store Google Calendar tokens in production.');
+    }
+    const tokenPath = getLegacyTokenPath();
+    fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
+    console.warn('[DEPRECATED] Stored Google Calendar tokens in google_token.json.');
+    return;
+  }
+
+  const tokenService = getGoogleCalendarTokenService(console);
+  tokenService.storeTokens({ tenantId, integrationId, accountEmail, tokens });
+}
+
+/**
+ *  NOVA FUNÇÃO: Cria evento real no Google Calendar via API
+ */
+async function createGoogleCalendarEvent(eventData, options = {}) {
+  const tokens = await loadTokens(options);
 
   // Montar corpo do evento para API do Google Calendar
   const startDateTime = new Date(`${eventData.date}T${eventData.time}:00`);
@@ -70,10 +113,8 @@ async function createGoogleCalendarEvent(eventData) {
   // Se token expirou, tentar refresh
   if (response.status === 401 && tokens.refresh_token) {
     console.log(' [CALENDAR-ENHANCED] Access token expirado, tentando refresh...');
-    const newTokens = await refreshAccessToken(tokens.refresh_token);
-
-    // Salvar novos tokens
-    fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2));
+    const newTokens = await refreshAccessToken(tokens.refresh_token, options);
+    await storeTokens(newTokens, options);
 
     // Tentar novamente com novo token
     const retryResponse = await fetch(url, {
@@ -128,7 +169,7 @@ async function createGoogleCalendarEvent(eventData) {
  * @param {boolean} eventData.sendNotifications - Se deve enviar notificações
  * @returns {Promise<object>} Resultado da criação
  */
-export async function createEvent(eventData) {
+export async function createEvent(eventData, options = {}) {
   try {
     // Validação de dados obrigatórios
     if (!eventData.title || !eventData.date || !eventData.time) {
@@ -164,9 +205,15 @@ export async function createEvent(eventData) {
     event.startDateTime = startDateTime.toISOString();
     event.endDateTime = endDateTime.toISOString();
 
+    const context = options?.tenantId ? options : {
+      tenantId: eventData.tenantId,
+      integrationId: eventData.integrationId,
+      accountEmail: eventData.accountEmail
+    };
+
     //  TENTAR CRIAR NO GOOGLE CALENDAR (se OAuth configurado)
     try {
-      const googleEvent = await createGoogleCalendarEvent(event);
+      const googleEvent = await createGoogleCalendarEvent(event, context);
 
       if (googleEvent.success) {
         console.log(` [CALENDAR-ENHANCED] Evento criado no Google Calendar: ${googleEvent.id}`);
@@ -246,17 +293,10 @@ export async function createEvent(eventData) {
  * @param {string} [updates.location] - Nova localização
  * @returns {Promise<Object>} Resultado da atualização
  */
-export async function updateEvent(eventId, updates) {
-  const tokenPath = './google_token.json';
+export async function updateEvent(eventId, updates, options = {}) {
 
   try {
-    // Verificar se token existe
-    if (!fs.existsSync(tokenPath)) {
-      throw new Error('Google Calendar não autenticado. Configure OAuth primeiro.');
-    }
-
-    // Carregar tokens
-    const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+    const tokens = await loadTokens(options);
 
     // Primeiro, buscar evento atual
     const getUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`;
@@ -369,10 +409,8 @@ export async function updateEvent(eventId, updates) {
     // Se token expirou, tentar refresh
     if (updateResponse.status === 401 && tokens.refresh_token) {
       console.log(' [CALENDAR-ENHANCED] Access token expirado, tentando refresh...');
-      const newTokens = await refreshAccessToken(tokens.refresh_token);
-
-      // Salvar novos tokens
-      fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2));
+      const newTokens = await refreshAccessToken(tokens.refresh_token, options);
+      await storeTokens(newTokens, options);
 
       // Tentar novamente com novo token
       const retryResponse = await fetch(updateUrl, {
@@ -431,7 +469,7 @@ export async function updateEvent(eventId, updates) {
  * @param {number} params.durationMinutes - Duração em minutos (padrão: 60)
  * @returns {Promise<object>} Resultado com slots disponíveis
  */
-export async function findFreeSlots(params = {}) {
+export async function findFreeSlots(params = {}, options = {}) {
   try {
     const { date, durationMinutes = 60 } = params;
 
@@ -461,16 +499,11 @@ export async function findFreeSlots(params = {}) {
 
     // Buscar eventos existentes do Google Calendar ou local
     let existingEvents = [];
-    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
 
-    if (fs.existsSync(tokenPath)) {
-      try {
-        const events = await listEvents({ range: 'day', maxResults: 50 });
-        existingEvents = events.events || [];
-      } catch {
-        existingEvents = await getEventsFromDatabase();
-      }
-    } else {
+    try {
+      const events = await listEvents({ range: 'day', maxResults: 50 }, options);
+      existingEvents = events.events || [];
+    } catch {
       existingEvents = await getEventsFromDatabase();
     }
 
@@ -596,32 +629,22 @@ export async function suggestMeetingTimes(params = {}) {
  * Retorna status do calendário
  * @returns {Promise<object>} Status do sistema de calendário
  */
-export async function getCalendarStatus() {
+export async function getCalendarStatus(options = {}) {
   try {
-    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
-
     // Verificar se Google Calendar está autenticado
-    if (fs.existsSync(tokenPath)) {
-      try {
-        const tokenContent = fs.readFileSync(tokenPath, 'utf8');
-        const tokens = JSON.parse(tokenContent);
+    try {
+      const events = await listEvents({ range: 'week', maxResults: 10 }, options);
 
-        if (tokens.access_token && tokens.refresh_token) {
-          // Tentar buscar eventos do Google para verificar conexão
-          const events = await listEvents({ range: 'week', maxResults: 10 });
-
-          return {
-            available: true,
-            provider: 'google',
-            authenticated: true,
-            totalEvents: events.events?.length || 0,
-            upcomingEvents: events.events?.length || 0,
-            message: 'Google Calendar conectado e funcionando'
-          };
-        }
-      } catch (googleError) {
-        console.warn(` [CALENDAR-ENHANCED] Google Calendar falhou, usando local:`, googleError.message);
-      }
+      return {
+        available: true,
+        provider: 'google',
+        authenticated: true,
+        totalEvents: events.events?.length || 0,
+        upcomingEvents: events.events?.length || 0,
+        message: 'Google Calendar conectado e funcionando'
+      };
+    } catch (googleError) {
+      console.warn(` [CALENDAR-ENHANCED] Google Calendar falhou, usando local:`, googleError.message);
     }
 
     // Fallback para calendário local
@@ -698,14 +721,14 @@ async function getEventsFromDatabase() {
  * Retorna URL de autorização do Google OAuth
  * @returns {string} URL de autorização OAuth do Google
  */
-export function getGoogleAuthUrl() {
+export function getGoogleAuthUrl(options = {}) {
   try {
     const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
     const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
     const credentials = JSON.parse(credentialsContent);
 
     const { client_id, redirect_uris } = credentials.web;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || redirect_uris[0];
+    const redirectUri = options.redirectUri || process.env.GOOGLE_REDIRECT_URI || redirect_uris[0];
 
     // Construir URL de autenticação OAuth do Google
     // Incluindo Calendar + Sheets + Drive/Docs para transcrições de reuniões
@@ -725,6 +748,9 @@ export function getGoogleAuthUrl() {
     authUrl.searchParams.set('scope', scopes.join(' '));
     authUrl.searchParams.set('access_type', 'offline');
     authUrl.searchParams.set('prompt', 'consent');
+    if (options.state) {
+      authUrl.searchParams.set('state', options.state);
+    }
 
     console.log(' [CALENDAR-ENHANCED] URL de autenticação gerada com credenciais reais');
     console.log(`    Client ID: ${client_id.substring(0, 20)}...`);
@@ -745,9 +771,14 @@ export function getGoogleAuthUrl() {
  * @param {object} req - Express request
  * @param {object} res - Express response
  */
-export async function handleOAuthCallback(req, res) {
+export async function handleOAuthCallback(req, res, options = {}) {
   try {
     const authCode = req.query.code;
+    const state = req.query.state;
+    let tenantId = options.tenantId || null;
+    let integrationId = options.integrationId || null;
+    let accountEmail = options.accountEmail || null;
+    let redirectUriOverride = options.redirectUri || null;
 
     if (!authCode) {
       res.send(`
@@ -758,12 +789,24 @@ export async function handleOAuthCallback(req, res) {
       return;
     }
 
+    if (state && !tenantId) {
+      const oauthService = getIntegrationOAuthService();
+      const stateValidation = oauthService.validateState(state);
+      if (!stateValidation.valid) {
+        throw new Error('Invalid OAuth state');
+      }
+      tenantId = stateValidation.tenantId;
+      integrationId = stateValidation.metadata?.integrationId || null;
+      accountEmail = stateValidation.metadata?.accountEmail || null;
+      redirectUriOverride = stateValidation.metadata?.redirectUri || redirectUriOverride;
+    }
+
     // Ler credenciais
     const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
     const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
     const credentials = JSON.parse(credentialsContent);
     const { client_id, client_secret, redirect_uris } = credentials.web;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || redirect_uris[0];
+    const redirectUri = redirectUriOverride || process.env.GOOGLE_REDIRECT_URI || redirect_uris[0];
 
     // Trocar código por tokens
     const tokenUrl = 'https://oauth2.googleapis.com/token';
@@ -791,17 +834,14 @@ export async function handleOAuthCallback(req, res) {
 
     const tokens = await response.json();
 
-    // Salvar tokens no arquivo
-    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
-    fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
+    await storeTokens(tokens, { tenantId, integrationId, accountEmail });
 
     console.log(' [CALENDAR-ENHANCED] Tokens OAuth salvos com sucesso');
-    console.log(`    Token salvo em: ${tokenPath}`);
 
     res.send(`
       <h1> Google Calendar Autorizado!</h1>
       <p>Autenticação concluída com sucesso.</p>
-      <p>Tokens salvos em: <code>${tokenPath}</code></p>
+      <p>Tokens armazenados com sucesso.</p>
       <p>Agora você pode usar o Google Calendar através do sistema.</p>
       <p><a href="/">Voltar ao Dashboard</a></p>
       <script>
@@ -831,21 +871,22 @@ export async function handleOAuthCallback(req, res) {
  * @param {number} params.maxResults - Máximo de resultados
  * @returns {Promise<object>} Lista de eventos
  */
-export async function listEvents(params = {}) {
+export async function listEvents(params = {}, options = {}) {
   try {
     const { range = 'week', query = '', maxResults = 50 } = params;
+    const context = options?.tenantId ? options : {
+      tenantId: params.tenantId,
+      integrationId: params.integrationId,
+      accountEmail: params.accountEmail
+    };
 
-    // Verificar se temos token
-    const tokenPath = process.env.GOOGLE_TOKEN_PATH || './google_token.json';
-
-    if (!fs.existsSync(tokenPath)) {
+    let tokens;
+    try {
+      tokens = await loadTokens(context);
+    } catch (error) {
       console.log(' [CALENDAR-ENHANCED] Token não encontrado, retornando eventos locais');
       return await listLocalEvents(params);
     }
-
-    // Ler tokens
-    const tokenContent = fs.readFileSync(tokenPath, 'utf8');
-    const tokens = JSON.parse(tokenContent);
 
     // Calcular período de busca
     const now = new Date();
@@ -890,10 +931,8 @@ export async function listEvents(params = {}) {
       // Se token expirou, tentar refresh
       if (response.status === 401 && tokens.refresh_token) {
         console.log(' [CALENDAR-ENHANCED] Access token expirado, tentando refresh...');
-        const newTokens = await refreshAccessToken(tokens.refresh_token);
-
-        // Salvar novos tokens
-        fs.writeFileSync(tokenPath, JSON.stringify(newTokens, null, 2));
+        const newTokens = await refreshAccessToken(tokens.refresh_token, context);
+        await storeTokens(newTokens, context);
 
         // Tentar novamente com novo token
         const retryResponse = await fetch(url.toString(), {
@@ -984,7 +1023,7 @@ async function listLocalEvents(params) {
 /**
  * Refresh do access token usando refresh token
  */
-async function refreshAccessToken(refreshToken) {
+async function refreshAccessToken(refreshToken, _options = {}) {
   const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
   const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
   const credentials = JSON.parse(credentialsContent);

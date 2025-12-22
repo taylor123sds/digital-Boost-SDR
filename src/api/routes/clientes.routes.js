@@ -8,8 +8,13 @@ import express from 'express';
 import { leadRepository } from '../../repositories/lead.repository.js';
 import { getDatabase } from '../../db/connection.js';
 import { Notification } from '../../models/Notification.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { tenantContext, requireTenant } from '../../middleware/tenant.middleware.js';
+import { extractTenantId } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
+
+router.use('/api/clientes', authenticate, tenantContext, requireTenant);
 
 /**
  * GET /api/clientes
@@ -18,9 +23,10 @@ const router = express.Router();
 router.get('/api/clientes', async (req, res) => {
   try {
     console.log('[CLIENTES-API] Fetching clientes...');
+    const tenantId = extractTenantId(req);
 
     // Get leads that are in "won" stage (clientes)
-    const clientes = leadRepository.findByStage('stage_ganhou', { limit: 500 });
+    const clientes = leadRepository.findByStage('stage_ganhou', { limit: 500, tenantId });
 
     // Map to expected format
     const mappedClientes = clientes.map(cli => ({
@@ -78,6 +84,7 @@ router.get('/api/clientes', async (req, res) => {
 router.post('/api/clientes/from-opportunity', async (req, res) => {
   try {
     const { opportunityId, closingData } = req.body;
+    const tenantId = extractTenantId(req);
 
     if (!opportunityId) {
       return res.status(400).json({
@@ -89,7 +96,7 @@ router.post('/api/clientes/from-opportunity', async (req, res) => {
     console.log(`[CLIENTES-API] Moving opportunity ${opportunityId} to clientes...`);
 
     // Find the lead/opportunity
-    const lead = leadRepository.findById(opportunityId);
+    const lead = leadRepository.findById(opportunityId, tenantId);
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -110,7 +117,7 @@ router.post('/api/clientes/from-opportunity', async (req, res) => {
       if (closingData.notas) updateData.notas = closingData.notas;
     }
 
-    leadRepository.update(opportunityId, updateData);
+    leadRepository.update(opportunityId, updateData, tenantId);
 
     res.json({
       success: true,
@@ -135,8 +142,9 @@ router.post('/api/clientes/from-opportunity', async (req, res) => {
 router.get('/api/clientes/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const tenantId = extractTenantId(req);
 
-    const lead = leadRepository.findById(id);
+    const lead = leadRepository.findById(id, tenantId);
 
     if (!lead || lead.stage_id !== 'stage_ganhou') {
       return res.status(404).json({
@@ -180,6 +188,7 @@ router.put('/api/clientes/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const tenantId = extractTenantId(req);
 
     if (!status) {
       return res.status(400).json({
@@ -190,7 +199,7 @@ router.put('/api/clientes/:id/status', async (req, res) => {
 
     console.log(`[CLIENTES-API] Updating status for cliente ${id} to ${status}...`);
 
-    const result = leadRepository.update(id, { status });
+    const result = leadRepository.update(id, { status }, tenantId);
 
     if (result) {
       res.json({
@@ -220,6 +229,7 @@ router.put('/api/clientes/:id/status', async (req, res) => {
 router.post('/api/clientes/:id/greeting', async (req, res) => {
   try {
     const { id } = req.params;
+    const tenantId = extractTenantId(req);
     const {
       greeting_type = 'general', // general, birthday, anniversary, holiday, thank_you
       custom_message
@@ -227,7 +237,7 @@ router.post('/api/clientes/:id/greeting', async (req, res) => {
 
     console.log(`[CLIENTES-API] Sending greeting to cliente ${id}...`);
 
-    const lead = leadRepository.findById(id);
+    const lead = leadRepository.findById(id, tenantId);
 
     if (!lead) {
       return res.status(404).json({
@@ -257,14 +267,14 @@ router.post('/api/clientes/:id/greeting', async (req, res) => {
 
     // Send WhatsApp message
     try {
-      const { sendWhatsAppMessage } = await import('../../tools/whatsapp.js');
-      await sendWhatsAppMessage(phone, message);
+      const { sendWhatsAppText } = await import('../../services/whatsappAdapterProvider.js');
+      await sendWhatsAppText(phone, message);
 
       console.log(`[CLIENTES-API] Greeting sent to ${lead.nome} (${phone})`);
 
       // Update last contact
       try {
-        leadRepository.update(id, { last_contact: new Date().toISOString() });
+        leadRepository.update(id, { last_contact: new Date().toISOString() }, tenantId);
       } catch (updateError) {
         console.warn('[CLIENTES-API] Could not update last_contact:', updateError.message);
       }
@@ -312,7 +322,8 @@ router.post('/api/clientes/:id/followup', async (req, res) => {
 
     console.log(`[CLIENTES-API] Scheduling followup for cliente ${id}...`);
 
-    const lead = leadRepository.findById(id);
+    const tenantId = extractTenantId(req);
+    const lead = leadRepository.findById(id, tenantId);
 
     if (!lead) {
       return res.status(404).json({
@@ -384,7 +395,7 @@ router.post('/api/clientes/:id/followup', async (req, res) => {
 
     // Update lead's next_followup field
     try {
-      leadRepository.update(id, { next_followup: followupDate });
+      leadRepository.update(id, { next_followup: followupDate }, tenantId);
     } catch (updateError) {
       console.warn('[CLIENTES-API] Could not update next_followup:', updateError.message);
     }

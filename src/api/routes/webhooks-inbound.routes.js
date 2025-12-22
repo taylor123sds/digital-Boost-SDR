@@ -17,8 +17,21 @@ import crypto from 'crypto';
 import { getIntegrationService } from '../../services/IntegrationService.js';
 import { getInboundEventsService } from '../../services/InboundEventsService.js';
 import { getAsyncJobsService, JobType, JobPriority } from '../../services/AsyncJobsService.js';
+import { incrementInboundMetric } from '../../services/InboundPipelineMetrics.js';
+import { processWebhook } from './webhook.routes.js';
+import logger from '../../utils/logger.enhanced.js';
 
 const router = express.Router();
+const LEGACY_WEBHOOK_PIPELINE = process.env.LEGACY_WEBHOOK_PIPELINE === 'true';
+
+function logInboundEvent(event, payload) {
+  const record = {
+    event,
+    ...payload,
+    timestamp: new Date().toISOString()
+  };
+  logger.info('[INBOUND]', record);
+}
 
 /**
  * POST /api/webhooks/inbound/:webhookPublicId
@@ -29,6 +42,9 @@ const router = express.Router();
 router.post('/api/webhooks/inbound/:webhookPublicId', async (req, res) => {
   const startTime = Date.now();
   const { webhookPublicId } = req.params;
+  const correlationId = crypto.randomUUID
+    ? crypto.randomUUID()
+    : crypto.createHash('sha256').update(`${Date.now()}-${Math.random()}`).digest('hex');
 
   try {
     // Get webhook secret from header
@@ -65,34 +81,121 @@ router.post('/api/webhooks/inbound/:webhookPublicId', async (req, res) => {
     const inboundService = getInboundEventsService();
     const asyncJobsService = getAsyncJobsService();
 
-    const { getDatabase } = await import('../../db/connection.js');
-    const db = getDatabase();
-    const intRecord = db.prepare('SELECT tenant_id FROM integrations WHERE id = ?').get(integration.id);
-    const tenantId = intRecord?.tenant_id || 'default';
+    const tenantId = integration?.tenant_id || 'default';
 
-    const normalizedEvent = req.body?.event?.toLowerCase()?.replace(/_/g, '.') || 'unknown';
+    const rawEvent = req.body?.event;
+    const normalizedEvent = rawEvent?.toLowerCase()?.replace(/_/g, '.') || 'unknown';
+    const normalizedPayload = normalizeInboundPayload(req.body, normalizedEvent);
+    if (rawEvent && rawEvent !== normalizedEvent) {
+      console.log('[WEBHOOK-INBOUND] Normalized event', {
+        rawEvent,
+        normalizedEvent
+      });
+    }
+    if (Array.isArray(req.body?.data)) {
+      console.log('[WEBHOOK-INBOUND] Normalized array payload', {
+        normalizedEvent,
+        dataLength: req.body.data.length
+      });
+    }
     const isLifecycleEvent = normalizedEvent === 'connection.update' || normalizedEvent === 'qrcode.updated';
     const providerEventId = isLifecycleEvent
       ? buildLifecycleEventId({
           provider: integration.provider,
           instanceName: integration.instance_name,
           event: normalizedEvent,
-          state: req.body?.data?.state || req.body?.data?.instance?.state,
-          qrcodeBase64: req.body?.data?.qrcode?.base64
+          state: normalizedPayload?.data?.state || normalizedPayload?.data?.instance?.state,
+          qrcodeBase64: normalizedPayload?.data?.qrcode?.base64
         })
-      : null;
+      : inboundService.extractProviderEventId(normalizedPayload);
+    const contactPhone = inboundService.extractContactPhone(normalizedPayload);
 
-    const stageResult = inboundService.stageWebhook(req.body, integration.provider, tenantId, {
+    incrementInboundMetric('inbound_received');
+    logInboundEvent('inbound_received', {
+      tenantId,
+      integrationId: integration.id,
+      provider_event_id: providerEventId,
+      correlation_id: correlationId,
+      event: normalizedEvent
+    });
+
+    if (LEGACY_WEBHOOK_PIPELINE) {
+      try {
+        console.warn('[WEBHOOK-INBOUND] LEGACY_WEBHOOK_PIPELINE enabled - processing inline');
+        await processWebhook(normalizedPayload, null, {
+          integrationId: integration.id,
+          instanceName: integration.instance_name,
+          tenantId,
+          provider: integration.provider,
+          providerEventId,
+          correlationId
+        });
+
+        incrementInboundMetric('job_processed_ok');
+        logInboundEvent('job_processed_ok', {
+          tenantId,
+          integrationId: integration.id,
+          provider_event_id: providerEventId,
+          correlation_id: correlationId,
+          event: normalizedEvent,
+          duration_ms: Date.now() - startTime
+        });
+
+        return res.status(200).json({
+          received: true,
+          processed: true,
+          timestamp: Date.now(),
+          integrationId: integration.id,
+          provider: integration.provider,
+          correlationId
+        });
+      } catch (error) {
+        incrementInboundMetric('job_failed');
+        logInboundEvent('job_failed', {
+          tenantId,
+          integrationId: integration.id,
+          provider_event_id: providerEventId,
+          correlation_id: correlationId,
+          event: normalizedEvent,
+          error: error.message,
+          duration_ms: Date.now() - startTime
+        });
+
+        return res.status(200).json({
+          received: true,
+          error: 'Internal error',
+          correlationId
+        });
+      }
+    }
+
+    const stageResult = inboundService.stageWebhook(normalizedPayload, integration.provider, tenantId, {
       providerEventId
     });
-    const contactPhone = inboundService.extractContactPhone(req.body);
+    incrementInboundMetric('inbound_staged');
+    logInboundEvent('inbound_staged', {
+      tenantId,
+      integrationId: integration.id,
+      provider_event_id: providerEventId,
+      correlation_id: correlationId,
+      event: normalizedEvent
+    });
 
     if (stageResult.isDuplicate) {
+      incrementInboundMetric('dedup_dropped');
+      logInboundEvent('dedup_dropped', {
+        tenantId,
+        integrationId: integration.id,
+        provider_event_id: providerEventId,
+        correlation_id: correlationId,
+        event: normalizedEvent
+      });
       return res.status(200).json({
         received: true,
         duplicate: true,
         integrationId: integration.id,
-        provider: integration.provider
+        provider: integration.provider,
+        correlationId
       });
     }
 
@@ -107,7 +210,9 @@ router.post('/api/webhooks/inbound/:webhookPublicId', async (req, res) => {
         instanceName: integration.instance_name,
         tenantId,
         provider: integration.provider,
-        payload: req.body
+        providerEventId,
+        correlationId,
+        payload: normalizedPayload
       },
       {
         tenantId,
@@ -117,6 +222,16 @@ router.post('/api/webhooks/inbound/:webhookPublicId', async (req, res) => {
         timeoutSeconds: 120
       }
     );
+    incrementInboundMetric('job_enqueued');
+    logInboundEvent('job_enqueued', {
+      tenantId,
+      integrationId: integration.id,
+      provider_event_id: providerEventId,
+      job_id: job.id,
+      correlation_id: correlationId,
+      event: normalizedEvent,
+      duration_ms: Date.now() - startTime
+    });
 
     console.log('[WEBHOOK-INBOUND] Enqueued job', {
       jobId: job.id,
@@ -132,7 +247,8 @@ router.post('/api/webhooks/inbound/:webhookPublicId', async (req, res) => {
       timestamp: Date.now(),
       integrationId: integration.id,
       provider: integration.provider,
-      jobId: job.id
+      jobId: job.id,
+      correlationId
     });
 
   } catch (error) {
@@ -151,6 +267,23 @@ function buildLifecycleEventId({ provider, instanceName, event, state, qrcodeBas
   const qrHash = qrcodeBase64 ? crypto.createHash('sha256').update(qrcodeBase64).digest('hex').slice(0, 16) : '';
   const raw = [provider, instanceName, event, state, qrHash, bucket].filter(Boolean).join('|');
   return crypto.createHash('sha256').update(raw).digest('hex');
+}
+
+function normalizeInboundPayload(payload, normalizedEvent) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  const normalized = { ...payload };
+  if (normalizedEvent) {
+    normalized.event = normalizedEvent;
+  }
+
+  if (Array.isArray(normalized.data)) {
+    normalized.data = normalized.data[0] || {};
+  }
+
+  return normalized;
 }
 
 export default router;

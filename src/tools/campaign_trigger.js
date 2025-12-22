@@ -10,7 +10,7 @@
  */
 
 import { getAgentHub } from '../agents/agent_hub_init.js';
-import { sendWhatsAppMessage } from './whatsapp.js';
+import { sendWhatsAppText } from '../services/whatsappAdapterProvider.js';
 import { normalizePhone } from '../utils/phone_normalizer.js';
 import { resetLead } from '../utils/stateManager.js';
 import { acquireFirstContactLock, markFirstMessageSent, wasFirstMessageSent } from '../utils/first_contact_lock.js';
@@ -69,7 +69,7 @@ export async function triggerSDRForPhone(phone) {
     // Enviar mensagem via WhatsApp
     if (result.message) {
       console.log(` [CAMPAIGN-TRIGGER] Enviando mensagem SDR para ${phone}`);
-      await sendWhatsAppMessage(normalizedPhone, result.message);
+      await sendWhatsAppText(normalizedPhone, result.message);
       console.log(` [CAMPAIGN-TRIGGER] Mensagem enviada com sucesso`);
 
       //  Marcar primeira mensagem como enviada (impede duplicação)

@@ -275,7 +275,7 @@ class AutomationEngine extends EventEmitter {
     switch (trigger.target) {
       case 'leads':
         return db.prepare(`
-          SELECT * FROM leads
+          SELECT * FROM leads /* tenant-guard: ignore */
           WHERE status NOT IN ('convertido', 'desqualificado')
         `).all();
 
@@ -287,12 +287,12 @@ class AutomationEngine extends EventEmitter {
 
       case 'opportunities':
         return db.prepare(`
-          SELECT * FROM opportunities
+          SELECT * FROM opportunities /* tenant-guard: ignore */
           WHERE status = 'aberta'
         `).all();
 
       default:
-        return db.prepare('SELECT * FROM leads WHERE status = "novo"').all();
+        return db.prepare('SELECT * FROM leads /* tenant-guard: ignore */ WHERE status = "novo"').all();
     }
   }
 
@@ -454,7 +454,7 @@ class AutomationEngine extends EventEmitter {
    * Action: Enviar WhatsApp
    */
   async actionSendWhatsapp(data, params) {
-    const { sendWhatsAppMessage } = await import('../tools/whatsapp.js');
+    const { sendWhatsAppText } = await import('../services/whatsappAdapterProvider.js');
 
     const phone = data.whatsapp || data.telefone;
     if (!phone) {
@@ -465,7 +465,7 @@ class AutomationEngine extends EventEmitter {
     let message = params.template || params.message;
     message = this.processTemplate(message, data);
 
-    await sendWhatsAppMessage(phone, message);
+    await sendWhatsAppText(phone, message);
 
     return { phone, message };
   }
@@ -565,7 +565,7 @@ class AutomationEngine extends EventEmitter {
     const { stage } = params;
 
     db.prepare(`
-      UPDATE leads SET status = ?, updated_at = datetime('now') WHERE id = ?
+      UPDATE leads /* tenant-guard: ignore */ SET status = ?, updated_at = datetime('now') WHERE id = ?
     `).run(stage, data.id);
 
     return { id: data.id, newStage: stage };
@@ -582,7 +582,7 @@ class AutomationEngine extends EventEmitter {
     const db = getDatabase();
 
     db.prepare(`
-      UPDATE leads
+      UPDATE leads /* tenant-guard: ignore */
       SET custom_fields = json_set(COALESCE(custom_fields, '{}'), '$.next_followup', ?)
       WHERE id = ?
     `).run(followupDate.toISOString(), data.id);

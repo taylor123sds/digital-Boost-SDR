@@ -4,6 +4,7 @@
  */
 
 import { BaseModel } from './BaseModel.js';
+import { DEFAULT_TENANT_ID, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 export class Activity extends BaseModel {
   constructor() {
@@ -13,9 +14,9 @@ export class Activity extends BaseModel {
   /**
    * Find activities for a lead
    */
-  findByLead(leadId, { limit = 50, offset = 0 } = {}) {
+  findByLead(leadId, { tenantId = DEFAULT_TENANT_ID, limit = 50, offset = 0 } = {}) {
     return this.findAll({
-      where: { lead_id: leadId },
+      where: { lead_id: leadId, tenant_id: tenantId },
       limit,
       offset,
       orderBy: 'created_at DESC'
@@ -25,9 +26,9 @@ export class Activity extends BaseModel {
   /**
    * Find activities for a contact
    */
-  findByContact(contactId, { limit = 50, offset = 0 } = {}) {
+  findByContact(contactId, { tenantId = DEFAULT_TENANT_ID, limit = 50, offset = 0 } = {}) {
     return this.findAll({
-      where: { contact_id: contactId },
+      where: { contact_id: contactId, tenant_id: tenantId },
       limit,
       offset,
       orderBy: 'created_at DESC'
@@ -37,9 +38,9 @@ export class Activity extends BaseModel {
   /**
    * Find activities for an opportunity
    */
-  findByOpportunity(opportunityId, { limit = 50, offset = 0 } = {}) {
+  findByOpportunity(opportunityId, { tenantId = DEFAULT_TENANT_ID, limit = 50, offset = 0 } = {}) {
     return this.findAll({
-      where: { opportunity_id: opportunityId },
+      where: { opportunity_id: opportunityId, tenant_id: tenantId },
       limit,
       offset,
       orderBy: 'created_at DESC'
@@ -49,11 +50,14 @@ export class Activity extends BaseModel {
   /**
    * Find activities assigned to a user
    */
-  findByAssignee(userId, { status, limit = 50, offset = 0 } = {}) {
+  findByAssignee(userId, { tenantId = DEFAULT_TENANT_ID, status, limit = 50, offset = 0 } = {}) {
     const db = this.getDb();
     try {
-      let query = 'SELECT * FROM activities WHERE assigned_to = ?';
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
+      let query = `SELECT * FROM activities WHERE assigned_to = ?${tenantClause}`;
       const params = [userId];
+      if (tenantColumn) params.push(tenantId);
 
       if (status) {
         query += ' AND status = ?';
@@ -73,9 +77,11 @@ export class Activity extends BaseModel {
   /**
    * Find overdue activities
    */
-  findOverdue(userId = null) {
+  findOverdue(userId = null, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND a.${tenantColumn} = ?` : '';
       let query = `
         SELECT a.*, l.nome as lead_name, c.nome as contact_name, o.nome as opportunity_name
         FROM activities a
@@ -85,8 +91,10 @@ export class Activity extends BaseModel {
         WHERE a.status IN ('pending', 'in_progress')
           AND a.due_date IS NOT NULL
           AND datetime(a.due_date) < datetime('now')
+          ${tenantClause}
       `;
       const params = [];
+      if (tenantColumn) params.push(tenantId);
 
       if (userId) {
         query += ' AND (a.assigned_to = ? OR a.owner_id = ?)';
@@ -105,9 +113,11 @@ export class Activity extends BaseModel {
   /**
    * Find today's activities
    */
-  findToday(userId = null) {
+  findToday(userId = null, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND a.${tenantColumn} = ?` : '';
       let query = `
         SELECT a.*, l.nome as lead_name, c.nome as contact_name, o.nome as opportunity_name
         FROM activities a
@@ -116,8 +126,10 @@ export class Activity extends BaseModel {
         LEFT JOIN opportunities o ON a.opportunity_id = o.id
         WHERE a.status IN ('pending', 'in_progress')
           AND date(a.due_date) = date('now')
+          ${tenantClause}
       `;
       const params = [];
+      if (tenantColumn) params.push(tenantId);
 
       if (userId) {
         query += ' AND (a.assigned_to = ? OR a.owner_id = ?)';
@@ -136,9 +148,11 @@ export class Activity extends BaseModel {
   /**
    * Find upcoming activities
    */
-  findUpcoming(userId = null, { days = 7, limit = 50 } = {}) {
+  findUpcoming(userId = null, { tenantId = DEFAULT_TENANT_ID, days = 7, limit = 50 } = {}) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND a.${tenantColumn} = ?` : '';
       let query = `
         SELECT a.*, l.nome as lead_name, c.nome as contact_name, o.nome as opportunity_name
         FROM activities a
@@ -148,8 +162,10 @@ export class Activity extends BaseModel {
         WHERE a.status IN ('pending', 'in_progress')
           AND date(a.due_date) > date('now')
           AND date(a.due_date) <= date('now', '+' || ? || ' days')
+          ${tenantClause}
       `;
       const params = [days];
+      if (tenantColumn) params.push(tenantId);
 
       if (userId) {
         query += ' AND (a.assigned_to = ? OR a.owner_id = ?)';
@@ -169,9 +185,11 @@ export class Activity extends BaseModel {
   /**
    * Get timeline (recent activities)
    */
-  getTimeline({ userId, entityType, entityId, limit = 50, offset = 0 } = {}) {
+  getTimeline({ userId, entityType, entityId, tenantId = DEFAULT_TENANT_ID, limit = 50, offset = 0 } = {}) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND a.${tenantColumn} = ?` : '';
       let query = `
         SELECT
           a.*,
@@ -188,9 +206,10 @@ export class Activity extends BaseModel {
         LEFT JOIN contacts c ON a.contact_id = c.id
         LEFT JOIN opportunities o ON a.opportunity_id = o.id
         LEFT JOIN accounts acc ON a.account_id = acc.id
-        WHERE 1=1
+        WHERE 1=1${tenantClause}
       `;
       const params = [];
+      if (tenantColumn) params.push(tenantId);
 
       if (userId) {
         query += ' AND (a.owner_id = ? OR a.assigned_to = ?)';
@@ -228,17 +247,19 @@ export class Activity extends BaseModel {
   /**
    * Mark activity as completed
    */
-  complete(activityId, resultado = null) {
+  complete(activityId, resultado = null, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         UPDATE activities
         SET status = 'completed',
             completed_at = datetime('now'),
             resultado = COALESCE(?, resultado)
-        WHERE id = ?
+        WHERE id = ?${tenantClause}
       `);
-      stmt.run(resultado, activityId);
+      stmt.run(...(tenantColumn ? [resultado, activityId, tenantId] : [resultado, activityId]));
       return this.findById(activityId);
     } catch (error) {
       throw error;
@@ -259,17 +280,20 @@ export class Activity extends BaseModel {
   /**
    * Get activity counts by status
    */
-  getCountsByStatus(userId = null) {
+  getCountsByStatus(userId = null, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       let query = `
         SELECT
           status,
           COUNT(*) as count
         FROM activities
-        WHERE 1=1
+        WHERE 1=1${tenantClause}
       `;
       const params = [];
+      if (tenantColumn) params.push(tenantId);
 
       if (userId) {
         query += ' AND (assigned_to = ? OR owner_id = ?)';
@@ -296,18 +320,21 @@ export class Activity extends BaseModel {
   /**
    * Get activity counts by type
    */
-  getCountsByType(userId = null, { startDate, endDate } = {}) {
+  getCountsByType(userId = null, { tenantId = DEFAULT_TENANT_ID, startDate, endDate } = {}) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('activities', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       let query = `
         SELECT
           tipo,
           COUNT(*) as count,
           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
         FROM activities
-        WHERE 1=1
+        WHERE 1=1${tenantClause}
       `;
       const params = [];
+      if (tenantColumn) params.push(tenantId);
 
       if (userId) {
         query += ' AND (assigned_to = ? OR owner_id = ?)';

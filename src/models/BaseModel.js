@@ -10,7 +10,8 @@ import { getDatabase } from '../db/connection.js';
 const ALLOWED_ORDER_COLUMNS = [
   'id', 'created_at', 'updated_at', 'nome', 'empresa', 'email', 'telefone',
   'whatsapp', 'stage_id', 'pipeline_id', 'status', 'bant_score', 'cadence_day',
-  'first_response_at', 'title', 'priority', 'due_date', 'scheduled_at'
+  'first_response_at', 'title', 'priority', 'due_date', 'scheduled_at',
+  'tenant_id'
 ];
 const ALLOWED_ORDER_DIRECTIONS = ['ASC', 'DESC', 'asc', 'desc'];
 

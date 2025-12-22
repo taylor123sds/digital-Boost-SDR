@@ -1,6 +1,7 @@
 /**
  * @file AgentApiRoutes.js
  * @description API REST para gerenciamento de agentes
+ * STACK_DEPRECATED_OK: legacy route stack (read-only)
  */
 
 import { Router } from 'express';

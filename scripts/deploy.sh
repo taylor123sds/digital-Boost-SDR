@@ -63,6 +63,11 @@ if [ -z "$1" ]; then
 fi
 
 APP_VERSION="$1"
+
+if [ "${APP_VERSION}" = "latest" ]; then
+    log_error "Refusing to deploy 'latest'. Use a commit SHA tag."
+    exit 1
+fi
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 echo ""
@@ -92,6 +97,7 @@ export APP_VERSION
 export BUILD_TIME
 export GIT_COMMIT="${APP_VERSION}"
 export GIT_BRANCH="main"
+export IMAGE_TAG="${APP_VERSION}"
 
 docker compose -f "${COMPOSE_FILE}" pull leadly leadly-worker || {
     log_error "Failed to pull images!"

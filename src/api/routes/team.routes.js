@@ -93,13 +93,11 @@ router.get('/api/team/users/:id', (req, res) => {
 /**
  * POST /api/team/users
  * Create new user
- * P0-5: Accepts both tenant_id (canonical) and team_id (legacy)
  */
 router.post('/api/team/users', async (req, res) => {
   try {
-    // P0-5: Accept both tenant_id and team_id
-    const { email, password, name, role, tenant_id, team_id } = req.body;
-    const tenantId = tenant_id || team_id;
+    const { email, password, name, role, tenant_id } = req.body;
+    const tenantId = tenant_id || null;
 
     // Validation
     if (!email || !password || !name) {
@@ -122,14 +120,12 @@ router.post('/api/team/users', async (req, res) => {
     const passwordHash = await authService.hashPassword(password);
 
     // Create user
-    // P0-5: Use tenantId (from tenant_id or team_id)
     const user = userModel.create({
       email,
       password_hash: passwordHash,
       name,
       role: role || 'sdr',
-      tenant_id: tenantId,
-      team_id: tenantId
+      tenant_id: tenantId
     });
 
     // Add to team if specified

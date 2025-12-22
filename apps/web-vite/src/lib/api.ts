@@ -392,7 +392,7 @@ class ApiClient {
     try {
       await this.request<{ success: boolean }>('/whatsapp/send', {
         method: 'POST',
-        body: { phone, message: content },
+        body: { to: phone, message: content },
       });
       return { success: true };
     } catch {

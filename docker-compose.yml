@@ -114,7 +114,7 @@ services:
   # P0-3: Default is ROLE=api (HTTP only). Worker runs in separate service.
   leadly:
     container_name: leadly_agent
-    image: orbion-leadly:${GIT_COMMIT:-local}
+    image: orbion-leadly:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -122,6 +122,7 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
         GIT_BRANCH: ${GIT_BRANCH:-unknown}
         BUILD_DATE: ${BUILD_DATE:-unknown}
+        IMAGE_TAG: ${IMAGE_TAG:-local}
     restart: always
     depends_on:
       evolution-api:
@@ -145,6 +146,7 @@ services:
       # - 'api': Only HTTP server (for horizontal scaling)
       # - 'worker': Only background jobs (for job processing)
       - ROLE=${ROLE:-api}
+      - IMAGE_TAG=${IMAGE_TAG:-local}
       # OpenAI
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
@@ -187,7 +189,7 @@ services:
   # ==========================================================================
   leadly-worker:
     container_name: leadly_worker
-    image: orbion-leadly:${GIT_COMMIT:-local}
+    image: orbion-leadly:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -195,6 +197,7 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
         GIT_BRANCH: ${GIT_BRANCH:-unknown}
         BUILD_DATE: ${BUILD_DATE:-unknown}
+        IMAGE_TAG: ${IMAGE_TAG:-local}
     restart: always
     depends_on:
       evolution-api:
@@ -212,6 +215,7 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - ROLE=worker
+      - IMAGE_TAG=${IMAGE_TAG:-local}
       # OpenAI
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}

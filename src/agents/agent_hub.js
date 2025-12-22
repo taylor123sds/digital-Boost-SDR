@@ -24,6 +24,7 @@ import { getAutoOptimizer } from '../intelligence/AutoOptimizer.js';
 import { getPromptAdaptationSystem } from '../intelligence/PromptAdaptationSystem.js';
 //  FIX GAP-005: Lead Repository para atualizar pipeline durante handoff
 import { leadRepository } from '../repositories/lead.repository.js';
+import { DEFAULT_TENANT_ID } from '../utils/tenantCompat.js';
 
 /**
  * Agent Hub - Orquestrador Central com ROTEAMENTO INTELIGENTE
@@ -621,11 +622,12 @@ export class AgentHub {
       const newStage = agentToStageMap[nextAgent] || 'stage_respondeu';
 
       try {
+        const tenantId = leadState?.tenant_id || leadState?.tenantId || DEFAULT_TENANT_ID;
         leadRepository.upsert(normalizedPhone, {
           stage_id: newStage,
           stage_entered_at: new Date().toISOString(),
           current_agent: nextAgent
-        });
+        }, tenantId);
         console.log(` [HUB] Pipeline atualizado: ${fromAgent}  ${nextAgent} (stage: ${newStage})`);
       } catch (pipelineError) {
         console.error(` [HUB] Erro ao atualizar pipeline:`, pipelineError.message);

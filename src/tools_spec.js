@@ -2,7 +2,8 @@ import { addTask, listTasks } from './tools/tasks.js';
 import { searchKnowledge } from './tools/search_knowledge.js';
 import { getTime } from './tools/time.js';
 import { createEvent, listEvents } from './tools/calendar_enhanced.js';
-import { sendWhatsAppMessage, scheduleWhatsAppMeeting, checkEvolutionStatus, getContactProfile, transcribeWhatsAppAudio, updateInstanceSettings, sendWhatsAppAudio, sendTTSWhatsAppMessage, sendIntelligentTTS, makeVirtualCall, makeIntelligentCall, callLeadOrNumber, runIntelligentCampaign } from './tools/whatsapp.js';
+import { scheduleWhatsAppMeeting, checkEvolutionStatus, getContactProfile, transcribeWhatsAppAudio, updateInstanceSettings, sendTTSWhatsAppMessage, sendIntelligentTTS, makeVirtualCall, makeIntelligentCall, callLeadOrNumber, runIntelligentCampaign } from './tools/whatsapp.js';
+import { sendWhatsAppText, sendWhatsAppAudio } from './services/whatsappAdapterProvider.js';
 import { analyzeDocument, getSupportedTypes, isFileSupported } from './tools/document_analyzer.js';
 import { getDocumentHistory, getDocumentAnalysisStats } from './memory.js';
 //  ENHANCED TOOLS IMPORT
@@ -437,7 +438,7 @@ export async function dispatchTool(name, args) {
       duration: 60
     });
     case 'list_events': return listEvents();
-    case 'send_whatsapp_message': return sendWhatsAppMessage(args.number, args.text);
+    case 'send_whatsapp_message': return sendWhatsAppText(args.number, args.text);
     case 'schedule_whatsapp_meeting': return scheduleWhatsAppMeeting(args.number, args.title, args.datetime, args.notes || '');
     case 'check_evolution_status': return checkEvolutionStatus();
     case 'get_contact_profile': return getContactProfile(args.number);

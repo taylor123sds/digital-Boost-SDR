@@ -42,6 +42,7 @@ export class ProcessIncomingMessageUseCase {
   async execute(input) {
     this.logger.info('ProcessIncomingMessageUseCase: Executing', {
       phoneNumber: input.phoneNumber,
+      tenantId: input.tenantId,
       textLength: input.text?.length
     });
 
@@ -53,7 +54,7 @@ export class ProcessIncomingMessageUseCase {
       const message = await this.conversationService.addUserMessage(
         input.phoneNumber,
         input.text,
-        { type: input.type || 'text' }
+        { type: input.type || 'text', tenantId: input.tenantId }
       );
 
       // Publish domain event
@@ -69,7 +70,7 @@ export class ProcessIncomingMessageUseCase {
       await this.leadService.recordInteraction(input.phoneNumber);
 
       // Get conversation context
-      const context = await this.conversationService.getContext(input.phoneNumber, 10);
+      const context = await this.conversationService.getContext(input.phoneNumber, input.tenantId, 10);
 
       // Generate AI response (using AgentHub if available, otherwise fallback to OpenAI)
       const aiResponse = await this.generateAIResponse(lead, context, input.text, input.metadata);
@@ -223,6 +224,12 @@ Lembre-se: você está aqui para ajudar, não apenas para vender.`;
     if (input.text.trim().length === 0) {
       throw new ValidationError('Message text cannot be empty', {
         field: 'text'
+      });
+    }
+
+    if (!input.tenantId) {
+      throw new ValidationError('Tenant ID is required', {
+        field: 'tenantId'
       });
     }
   }

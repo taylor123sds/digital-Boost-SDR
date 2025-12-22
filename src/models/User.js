@@ -67,7 +67,7 @@ export class User extends BaseModel {
   findByTeam(teamId, { limit = 100, offset = 0 } = {}) {
     const db = this.getDb();
     try {
-      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'team_id';
+      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'tenant_id';
       const stmt = db.prepare(`
         SELECT u.*, ut.role as team_role
         FROM users u
@@ -151,7 +151,7 @@ export class User extends BaseModel {
       const user = this.findById(userId);
       if (!user) return null;
 
-      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'team_id';
+      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'tenant_id';
       const teamsStmt = db.prepare(`
         SELECT t.*, ut.role as member_role
         FROM teams t

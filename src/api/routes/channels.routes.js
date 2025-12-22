@@ -6,7 +6,7 @@
  */
 
 import express from 'express';
-import { authenticate } from '../../middleware/auth.middleware.js';
+import { authenticate, requireManager } from '../../middleware/auth.middleware.js';
 import { tenantContext } from '../../middleware/tenant.middleware.js';
 import { getIntegrationService } from '../../services/IntegrationService.js';
 import { getEvolutionProvider } from '../../providers/EvolutionProvider.js';
@@ -27,9 +27,12 @@ router.post('/api/agents/:agentId/channels/evolution/connect',
     try {
       const { agentId } = req.params;
       const tenantId = req.tenantId;
+      const { instanceName } = req.body || {};
 
       const integrationService = getIntegrationService();
-      const result = await integrationService.connectEvolutionForAgent(tenantId, agentId);
+      const result = await integrationService.connectEvolutionForAgent(tenantId, agentId, {
+        instanceName
+      });
 
       if (!result.success) {
         return res.status(400).json({
@@ -217,6 +220,50 @@ router.post('/api/agents/:agentId/channels/evolution/disconnect',
       res.status(500).json({
         success: false,
         error: 'Erro ao desconectar',
+        details: error.message
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/agents/:agentId/channels/evolution
+ * Delete Evolution instance and mark integration as deleted
+ */
+router.delete('/api/agents/:agentId/channels/evolution',
+  authenticate,
+  tenantContext,
+  requireManager,
+  async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const tenantId = req.tenantId;
+
+      const integrationService = getIntegrationService();
+      const binding = integrationService.getBindingForAgent(tenantId, agentId);
+
+      if (!binding) {
+        return res.status(404).json({
+          success: false,
+          error: 'Nenhuma conexao Evolution configurada'
+        });
+      }
+
+      const evolutionProvider = getEvolutionProvider();
+      await evolutionProvider.deleteInstance(binding.instance_name);
+      integrationService.update(tenantId, binding.integration_id, {
+        status: 'deleted'
+      });
+
+      res.json({
+        success: true,
+        message: 'Instancia removida com sucesso'
+      });
+    } catch (error) {
+      console.error('[CHANNELS] Delete error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao remover instancia',
         details: error.message
       });
     }

@@ -6,11 +6,42 @@
 import { getTenantColumnForTable } from './tenantCompat.js';
 
 export const TENANT_REQUIRED_TABLES = new Set([
+  'agents',
+  'agent_versions',
   'leads',
+  'pipeline_stages',
   'whatsapp_messages',
+  'messages',
+  'conversations',
   'pipeline_history',
   'cadence_enrollments',
-  'conversation_contexts'
+  'conversation_contexts',
+  'conversation_context',
+  'prospect_leads',
+  'opt_out_registry',
+  'accounts',
+  'contacts',
+  'opportunities',
+  'activities',
+  'meetings',
+  'integrations',
+  'integration_bindings',
+  'oauth_states',
+  'async_jobs',
+  'inbound_events'
+]);
+
+export const TENANT_REQUIRED_ROUTES = new Set([
+  '/api/agents',
+  '/api/integrations',
+  '/api/webhooks/inbound',
+  '/api/pipeline',
+  '/api/funil',
+  '/api/whatsapp',
+  '/api/prospecting',
+  '/api/cadences',
+  '/api/crm/leads',
+  '/api/clientes'
 ]);
 
 export const GLOBAL_TABLE_ALLOWLIST = new Set([
@@ -24,7 +55,7 @@ export const GLOBAL_TABLE_ALLOWLIST = new Set([
  * @param {Array} params - Bound params
  * @param {Object} options - Options
  * @param {string} options.tenantId - Tenant ID to enforce
- * @param {string|null} options.tenantColumn - Column name (tenant_id/team_id) or null
+ * @param {string|null} options.tenantColumn - Column name (tenant_id) or null
  * @param {string} options.operation - Optional description for error messages
  */
 export function assertTenantScoped(query, params = [], options = {}) {

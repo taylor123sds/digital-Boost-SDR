@@ -505,10 +505,8 @@ export class UnifiedMessageCoordinator extends EventEmitter {
       try {
         log.info('Enviando resposta', { contactId, attempt, maxRetries: this.config.MAX_RETRIES });
 
-        // Import WhatsApp send function dynamically to avoid circular dependency
-        const { sendWhatsAppMessage } = await import('../tools/whatsapp.js');
-
-        const result = await sendWhatsAppMessage(contactId, responseText);
+        const { sendWhatsAppText } = await import('../services/whatsappAdapterProvider.js');
+        const result = await sendWhatsAppText(contactId, responseText);
 
         log.success('Resposta enviada', { contactId, attempt });
 

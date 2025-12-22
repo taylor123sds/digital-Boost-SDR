@@ -319,12 +319,22 @@ agent-js-starter/
 ```bash
 npm run lint        # Verificar
 npm run lint:fix    # Corrigir automaticamente
+npm run lint:stacks # Bloquear novas rotas fora do stack canonico
 ```
 
 #### Prettier
 ```bash
 npm run format      # Formatar código
 ```
+
+### Stack Canonico (Governanca)
+
+- HTTP routes: `src/api/routes`
+- Migrations/schema: `src/db/migrations`
+- Agents/personalizacao: `src/agents` + `src/services`
+- Stacks deprecated (read-only): `src/scalable`, `src/platform`, `src/v2`
+
+Mais detalhes em `docs/STACKS_GOVERNANCE.md`.
 
 #### Commits
 ```bash

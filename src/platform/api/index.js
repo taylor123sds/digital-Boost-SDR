@@ -1,6 +1,7 @@
 /**
  * PLATFORM API INDEX
  * Configura e exporta todas as rotas da API da plataforma
+ * STACK_DEPRECATED_OK: legacy route stack (read-only)
  */
 
 import { Router } from 'express';

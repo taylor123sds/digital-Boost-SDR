@@ -1,6 +1,7 @@
 /**
  * @file AgentConfigRoutes.js
  * @description Rotas REST para gerenciamento de configuracoes de agentes
+ * STACK_DEPRECATED_OK: legacy route stack (read-only)
  *
  * Endpoints:
  * - GET    /api/agents/:agentId/config          - Obter configuracao ativa

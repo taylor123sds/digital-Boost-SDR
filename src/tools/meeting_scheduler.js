@@ -5,6 +5,7 @@ import openaiClient from '../core/openai_client.js';
 import { createEvent, suggestMeetingTimes, getCalendarStatus } from './calendar_enhanced.js';
 import { getMemory, setMemory } from '../memory.js';
 import { leadRepository } from '../repositories/lead.repository.js';
+import { DEFAULT_TENANT_ID } from '../utils/tenantCompat.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -14,7 +15,7 @@ dotenv.config();
  * @param {object} eventData - Dados do evento
  * @returns {Promise<object>} Resultado da criação
  */
-async function createGoogleCalendarEvent(eventData) {
+async function createGoogleCalendarEvent(eventData, options = {}) {
   try {
     // Converte formato do evento para o sistema enhanced
     const enhancedEventData = {
@@ -29,7 +30,7 @@ async function createGoogleCalendarEvent(eventData) {
       sendNotifications: true
     };
 
-    const result = await createEvent(enhancedEventData);
+    const result = await createEvent(enhancedEventData, options);
 
     if (!result.success) {
       throw new Error(result.error || 'Falha ao criar evento');
@@ -88,6 +89,7 @@ function generateMeetingTitle(meetingType, leadName) {
  */
 export async function scheduleStrategicMeeting(clientName, clientEmail, clientPhone, analysis, options = {}) {
   try {
+    const tenantId = options.tenantId || DEFAULT_TENANT_ID;
     // Determina tipo de reunião baseado no contexto
     // Se não especificado, usa interesse para decidir
     let meetingType = options.meetingType;
@@ -131,7 +133,7 @@ export async function scheduleStrategicMeeting(clientName, clientEmail, clientPh
       startDateTime: startDateTime.toISOString(),
       endDateTime: endDateTime.toISOString(),
       location: 'Online - Google Meet'
-    });
+    }, { tenantId });
 
     //  FIX: Atualizar estágio do lead no pipeline para o estágio correto
     // CRÍTICO: Esta lógica estava FALTANDO - leads ficavam em "discovery" mesmo após agendar
@@ -161,7 +163,7 @@ export async function scheduleStrategicMeeting(clientName, clientEmail, clientPh
           meeting_type: meetingType,
           meeting_calendar_id: eventResult.id,
           cadence_status: 'meeting_scheduled'
-        });
+        }, tenantId);
 
         console.log(` Lead ${normalizedPhone} movido para estágio: ${newStageId}`);
 
@@ -381,7 +383,7 @@ function generateMeetingLink() {
  */
 export async function sendMeetingConfirmation(phoneNumber, meetingDetails) {
   try {
-    const { sendWhatsAppMessage } = await import('./whatsapp.js');
+    const { sendWhatsAppText } = await import('../services/whatsappAdapterProvider.js');
     
     const confirmationMessage = ` **REUNIÃO CONFIRMADA!**
 
@@ -408,7 +410,7 @@ ${meetingDetails.meetingLink}
 
 **Digital Boost** `;
 
-    const result = await sendWhatsAppMessage(phoneNumber, confirmationMessage);
+    const result = await sendWhatsAppText(phoneNumber, confirmationMessage);
     
     console.log(' Confirmação de reunião enviada via WhatsApp');
     return result;

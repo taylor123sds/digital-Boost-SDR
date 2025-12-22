@@ -204,7 +204,7 @@ router.post('/api/pipeline', async (req, res) => {
       });
     }
 
-    const lead = leadRepository.create(opportunityData);
+    const lead = leadRepository.create(opportunityData, tenantId);
 
     console.log(`[PIPELINE-API] Opportunity ${lead.id} created`);
     res.json({
@@ -261,7 +261,7 @@ router.put('/api/pipeline/:id/stage', async (req, res) => {
     console.log(`[PIPELINE-API] Updating opportunity ${id} to stage ${newStage}`);
 
     // Buscar lead atual
-    const currentLead = leadRepository.findById(id);
+    const currentLead = leadRepository.findById(id, tenantId);
     if (!currentLead || currentLead.tenant_id !== tenantId) {
       return res.status(404).json({
         success: false,
@@ -307,7 +307,7 @@ router.put('/api/pipeline/:id/stage', async (req, res) => {
       updateData.close_date = new Date().toISOString().split('T')[0];
     }
 
-    leadRepository.update(id, updateData);
+    leadRepository.update(id, updateData, tenantId);
 
     console.log(`[PIPELINE-API] Opportunity ${id} updated to ${newStage}`);
     res.json({
@@ -363,7 +363,7 @@ router.put('/api/pipeline/:id', async (req, res) => {
     if (updateData.pipeline_stage) mappedData.stage_id = mapSalesStageToStageId(updateData.pipeline_stage);
     if (updateData.close_date) mappedData.close_date = updateData.close_date;
 
-    const currentLead = leadRepository.findById(id);
+    const currentLead = leadRepository.findById(id, tenantId);
     if (!currentLead || currentLead.tenant_id !== tenantId) {
       return res.status(404).json({
         success: false,
@@ -371,7 +371,7 @@ router.put('/api/pipeline/:id', async (req, res) => {
       });
     }
 
-    const result = leadRepository.update(id, mappedData);
+    const result = leadRepository.update(id, mappedData, tenantId);
 
     if (result) {
       console.log(`[PIPELINE-API] Opportunity ${id} updated successfully`);
@@ -411,7 +411,7 @@ router.get('/api/pipeline/:id', async (req, res) => {
 
     console.log(`[PIPELINE-API] Fetching opportunity ${id}...`);
 
-    const lead = leadRepository.findById(id);
+    const lead = leadRepository.findById(id, tenantId);
 
     if (lead && lead.tenant_id === tenantId) {
       const opportunity = {

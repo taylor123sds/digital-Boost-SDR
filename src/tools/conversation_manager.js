@@ -1,7 +1,8 @@
 // src/tools/conversation_manager.js
 import OpenAI from 'openai';
 import { analyzeAndSelectArchetype, applyArchetypeToScript, ARCHETYPES } from './archetypes.js';
-import { sendWhatsAppMessage, generateTTSAudio, sendWhatsAppAudio, getContactProfile } from './whatsapp.js';
+import { generateTTSAudio, getContactProfile } from './whatsapp.js';
+import { sendWhatsAppText, sendWhatsAppAudio } from '../services/whatsappAdapterProvider.js';
 import { saveMessage, getRecentMessages } from '../memory.js';
 // DEPRECATED: sales_intelligence.js foi removido do projeto
 // As funções abaixo foram migradas para outros módulos ou descontinuadas
@@ -326,7 +327,7 @@ export async function processIncomingMessage(senderNumber, message, messageType 
     const intelligentResponse = await generateIntelligentSalesResponse(message, senderNumber, conversationHistory);
     
     // Enviar resposta
-    const sendResult = await sendWhatsAppMessage(senderNumber, intelligentResponse.response);
+    const sendResult = await sendWhatsAppText(senderNumber, intelligentResponse.response);
     
     // Salvar resposta no histórico com metadados de vendas
     const responseMetadata = `[${intelligentResponse.stage}] ${intelligentResponse.response}`;
@@ -365,7 +366,7 @@ export async function processIncomingMessage(senderNumber, message, messageType 
     const fallbackResponse = "Olá! Obrigado pelo contato. Sou a Leadly da Digital Boost. Como posso ajudar com seu marketing digital? ";
     
     try {
-      await sendWhatsAppMessage(senderNumber, fallbackResponse);
+      await sendWhatsAppText(senderNumber, fallbackResponse);
       await saveMessage(senderNumber, fallbackResponse, true, 'text');
     } catch (sendError) {
       console.error(' Erro ao enviar resposta de fallback:', sendError);

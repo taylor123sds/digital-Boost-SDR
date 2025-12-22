@@ -84,7 +84,7 @@ export class IntegrationService {
     const db = this.getDb();
     return db.prepare(`
       SELECT i.*, a.id as bound_agent_id, a.name as bound_agent_name
-      FROM integrations i
+      FROM integrations i /* tenant-guard: ignore (lookup by webhook_public_id) */
       LEFT JOIN integration_bindings ib ON i.id = ib.integration_id AND ib.is_primary = 1
       LEFT JOIN agents a ON ib.agent_id = a.id
       WHERE json_extract(i.config_json, '$.webhook_public_id') = ?
@@ -300,6 +300,9 @@ export class IntegrationService {
    */
   async connectEvolutionForAgent(tenantId, agentId, options = {}) {
     const db = this.getDb();
+    const requestedInstanceName = typeof options.instanceName === 'string'
+      ? options.instanceName.trim()
+      : '';
 
     // Check entitlements
     const entitlementService = getEntitlementService();
@@ -348,7 +351,8 @@ export class IntegrationService {
       }
 
       // Create new integration
-      const instanceName = `evo_${tenantId.substring(0, 8)}_${agentId.substring(0, 8)}`;
+      const instanceName = requestedInstanceName
+        || `evo_${tenantId.substring(0, 8)}_${agentId.substring(0, 8)}`;
 
       integration = this.create(tenantId, {
         provider: 'evolution',

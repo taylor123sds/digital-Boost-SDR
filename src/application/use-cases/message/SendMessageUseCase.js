@@ -36,6 +36,7 @@ export class SendMessageUseCase {
   async execute(input) {
     this.logger.info('SendMessageUseCase: Executing', {
       phoneNumber: input.phoneNumber,
+      tenantId: input.tenantId,
       textLength: input.text?.length
     });
 
@@ -55,7 +56,8 @@ export class SendMessageUseCase {
         input.text,
         {
           type: input.type || 'text',
-          messageId: sendResult.messageId
+          messageId: sendResult.messageId,
+          tenantId: input.tenantId
         }
       );
 
@@ -106,6 +108,12 @@ export class SendMessageUseCase {
       throw new ValidationError('Message text too long (max 4096 characters)', {
         field: 'text',
         maxLength: 4096
+      });
+    }
+
+    if (!input.tenantId) {
+      throw new ValidationError('Tenant ID is required', {
+        field: 'tenantId'
       });
     }
   }

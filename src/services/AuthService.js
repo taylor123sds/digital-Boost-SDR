@@ -61,8 +61,7 @@ export class AuthService {
    */
   generateAccessToken(user) {
     // P0-5: Use tenantId as canonical name in JWT
-    // Support both team_id (legacy) and tenant_id (canonical) from DB
-    const tenantId = user.tenant_id || user.team_id;
+    const tenantId = user.tenant_id || 'default';
 
     return jwt.sign(
       {
@@ -106,7 +105,17 @@ export class AuthService {
    * - If user HAS consumed trial: create team with trial_expired (requires payment)
    * - Anti-abuse: trial tracked by email, not just user ID
    */
-  async register({ email, password, name, role = 'sdr', teamId = null, company = null, sector = null, ipAddress = null, userAgent = null }) {
+  async register({
+    email,
+    password,
+    name,
+    role = 'sdr',
+    tenantId = null,
+    company = null,
+    sector = null,
+    ipAddress = null,
+    userAgent = null
+  }) {
     const db = this.getDb();
     const entitlementService = getEntitlementService();
 
@@ -133,10 +142,11 @@ export class AuthService {
     });
 
     // Create team for self-registered users (role = 'manager')
-    let finalTeamId = teamId;
+    const resolvedTenantId = tenantId;
+    let finalTeamId = resolvedTenantId;
     let createdTeam = null;
 
-    if (!teamId && (role === 'manager' || !role)) {
+    if (!resolvedTenantId && (role === 'manager' || !role)) {
       // Self-registration: create new team with trial (or trial_expired if already used)
       const newTeamId = `team_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const teamName = company ? `${company}` : `Equipe de ${name}`;
@@ -168,9 +178,8 @@ export class AuthService {
       email,
       password_hash: passwordHash,
       name,
-      role: finalTeamId && !teamId ? 'manager' : role, // Self-registered = manager
+      role: finalTeamId && !resolvedTenantId ? 'manager' : role, // Self-registered = manager
       tenant_id: finalTeamId,
-      team_id: finalTeamId,
       company,
       sector
     });

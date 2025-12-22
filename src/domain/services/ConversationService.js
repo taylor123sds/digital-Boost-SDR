@@ -28,9 +28,10 @@ export class ConversationService {
    * @param {number} messageLimit - Maximum messages to load
    * @returns {Conversation} Conversation entity
    */
-  async getByPhoneNumber(phoneNumber, messageLimit = 100) {
+  async getByPhoneNumber(phoneNumber, tenantId, messageLimit = 100) {
     this.logger.debug('Getting conversation by phone number', {
       phoneNumber,
+      tenantId,
       messageLimit
     });
 
@@ -39,6 +40,7 @@ export class ConversationService {
     // Get messages from repository
     const messageRecords = this.conversationRepository.findRecent(
       phoneValue,
+      tenantId,
       messageLimit
     );
 
@@ -52,13 +54,14 @@ export class ConversationService {
    * @param {number} messageCount - Number of messages
    * @returns {Array<Object>} Context array
    */
-  async getContext(phoneNumber, messageCount = 10) {
+  async getContext(phoneNumber, tenantId, messageCount = 10) {
     this.logger.debug('Getting conversation context', {
       phoneNumber,
+      tenantId,
       messageCount
     });
 
-    const conversation = await this.getByPhoneNumber(phoneNumber, messageCount);
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId, messageCount);
 
     return conversation.getContext(messageCount);
   }
@@ -74,6 +77,7 @@ export class ConversationService {
   async addMessage(phoneNumber, text, fromMe, options = {}) {
     this.logger.info('Adding message to conversation', {
       phoneNumber,
+      tenantId: options.tenantId,
       fromMe,
       textLength: text?.length
     });
@@ -96,7 +100,7 @@ export class ConversationService {
     };
 
     // Persist to database
-    const record = this.conversationRepository.createMessage(messageData);
+    const record = this.conversationRepository.createMessage(messageData, options.tenantId);
 
     // Return Message entity
     return Message.fromDatabase(record);
@@ -129,16 +133,16 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {Object} Message counts
    */
-  async getMessageCount(phoneNumber) {
+  async getMessageCount(phoneNumber, tenantId) {
     this.logger.debug('Getting message count', { phoneNumber });
 
     const phoneValue = new PhoneNumber(phoneNumber).value;
 
-    const total = this.conversationRepository.countByPhone(phoneValue);
-    const fromUser = this.conversationRepository.countByPhone(phoneValue, {
+    const total = this.conversationRepository.countByPhone(phoneValue, tenantId);
+    const fromUser = this.conversationRepository.countByPhone(phoneValue, tenantId, {
       from_me: 0
     });
-    const fromBot = this.conversationRepository.countByPhone(phoneValue, {
+    const fromBot = this.conversationRepository.countByPhone(phoneValue, tenantId, {
       from_me: 1
     });
 
@@ -154,12 +158,12 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {Object} Statistics
    */
-  async getStatistics(phoneNumber) {
+  async getStatistics(phoneNumber, tenantId) {
     this.logger.debug('Getting conversation statistics', { phoneNumber });
 
     const phoneValue = new PhoneNumber(phoneNumber).value;
 
-    return this.conversationRepository.getStatistics(phoneValue);
+    return this.conversationRepository.getStatistics(phoneValue, tenantId);
   }
 
   /**
@@ -169,10 +173,10 @@ export class ConversationService {
    * @param {Object} options - Search options
    * @returns {Array<Message>} Matching messages
    */
-  async searchMessages(phoneNumber, query, options = {}) {
+  async searchMessages(phoneNumber, tenantId, query, options = {}) {
     this.logger.debug('Searching messages', { phoneNumber, query, options });
 
-    const conversation = await this.getByPhoneNumber(phoneNumber);
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId);
 
     const results = conversation.searchMessages(query, options);
 
@@ -185,12 +189,12 @@ export class ConversationService {
    * @param {string} type - Message type
    * @returns {Array<Message>} Messages of type
    */
-  async getMessagesByType(phoneNumber, type) {
+  async getMessagesByType(phoneNumber, tenantId, type) {
     this.logger.debug('Getting messages by type', { phoneNumber, type });
 
     const phoneValue = new PhoneNumber(phoneNumber).value;
 
-    const records = this.conversationRepository.findByType(phoneValue, type);
+    const records = this.conversationRepository.findByType(phoneValue, tenantId, type);
 
     return records.map(record => Message.fromDatabase(record));
   }
@@ -202,9 +206,10 @@ export class ConversationService {
    * @param {Date} endDate - End date
    * @returns {Array<Message>} Messages in range
    */
-  async getMessagesByDateRange(phoneNumber, startDate, endDate) {
+  async getMessagesByDateRange(phoneNumber, tenantId, startDate, endDate) {
     this.logger.debug('Getting messages by date range', {
       phoneNumber,
+      tenantId,
       startDate,
       endDate
     });
@@ -213,6 +218,7 @@ export class ConversationService {
 
     const records = this.conversationRepository.findByDateRange(
       phoneValue,
+      tenantId,
       startDate.toISOString(),
       endDate.toISOString()
     );
@@ -225,12 +231,12 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {boolean} True if deleted
    */
-  async deleteConversation(phoneNumber) {
-    this.logger.info('Deleting conversation', { phoneNumber });
+  async deleteConversation(phoneNumber, tenantId) {
+    this.logger.info('Deleting conversation', { phoneNumber, tenantId });
 
     const phoneValue = new PhoneNumber(phoneNumber).value;
 
-    const deleted = this.conversationRepository.deleteByPhone(phoneValue);
+    const deleted = this.conversationRepository.deleteByPhone(phoneValue, tenantId);
 
     return deleted > 0;
   }
@@ -240,10 +246,10 @@ export class ConversationService {
    * @param {number} daysOld - Days old threshold
    * @returns {number} Number of deleted messages
    */
-  async deleteOldMessages(daysOld) {
-    this.logger.info('Deleting old messages', { daysOld });
+  async deleteOldMessages(tenantId, daysOld) {
+    this.logger.info('Deleting old messages', { tenantId, daysOld });
 
-    return this.conversationRepository.deleteOlderThan(daysOld);
+    return this.conversationRepository.deleteOlderThan(tenantId, daysOld);
   }
 
   /**
@@ -252,8 +258,8 @@ export class ConversationService {
    * @param {number} thresholdMs - Threshold in milliseconds
    * @returns {boolean} True if has recent activity
    */
-  async hasRecentActivity(phoneNumber, thresholdMs = 3600000) {
-    const conversation = await this.getByPhoneNumber(phoneNumber, 1);
+  async hasRecentActivity(phoneNumber, tenantId, thresholdMs = 3600000) {
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId, 1);
 
     return conversation.hasRecentActivity(thresholdMs);
   }
@@ -263,8 +269,8 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {number|null} Milliseconds or null
    */
-  async getTimeSinceLastMessage(phoneNumber) {
-    const conversation = await this.getByPhoneNumber(phoneNumber, 1);
+  async getTimeSinceLastMessage(phoneNumber, tenantId) {
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId, 1);
 
     return conversation.getTimeSinceLastMessage();
   }
@@ -274,8 +280,8 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {string} Summary text
    */
-  async getSummary(phoneNumber) {
-    const conversation = await this.getByPhoneNumber(phoneNumber);
+  async getSummary(phoneNumber, tenantId) {
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId);
 
     return conversation.getSummary();
   }
@@ -285,8 +291,8 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {Message|null} Last message or null
    */
-  async getLastMessage(phoneNumber) {
-    const conversation = await this.getByPhoneNumber(phoneNumber, 1);
+  async getLastMessage(phoneNumber, tenantId) {
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId, 1);
 
     return conversation.getLastMessage();
   }
@@ -296,10 +302,11 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {Message|null} Last user message or null
    */
-  async getLastUserMessage(phoneNumber) {
+  async getLastUserMessage(phoneNumber, tenantId) {
     const phoneValue = new PhoneNumber(phoneNumber).value;
 
-    const records = this.conversationRepository.findBy(
+    const records = this.conversationRepository.findByForTenant(
+      tenantId,
       { phone_number: phoneValue, from_me: 0 },
       { orderBy: 'timestamp DESC', limit: 1 }
     );
@@ -312,10 +319,11 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {Message|null} Last bot message or null
    */
-  async getLastBotMessage(phoneNumber) {
+  async getLastBotMessage(phoneNumber, tenantId) {
     const phoneValue = new PhoneNumber(phoneNumber).value;
 
-    const records = this.conversationRepository.findBy(
+    const records = this.conversationRepository.findByForTenant(
+      tenantId,
       { phone_number: phoneValue, from_me: 1 },
       { orderBy: 'timestamp DESC', limit: 1 }
     );
@@ -329,16 +337,16 @@ export class ConversationService {
    * @param {Object} options - Build options
    * @returns {Array<Object>} Formatted history
    */
-  async buildAIContext(phoneNumber, options = {}) {
+  async buildAIContext(phoneNumber, tenantId, options = {}) {
     const {
       messageCount = 10,
       includeSystemPrompt = true,
       systemPrompt = null
     } = options;
 
-    this.logger.debug('Building AI context', { phoneNumber, messageCount });
+    this.logger.debug('Building AI context', { phoneNumber, tenantId, messageCount });
 
-    const context = await this.getContext(phoneNumber, messageCount);
+    const context = await this.getContext(phoneNumber, tenantId, messageCount);
 
     // Add system prompt if requested
     if (includeSystemPrompt && systemPrompt) {
@@ -357,13 +365,14 @@ export class ConversationService {
    * @param {number} messageCount - Messages to analyze
    * @returns {Object} Sentiment analysis
    */
-  async analyzeSentiment(phoneNumber, messageCount = 10) {
+  async analyzeSentiment(phoneNumber, tenantId, messageCount = 10) {
     this.logger.debug('Analyzing conversation sentiment', {
       phoneNumber,
+      tenantId,
       messageCount
     });
 
-    const conversation = await this.getByPhoneNumber(phoneNumber, messageCount);
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId, messageCount);
     const userMessages = conversation.getUserMessages();
 
     // Simple sentiment indicators
@@ -411,11 +420,11 @@ export class ConversationService {
    * @param {string} phoneNumber - Phone number
    * @returns {Object} Engagement metrics
    */
-  async calculateEngagement(phoneNumber) {
-    this.logger.debug('Calculating engagement', { phoneNumber });
+  async calculateEngagement(phoneNumber, tenantId) {
+    this.logger.debug('Calculating engagement', { phoneNumber, tenantId });
 
-    const stats = await this.getStatistics(phoneNumber);
-    const conversation = await this.getByPhoneNumber(phoneNumber, 20);
+    const stats = await this.getStatistics(phoneNumber, tenantId);
+    const conversation = await this.getByPhoneNumber(phoneNumber, tenantId, 20);
 
     // Calculate metrics
     const avgResponseTime = this._calculateAverageResponseTime(conversation);

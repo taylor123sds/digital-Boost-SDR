@@ -35,6 +35,7 @@ FROM node:20-alpine
 ARG GIT_COMMIT=unknown
 ARG GIT_BRANCH=unknown
 ARG BUILD_DATE=unknown
+ARG IMAGE_TAG=unknown
 
 # Install build dependencies for native modules (better-sqlite3, sharp)
 RUN apk add --no-cache \
@@ -64,7 +65,7 @@ COPY start-orbion.js ./
 COPY --from=frontend-builder /build/dist/ ./public/app/
 
 # Create BUILD_INFO.json with version metadata
-RUN echo "{\"commit\":\"${GIT_COMMIT}\",\"branch\":\"${GIT_BRANCH}\",\"buildDate\":\"${BUILD_DATE}\",\"nodeVersion\":\"$(node -v)\"}" > BUILD_INFO.json
+RUN echo "{\"commit\":\"${GIT_COMMIT}\",\"branch\":\"${GIT_BRANCH}\",\"buildDate\":\"${BUILD_DATE}\",\"imageTag\":\"${IMAGE_TAG}\",\"nodeVersion\":\"$(node -v)\"}" > BUILD_INFO.json
 
 # Create necessary directories
 RUN mkdir -p logs data uploads backups
@@ -74,6 +75,7 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV GIT_COMMIT=${GIT_COMMIT}
 ENV BUILD_DATE=${BUILD_DATE}
+ENV IMAGE_TAG=${IMAGE_TAG}
 
 # Expose port
 EXPOSE 3001

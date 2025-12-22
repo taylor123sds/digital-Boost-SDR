@@ -17,12 +17,105 @@ import express from 'express';
 import { getAgentRepository } from '../../repositories/agent.repository.js';
 import { authenticate, requireRole, requireManager } from '../../middleware/auth.middleware.js';
 import { tenantContext, optionalTenantContext } from '../../middleware/tenant.middleware.js';
+import channelsRouter from './channels.routes.js';
+import metrics from '../../utils/metrics.js';
 
 const router = express.Router();
-const allowLegacyEvolutionRoutes = process.env.LEGACY_EVOLUTION_ROUTES === 'true';
+const allowLegacyEvolutionRoutes = process.env.LEGACY_EVOLUTION_ROUTES !== 'false';
+const isProduction = process.env.NODE_ENV === 'production';
+const legacyEvolutionCutoffRaw = process.env.LEGACY_EVOLUTION_CUTOFF_AT;
+const legacyEvolutionCutoffAt = legacyEvolutionCutoffRaw
+  ? Date.parse(legacyEvolutionCutoffRaw)
+  : (!isProduction ? Date.now() + 7 * 24 * 60 * 60 * 1000 : null);
+const hasLegacyEvolutionCutoff = Number.isFinite(legacyEvolutionCutoffAt);
+const legacyEvolutionLogKey = 'legacy_evolution_routes_warned';
+
+if (allowLegacyEvolutionRoutes && isProduction && !legacyEvolutionCutoffRaw) {
+  throw new Error('LEGACY_EVOLUTION_CUTOFF_AT must be set in production or disable legacy routes with LEGACY_EVOLUTION_ROUTES=false.');
+}
+
+if (allowLegacyEvolutionRoutes && isProduction && legacyEvolutionCutoffRaw && !hasLegacyEvolutionCutoff) {
+  throw new Error('LEGACY_EVOLUTION_CUTOFF_AT is invalid. Provide a valid ISO timestamp or disable legacy routes.');
+}
+
+if (!legacyEvolutionCutoffRaw && !isProduction && allowLegacyEvolutionRoutes) {
+  console.warn(`[DEPRECATED] LEGACY_EVOLUTION_CUTOFF_AT not set. Defaulting to ${new Date(legacyEvolutionCutoffAt).toISOString()}`);
+} else if (legacyEvolutionCutoffRaw && !hasLegacyEvolutionCutoff) {
+  console.warn('[DEPRECATED] LEGACY_EVOLUTION_CUTOFF_AT is invalid. Legacy Evolution routes will not auto-expire.');
+}
+
+function getRequestId(req) {
+  return req.headers['x-request-id'] || req.headers['x-correlation-id'] || req.headers['x-requestid'] || null;
+}
 
 function blockLegacyEvolutionRoutes(req, res, next) {
+  if (req.path.startsWith('/api/evolution/instances')) {
+    return next();
+  }
+
+  metrics.increment('legacy_evolution_route_hits_total', 1, {
+    method: req.method,
+    route: req.originalUrl || req.url
+  });
+
+  if (!allowLegacyEvolutionRoutes) {
+    console.warn(JSON.stringify({
+      event: 'DEPRECATED_ROUTE_BLOCKED',
+      route: req.originalUrl || req.url,
+      method: req.method,
+      tenantId: req.tenantId || req.user?.tenantId || 'unknown',
+      agentId: req.params?.agentId,
+      cutoffAt: hasLegacyEvolutionCutoff ? new Date(legacyEvolutionCutoffAt).toISOString() : null,
+      requestId: getRequestId(req),
+      reason: 'legacy_disabled',
+      timestamp: new Date().toISOString()
+    }));
+    return res.status(410).json({
+      success: false,
+      error: 'LEGACY_EVOLUTION_ROUTE_DISABLED',
+      message: 'Use /api/agents/:agentId/channels/evolution/* endpoints'
+    });
+  }
+
+  if (hasLegacyEvolutionCutoff && Date.now() >= legacyEvolutionCutoffAt) {
+    console.warn(JSON.stringify({
+      event: 'DEPRECATED_ROUTE_BLOCKED',
+      route: req.originalUrl || req.url,
+      method: req.method,
+      tenantId: req.tenantId || req.user?.tenantId || 'unknown',
+      agentId: req.params?.agentId,
+      cutoffAt: new Date(legacyEvolutionCutoffAt).toISOString(),
+      requestId: getRequestId(req),
+      reason: 'cutoff_reached',
+      timestamp: new Date().toISOString()
+    }));
+    return res.status(410).json({
+      success: false,
+      error: 'LEGACY_EVOLUTION_ROUTE_EXPIRED',
+      message: 'Use /api/agents/:agentId/channels/evolution/* endpoints',
+      cutoffAt: new Date(legacyEvolutionCutoffAt).toISOString()
+    });
+  }
+
   if (allowLegacyEvolutionRoutes) {
+    const now = Date.now();
+    const lastLogged = global[legacyEvolutionLogKey] || 0;
+    if (now - lastLogged > 3600000) {
+      console.warn('[DEPRECATED] Legacy Evolution routes in use. Prefer /api/agents/:agentId/channels/evolution/*');
+      global[legacyEvolutionLogKey] = now;
+    }
+    console.warn(JSON.stringify({
+      event: 'DEPRECATED_ROUTE_USED',
+      route: req.originalUrl || req.url,
+      method: req.method,
+      tenantId: req.tenantId || req.user?.tenantId || 'unknown',
+      agentId: req.params?.agentId,
+      cutoffAt: hasLegacyEvolutionCutoff ? new Date(legacyEvolutionCutoffAt).toISOString() : null,
+      requestId: getRequestId(req),
+      timestamp: new Date().toISOString()
+    }));
+    res.set('Deprecation', 'true');
+    res.set('Link', '</api/agents/:agentId/channels/evolution/*>; rel="successor-version"');
     return next();
   }
 
@@ -30,6 +123,32 @@ function blockLegacyEvolutionRoutes(req, res, next) {
     success: false,
     error: 'LEGACY_EVOLUTION_ROUTE_DISABLED',
     message: 'Use /api/agents/:agentId/channels/evolution/* endpoints'
+  });
+}
+
+function legacyEvolutionShim(req, res, next) {
+  const { agentId } = req.params;
+  const legacyPrefix = `/api/agents/${agentId}/evolution`;
+  const canonicalPrefix = `/api/agents/${agentId}/channels/evolution`;
+  const originalUrl = req.originalUrl || req.url;
+  const [path, query] = originalUrl.split('?');
+  let targetPath = path.replace(legacyPrefix, canonicalPrefix);
+
+  if (targetPath.endsWith('/create')) {
+    targetPath = targetPath.replace('/create', '/connect');
+  }
+
+  const targetUrl = query ? `${targetPath}?${query}` : targetPath;
+  const previousUrl = req.url;
+  const previousOriginalUrl = req.originalUrl;
+
+  req.url = targetUrl;
+  req.originalUrl = targetUrl;
+
+  return channelsRouter.handle(req, res, (err) => {
+    req.url = previousUrl;
+    req.originalUrl = previousOriginalUrl;
+    next(err);
   });
 }
 
@@ -93,7 +212,7 @@ const RATE_LIMIT_MAX = 60; // 60 requests per minute
 
 function rateLimitByTenant(req, res, next) {
   // P3-6: Use req.tenantId (set by tenantContext middleware) for consistency
-  const tenantId = req.tenantId || req.user?.teamId || req.user?.id || 'anonymous';
+  const tenantId = req.tenantId || req.user?.tenantId || req.user?.id || 'anonymous';
   const now = Date.now();
   const key = `${tenantId}:agents`;
 
@@ -353,7 +472,7 @@ router.get('/api/agents/:agentId/permissions', authenticate, tenantContext, vali
     const { agentId } = req.params;
     const repository = getAgentRepository();
 
-    const agent = repository.findById(agentId);
+    const agent = repository.findByIdForTenant(agentId, req.tenantId);
 
     if (!agent) {
       return res.status(404).json({
@@ -411,7 +530,7 @@ router.post('/api/agents/:agentId/duplicate', authenticate, tenantContext, requi
     }
 
     const repository = getAgentRepository();
-    const originalAgent = repository.findById(agentId);
+    const originalAgent = repository.findByIdForTenant(agentId, req.tenantId);
 
     if (!originalAgent) {
       return res.status(404).json({
@@ -456,228 +575,31 @@ router.post('/api/agents/:agentId/duplicate', authenticate, tenantContext, requi
  * GET /api/agents/:agentId/evolution/status
  * Get Evolution instance status for agent
  */
-router.get('/api/agents/:agentId/evolution/status', authenticate, validateAgentId, async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const { getEvolutionManager } = await import('../../scalable/agents/index.js');
-    const manager = getEvolutionManager();
-    await manager.initialize();
-
-    const instance = await manager.getInstanceByAgent(agentId);
-
-    if (!instance) {
-      return res.json({
-        success: true,
-        data: {
-          connected: false,
-          status: 'not_configured',
-          message: 'Nenhuma instancia WhatsApp configurada para este agente'
-        }
-      });
-    }
-
-    // Get live status from Evolution API
-    const liveStatus = await manager.getInstanceStatus(instance.instance_name);
-
-    res.json({
-      success: true,
-      data: {
-        instanceName: instance.instance_name,
-        phoneNumber: instance.phone_number,
-        profileName: instance.profile_name,
-        status: liveStatus.data?.instance?.state || instance.status,
-        connected: liveStatus.data?.instance?.state === 'open',
-        connectedAt: instance.connected_at
-      }
-    });
-  } catch (error) {
-    console.error('[EVOLUTION-API] Error getting status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao verificar status da instancia'
-    });
-  }
-});
+router.get('/api/agents/:agentId/evolution/status', authenticate, tenantContext, validateAgentId, legacyEvolutionShim);
 
 /**
  * POST /api/agents/:agentId/evolution/create
  * Create Evolution instance for agent
  */
-router.post('/api/agents/:agentId/evolution/create', authenticate, tenantContext, requireManager, validateAgentId, async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const { instanceName } = req.body;
-
-    // Verify agent exists using repository
-    const repository = getAgentRepository();
-    const agent = repository.findByIdForTenant(agentId, req.tenantId);
-
-    if (!agent) {
-      return res.status(404).json({
-        success: false,
-        error: 'Agente nao encontrado'
-      });
-    }
-
-    // Check permission
-    if (agent.tenant_id !== req.tenantId && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Sem permissao para gerenciar este agente'
-      });
-    }
-
-    // Use Evolution Manager from scalable module for now
-    const { getEvolutionManager } = await import('../../scalable/agents/index.js');
-    const manager = getEvolutionManager();
-    await manager.initialize();
-
-    // Generate instance name if not provided
-    const finalInstanceName = instanceName || `agent_${agentId}_${Date.now()}`;
-
-    // Create instance in Evolution API
-    const result = await manager.createInstanceForAgent(agentId, {
-      instanceName: finalInstanceName,
-      tenantId: agent.tenant_id,
-      agentType: agent.type
-    });
-
-    if (!result.success) {
-      return res.status(400).json({
-        success: false,
-        error: result.error || 'Erro ao criar instancia'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: result.data,
-      message: 'Instancia criada com sucesso. Escaneie o QR Code para conectar.'
-    });
-  } catch (error) {
-    console.error('[EVOLUTION-API] Error creating instance:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao criar instancia WhatsApp'
-    });
-  }
-});
+router.post('/api/agents/:agentId/evolution/create', authenticate, tenantContext, validateAgentId, legacyEvolutionShim);
 
 /**
  * GET /api/agents/:agentId/evolution/qrcode
  * Get QR Code for Evolution instance
  */
-router.get('/api/agents/:agentId/evolution/qrcode', authenticate, validateAgentId, async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const { getEvolutionManager } = await import('../../scalable/agents/index.js');
-    const manager = getEvolutionManager();
-    await manager.initialize();
-
-    const instance = await manager.getInstanceByAgent(agentId);
-
-    if (!instance) {
-      return res.status(404).json({
-        success: false,
-        error: 'Nenhuma instancia configurada para este agente'
-      });
-    }
-
-    // Get fresh QR code from Evolution API
-    const qrResult = await manager.getQRCode(instance.instance_name);
-
-    if (!qrResult.success) {
-      return res.status(400).json({
-        success: false,
-        error: 'Erro ao obter QR Code. A instancia pode ja estar conectada.'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        qrcode: qrResult.data?.qrcode?.base64 || qrResult.data?.base64,
-        pairingCode: qrResult.data?.pairingCode
-      }
-    });
-  } catch (error) {
-    console.error('[EVOLUTION-API] Error getting QR code:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao obter QR Code'
-    });
-  }
-});
+router.get('/api/agents/:agentId/evolution/qrcode', authenticate, tenantContext, validateAgentId, legacyEvolutionShim);
 
 /**
  * POST /api/agents/:agentId/evolution/disconnect
  * Disconnect Evolution instance
  */
-router.post('/api/agents/:agentId/evolution/disconnect', authenticate, requireManager, validateAgentId, async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const { getEvolutionManager } = await import('../../scalable/agents/index.js');
-    const manager = getEvolutionManager();
-    await manager.initialize();
-
-    const instance = await manager.getInstanceByAgent(agentId);
-
-    if (!instance) {
-      return res.status(404).json({
-        success: false,
-        error: 'Nenhuma instancia configurada para este agente'
-      });
-    }
-
-    const result = await manager.logoutInstance(instance.instance_name);
-
-    res.json({
-      success: true,
-      message: 'Instancia desconectada com sucesso'
-    });
-  } catch (error) {
-    console.error('[EVOLUTION-API] Error disconnecting:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao desconectar instancia'
-    });
-  }
-});
+router.post('/api/agents/:agentId/evolution/disconnect', authenticate, tenantContext, validateAgentId, legacyEvolutionShim);
 
 /**
  * DELETE /api/agents/:agentId/evolution
  * Delete Evolution instance
  */
-router.delete('/api/agents/:agentId/evolution', authenticate, requireManager, validateAgentId, async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const { getEvolutionManager } = await import('../../scalable/agents/index.js');
-    const manager = getEvolutionManager();
-    await manager.initialize();
-
-    const instance = await manager.getInstanceByAgent(agentId);
-
-    if (!instance) {
-      return res.status(404).json({
-        success: false,
-        error: 'Nenhuma instancia configurada para este agente'
-      });
-    }
-
-    const result = await manager.deleteInstance(instance.instance_name);
-
-    res.json({
-      success: true,
-      message: 'Instancia removida com sucesso'
-    });
-  } catch (error) {
-    console.error('[EVOLUTION-API] Error deleting instance:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao remover instancia'
-    });
-  }
-});
+router.delete('/api/agents/:agentId/evolution', authenticate, tenantContext, requireManager, validateAgentId, legacyEvolutionShim);
 
 /**
  * GET /api/evolution/instances

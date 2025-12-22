@@ -15,6 +15,8 @@ import { api, type ApiError } from '../lib/api';
 interface Integration {
   id: string;
   integrationId?: string;
+  tenantId?: string;
+  instanceName?: string;
   name: string;
   type: 'whatsapp' | 'calendar' | 'crm' | 'webhook' | 'ai';
   provider: string;
@@ -109,6 +111,19 @@ export default function IntegrationsPage() {
   // P0-4: Store user's default agentId
   const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
 
+  const parseConfig = (config: unknown) => {
+    if (!config) return null;
+    if (typeof config === 'object') return config as Record<string, unknown>;
+    if (typeof config === 'string') {
+      try {
+        return JSON.parse(config) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     loadIntegrations();
   }, []);
@@ -147,12 +162,15 @@ export default function IntegrationsPage() {
         );
 
         if (existing) {
+          const config = parseConfig(existing.config || existing.config_json);
           return {
             ...avail,
             integrationId: existing.id,
+            tenantId: existing.tenant_id || existing.tenantId,
+            instanceName: existing.instance_name || config?.instance_name || config?.instanceName,
             status: existing.status as Integration['status'],
             lastSync: (existing as any).last_sync || existing.lastSync,
-            config: existing.config
+            config
           };
         }
 
@@ -400,6 +418,15 @@ export default function IntegrationsPage() {
                 </div>
 
                 <p className="text-sm text-gray-400 mb-4">{integration.description}</p>
+
+                {integration.provider === 'evolution' && integration.integrationId && (
+                  <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
+                    <div className="font-medium text-gray-300 mb-1">Health-check</div>
+                    <div>integrationId: {integration.integrationId}</div>
+                    <div>tenantId: {integration.tenantId || '—'}</div>
+                    <div>instance: {integration.instanceName || '—'}</div>
+                  </div>
+                )}
 
                 {integration.lastSync && (
                   <p className="text-xs text-gray-500 mb-4">

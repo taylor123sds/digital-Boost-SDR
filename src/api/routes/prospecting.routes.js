@@ -24,6 +24,7 @@ import { prospectingEngine } from '../../automation/ProspectingEngine.js';
 import { syncNow, getProspectSyncStatus, startProspectSyncJob, stopProspectSyncJob } from '../../services/ProspectSyncJob.js';
 import { getProspectStats } from '../../services/ProspectImportService.js';
 import { optionalAuth } from '../../middleware/auth.middleware.js';
+import { extractTenantId } from '../../utils/tenantCompat.js';
 import log from '../../utils/logger-wrapper.js';
 
 const router = express.Router();
@@ -48,10 +49,11 @@ const router = express.Router();
 router.post('/api/prospecting/start', optionalAuth, async (req, res) => {
   try {
     const config = req.body || {};
+    const tenantId = extractTenantId(req);
 
     log.info('[API-PROSPECTING] Iniciando engine', config);
 
-    const result = await prospectingEngine.start({ config });
+    const result = await prospectingEngine.start({ config, tenantId });
 
     if (result.success) {
       res.json({
@@ -175,6 +177,32 @@ router.get('/api/prospecting/status', optionalAuth, (req, res) => {
 });
 
 /**
+ * GET /api/prospecting/stats
+ * Legacy alias for quick stats (frontend contract)
+ */
+router.get('/api/prospecting/stats', optionalAuth, (req, res) => {
+  try {
+    const status = prospectingEngine.getStatus();
+    const metrics = prospectingEngine.getMetrics();
+
+    res.set('Deprecation', 'true');
+    res.set('Link', '</api/prospecting/metrics>; rel="successor-version"');
+    res.json({
+      success: true,
+      pending: metrics.queueRemaining ?? status.queueSize ?? 0,
+      sentToday: metrics.totalSent ?? 0,
+      replies: 0,
+      isRunning: status.state === 'running' || status.state === 'processing'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/prospecting/metrics
  * Métricas detalhadas
  */
@@ -187,6 +215,29 @@ router.get('/api/prospecting/metrics', optionalAuth, (req, res) => {
       data: metrics
     });
 
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/prospecting/leads
+ * Legacy alias for history list (frontend contract)
+ */
+router.get('/api/prospecting/leads', optionalAuth, (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const history = prospectingEngine.getHistory(limit);
+
+    res.set('Deprecation', 'true');
+    res.set('Link', '</api/prospecting/history>; rel="successor-version"');
+    res.json({
+      success: true,
+      data: history
+    });
   } catch (error) {
     res.status(500).json({
       success: false,

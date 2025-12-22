@@ -198,6 +198,7 @@ router.get('/api/version', async (req, res) => {
         version: APP_VERSION,
         gitCommit: GIT_COMMIT,
         buildTime: BUILD_TIME,
+        imageTag: process.env.IMAGE_TAG || null,
         environment: process.env.NODE_ENV || 'development',
         nodeVersion: process.version,
         platform: process.platform,

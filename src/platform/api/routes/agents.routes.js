@@ -1,6 +1,7 @@
 /**
  * AGENTS API ROUTES
  * Rotas para CRUD de agentes
+ * STACK_DEPRECATED_OK: legacy route stack (read-only)
  */
 
 import { Router } from 'express';

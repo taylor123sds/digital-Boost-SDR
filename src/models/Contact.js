@@ -4,6 +4,7 @@
  */
 
 import { BaseModel } from './BaseModel.js';
+import { DEFAULT_TENANT_ID, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 export class Contact extends BaseModel {
   constructor() {
@@ -22,17 +23,20 @@ export class Contact extends BaseModel {
    * Find contacts by account
    */
   findByAccount(accountId, options = {}) {
-    return this.findAll({ where: { account_id: accountId }, ...options });
+    const { tenantId = DEFAULT_TENANT_ID, ...rest } = options;
+    return this.findAll({ where: { account_id: accountId, tenant_id: tenantId }, ...rest });
   }
 
   /**
    * Find contacts by email
    */
-  findByEmail(email) {
+  findByEmail(email, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
-      const stmt = db.prepare('SELECT * FROM contacts WHERE email = ?');
-      return stmt.get(email);
+      const tenantColumn = getTenantColumnForTable('contacts', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
+      const stmt = db.prepare(`SELECT * FROM contacts WHERE email = ?${tenantClause}`);
+      return tenantColumn ? stmt.get(email, tenantId) : stmt.get(email);
     } catch (error) {
       throw error;
     }
@@ -41,11 +45,13 @@ export class Contact extends BaseModel {
   /**
    * Find contacts by WhatsApp
    */
-  findByWhatsApp(whatsapp) {
+  findByWhatsApp(whatsapp, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
-      const stmt = db.prepare('SELECT * FROM contacts WHERE whatsapp = ?');
-      return stmt.get(whatsapp);
+      const tenantColumn = getTenantColumnForTable('contacts', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
+      const stmt = db.prepare(`SELECT * FROM contacts WHERE whatsapp = ?${tenantClause}`);
+      return tenantColumn ? stmt.get(whatsapp, tenantId) : stmt.get(whatsapp);
     } catch (error) {
       throw error;
     }
@@ -55,20 +61,22 @@ export class Contact extends BaseModel {
    * Find decision makers
    */
   findDecisionMakers(options = {}) {
-    return this.findAll({ where: { is_decisor: 1 }, ...options });
+    const { tenantId = DEFAULT_TENANT_ID, ...rest } = options;
+    return this.findAll({ where: { is_decisor: 1, tenant_id: tenantId }, ...rest });
   }
 
   /**
    * Find by seniority level
    */
   findBySenioridade(senioridade, options = {}) {
-    return this.findAll({ where: { senioridade }, ...options });
+    const { tenantId = DEFAULT_TENANT_ID, ...rest } = options;
+    return this.findAll({ where: { senioridade, tenant_id: tenantId }, ...rest });
   }
 
   /**
    * Get contact with account and activities
    */
-  findByIdWithDetails(contactId) {
+  findByIdWithDetails(contactId, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
       const contact = this.findById(contactId);
@@ -77,23 +85,30 @@ export class Contact extends BaseModel {
       // Get associated account
       let account = null;
       if (contact.account_id) {
-        account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(contact.account_id);
+        const accountTenant = getTenantColumnForTable('accounts', db);
+        const accountClause = accountTenant ? ` AND ${accountTenant} = ?` : '';
+        account = db.prepare(`SELECT * FROM accounts WHERE id = ?${accountClause}`)
+          .get(...(accountTenant ? [contact.account_id, tenantId] : [contact.account_id]));
       }
 
       // Get recent activities
+      const activitiesTenant = getTenantColumnForTable('activities', db);
+      const activitiesClause = activitiesTenant ? ` AND ${activitiesTenant} = ?` : '';
       const activities = db.prepare(`
         SELECT * FROM activities
-        WHERE contact_id = ?
+        WHERE contact_id = ?${activitiesClause}
         ORDER BY created_at DESC
         LIMIT 10
-      `).all(contactId);
+      `).all(...(activitiesTenant ? [contactId, tenantId] : [contactId]));
 
       // Get opportunities
+      const opportunitiesTenant = getTenantColumnForTable('opportunities', db);
+      const opportunitiesClause = opportunitiesTenant ? ` AND ${opportunitiesTenant} = ?` : '';
       const opportunities = db.prepare(`
         SELECT * FROM opportunities
-        WHERE contact_id = ?
+        WHERE contact_id = ?${opportunitiesClause}
         ORDER BY created_at DESC
-      `).all(contactId);
+      `).all(...(opportunitiesTenant ? [contactId, tenantId] : [contactId]));
 
       return {
         ...contact,
@@ -111,22 +126,26 @@ export class Contact extends BaseModel {
   /**
    * Get contact statistics
    */
-  getStats() {
+  getStats(tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
-      const total = db.prepare('SELECT COUNT(*) as count FROM contacts').get().count;
-      const decisors = db.prepare('SELECT COUNT(*) as count FROM contacts WHERE is_decisor = 1').get().count;
+      const tenantColumn = getTenantColumnForTable('contacts', db);
+      const tenantWhere = tenantColumn ? ` WHERE ${tenantColumn} = ?` : '';
+      const tenantParams = tenantColumn ? [tenantId] : [];
+      const total = db.prepare(`SELECT COUNT(*) as count FROM contacts${tenantWhere}`).get(...tenantParams).count;
+      const decisors = db.prepare(`SELECT COUNT(*) as count FROM contacts${tenantWhere}${tenantWhere ? " AND" : " WHERE"} is_decisor = 1`).get(...tenantParams).count;
       const bySenioridade = db.prepare(`
         SELECT senioridade, COUNT(*) as count
         FROM contacts
-        WHERE senioridade IS NOT NULL
+        WHERE senioridade IS NOT NULL${tenantColumn ? ` AND ${tenantColumn} = ?` : ''}
         GROUP BY senioridade
-      `).all();
+      `).all(...(tenantColumn ? [tenantId] : []));
       const byStatus = db.prepare(`
         SELECT status, COUNT(*) as count
         FROM contacts
+        ${tenantWhere}
         GROUP BY status
-      `).all();
+      `).all(...tenantParams);
 
       return { total, decisors, bySenioridade, byStatus };
     } catch (error) {
@@ -137,16 +156,18 @@ export class Contact extends BaseModel {
   /**
    * Update contact score
    */
-  updateScore(contactId, scoreChange) {
+  updateScore(contactId, scoreChange, tenantId = DEFAULT_TENANT_ID) {
     const db = this.getDb();
     try {
+      const tenantColumn = getTenantColumnForTable('contacts', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const stmt = db.prepare(`
         UPDATE contacts
         SET score = score + ?,
             updated_at = datetime('now')
-        WHERE id = ?
+        WHERE id = ?${tenantClause}
       `);
-      stmt.run(scoreChange, contactId);
+      stmt.run(...(tenantColumn ? [scoreChange, contactId, tenantId] : [scoreChange, contactId]));
       return this.findById(contactId);
     } catch (error) {
       throw error;

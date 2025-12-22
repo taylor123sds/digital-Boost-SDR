@@ -15,7 +15,7 @@ export const DEFAULT_TENANT_ID = 'default';
  * Extract tenant context from authenticated request
  * MUST be used AFTER authenticate middleware
  *
- * P0-5: Uses tenantId from JWT (canonical), falls back to teamId (legacy)
+ * P0-5: Uses tenantId from JWT (canonical)
  */
 export function tenantContext(req, res, next) {
   if (!req.user) {
@@ -25,11 +25,10 @@ export function tenantContext(req, res, next) {
     });
   }
 
-  // P0-5: tenantId is canonical, teamId is legacy fallback
-  const tenantId = req.user.tenantId || req.user.teamId || req.user.id || DEFAULT_TENANT_ID;
+  // P0-5: tenantId is canonical
+  const tenantId = req.user.tenantId || req.user.id || DEFAULT_TENANT_ID;
 
   req.tenantId = tenantId;
-  req.teamId = tenantId; // Alias for backward compatibility
 
   // Also set in locals for views/templates if needed
   res.locals.tenantId = tenantId;
@@ -41,17 +40,15 @@ export function tenantContext(req, res, next) {
  * Optional tenant context - doesn't fail if no user
  * Uses default tenant for anonymous requests
  *
- * P0-5: Uses tenantId (canonical) with teamId fallback
+ * P0-5: Uses tenantId (canonical)
  */
 export function optionalTenantContext(req, res, next) {
   if (req.user) {
-    // P0-5: tenantId is canonical, teamId is legacy fallback
-    req.tenantId = req.user.tenantId || req.user.teamId || req.user.id || DEFAULT_TENANT_ID;
+    // P0-5: tenantId is canonical
+    req.tenantId = req.user.tenantId || req.user.id || DEFAULT_TENANT_ID;
   } else {
     req.tenantId = DEFAULT_TENANT_ID;
   }
-
-  req.teamId = req.tenantId; // Alias for backward compatibility
 
   res.locals.tenantId = req.tenantId;
   next();
@@ -102,7 +99,6 @@ export function enforceIsolation(req, res, next) {
   // Admin can access any tenant if they specify one
   if (req.user?.role === 'admin' && req.query.tenantId) {
     req.tenantId = req.query.tenantId;
-    req.teamId = req.tenantId;
   }
 
   next();

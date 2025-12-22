@@ -155,115 +155,10 @@ async function findLeadByNumber(number) {
  * @returns {Promise<object>}
  */
 export async function sendWhatsAppMessage(number, text) {
-  if (!EVOLUTION_API_KEY) {
-    throw new Error('EVOLUTION_API_KEY não configurada no .env');
-  }
-
-  // Validação robusta dos parâmetros
-  if (!number || typeof number !== 'string' && typeof number !== 'number') {
-    throw new Error('Parâmetro "number" é obrigatório e deve ser string ou number');
-  }
-
-  // Validação e conversão robusta do texto
-  let sanitizedText;
-  if (!text) {
-    throw new Error('Parâmetro "text" é obrigatório');
-  }
-  
-  try {
-    // Força conversão para string e sanitização
-    if (typeof text === 'object' && text !== null) {
-      // Se for objeto, tenta JSON.stringify primeiro
-      sanitizedText = JSON.stringify(text);
-      console.warn(' Objeto convertido para string:', sanitizedText.substring(0, 100) + '...');
-    } else {
-      // Conversão padrão para string
-      sanitizedText = String(text).trim();
-    }
-    
-    if (!sanitizedText || sanitizedText.length === 0) {
-      throw new Error('Texto convertido está vazio');
-    }
-    
-  } catch (conversionError) {
-    console.error(' Erro na conversão de text:', { text, type: typeof text, error: conversionError.message });
-    throw new Error('Parâmetro "text" não pode ser convertido para string válida');
-  }
-
-  // Formatar número corretamente (REMOVER @s.whatsapp.net se tiver)
-  // Evolution API prefere receber apenas o número sem sufixo
-  let formattedNumber = number.toString().trim().replace('@s.whatsapp.net', '').replace('@c.us', '');
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // OUTBOUND DEDUPLICATION - ÚLTIMA LINHA DE DEFESA
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Verifica se esta mesma mensagem já foi enviada recentemente ao mesmo número.
-  // Isso previne duplicatas causadas por:
-  // - Race conditions no ProspectingEngine
-  // - Normalização inconsistente de telefones
-  // - Retries acidentais
-  // - Múltiplos sistemas chamando sendWhatsAppMessage
-  // ═══════════════════════════════════════════════════════════════════════════
-  try {
-    const outboundDedup = getOutboundDeduplicator();
-    const dedupCheck = outboundDedup.check(formattedNumber, sanitizedText, {
-      source: 'sendWhatsAppMessage',
-      skipCooldown: true //  FIX: Desabilitar cooldown - causa bloqueio de respostas legítimas
-    });
-
-    if (!dedupCheck.allowed) {
-      console.warn(` [OUTBOUND-DEDUP] Mensagem BLOQUEADA para ${formattedNumber}: ${dedupCheck.reason}`);
-      return {
-        blocked: true,
-        reason: dedupCheck.reason,
-        number: formattedNumber,
-        message: 'Mensagem duplicada bloqueada pelo sistema de deduplitação outbound'
-      };
-    }
-  } catch (dedupError) {
-    // Se deduplitação falhar, continua normalmente (fail-open)
-    console.warn(' [OUTBOUND-DEDUP] Erro na verificação:', dedupError.message);
-  }
-
-  try {
-    console.log(' Tentando enviar mensagem para:', formattedNumber);
-    
-    // Adicionar timeout de 30 segundos
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
-    const response = await fetch(`${EVOLUTION_BASE_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY
-      },
-      body: JSON.stringify({
-        number: formattedNumber,
-        text: sanitizedText
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(' Resposta de erro da Evolution API:', errorBody);
-      throw new Error(`Evolution API erro: ${response.status} ${response.statusText} - ${errorBody}`);
-    }
-
-    const result = await response.json();
-    console.log(' Mensagem WhatsApp enviada:', { number: formattedNumber, text: sanitizedText.substring(0, 50) + '...' });
-    return result;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error(' Timeout ao enviar mensagem WhatsApp (30s)');
-      throw new Error('Timeout ao enviar mensagem - Evolution API não respondeu');
-    }
-    console.error(' Erro ao enviar mensagem WhatsApp:', error);
-    throw error;
-  }
+  console.warn('[DEPRECATED] sendWhatsAppMessage called. Use WhatsAppAdapter instead.');
+  const { sendWhatsAppText } = await import('../services/whatsappAdapterProvider.js');
+  const result = await sendWhatsAppText(number, text);
+  return result?.raw || result;
 }
 
 /**
@@ -844,64 +739,10 @@ export async function updateInstanceSettings(settings = {}) {
  * @returns {Promise<object>}
  */
 export async function sendWhatsAppAudio(number, audioPath) {
-  if (!EVOLUTION_API_KEY) {
-    throw new Error('EVOLUTION_API_KEY não configurada no .env');
-  }
-
-  try {
-    // Formatar número
-    let formattedNumber = number.toString().trim();
-    if (!formattedNumber.includes('@')) {
-      formattedNumber = formattedNumber + '@s.whatsapp.net';
-    }
-
-    // Lê o arquivo de áudio
-    const audioBuffer = fs.readFileSync(audioPath);
-    const audioBase64 = audioBuffer.toString('base64');
-
-    console.log(' Enviando áudio WhatsApp para:', formattedNumber);
-
-    // Determina o tipo de arquivo baseado na extensão
-    const fileExtension = audioPath.split('.').pop().toLowerCase();
-    let mimeType;
-    switch (fileExtension) {
-      case 'mp3': mimeType = 'audio/mpeg'; break;
-      case 'wav': mimeType = 'audio/wav'; break;
-      case 'ogg': mimeType = 'audio/ogg'; break;
-      default: mimeType = 'audio/wav';
-    }
-    const fileName = `audio_message.${fileExtension}`;
-    
-    console.log(` Enviando ${fileExtension.toUpperCase()} (${mimeType}) para:`, formattedNumber);
-
-    const response = await fetch(`${EVOLUTION_BASE_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY
-      },
-      body: JSON.stringify({
-        number: formattedNumber,
-        mediatype: 'audio',
-        media: audioBase64,
-        fileName: fileName,
-        caption: ''
-      })
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Evolution API erro: ${response.status} - ${errorBody}`);
-    }
-
-    const result = await response.json();
-    console.log(' Áudio WhatsApp enviado com sucesso');
-    return result;
-
-  } catch (error) {
-    console.error(' Erro ao enviar áudio WhatsApp:', error);
-    throw error;
-  }
+  console.warn('[DEPRECATED] sendWhatsAppAudio called. Use WhatsAppAdapter instead.');
+  const { sendWhatsAppAudio } = await import('../services/whatsappAdapterProvider.js');
+  const result = await sendWhatsAppAudio(number, audioPath);
+  return result?.raw || result;
 }
 
 /**
@@ -912,56 +753,10 @@ export async function sendWhatsAppAudio(number, audioPath) {
  * @returns {Promise<object>}
  */
 export async function sendWhatsAppMedia(number, media, options = {}) {
-  if (!EVOLUTION_API_KEY) {
-    throw new Error('EVOLUTION_API_KEY não configurada no .env');
-  }
-
-  const type = options.type || 'image';
-  let formattedNumber = number.toString().trim().replace('@s.whatsapp.net', '').replace('@c.us', '');
-
-  const isUrl = typeof media === 'string' && media.startsWith('http');
-  const isBuffer = Buffer.isBuffer(media);
-  const isFilePath = typeof media === 'string' && !isUrl && fs.existsSync(media);
-
-  let payload = {
-    number: formattedNumber,
-    caption: options.caption || '',
-    fileName: options.fileName
-  };
-
-  if (isUrl) {
-    if (type === 'audio') {
-      payload.audioUrl = media;
-    } else {
-      payload.mediaUrl = media;
-    }
-  } else if (isBuffer || isFilePath) {
-    const buffer = isBuffer ? media : fs.readFileSync(media);
-    payload.media = buffer.toString('base64');
-    payload.mediatype = type;
-    if (!payload.fileName && isFilePath) {
-      payload.fileName = path.basename(media);
-    }
-  } else {
-    throw new Error('Mídia inválida: forneça URL, caminho de arquivo ou Buffer');
-  }
-
-  const endpoint = `${EVOLUTION_BASE_URL}/message/send${type === 'document' ? 'Document' : 'Media'}/${EVOLUTION_INSTANCE}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': EVOLUTION_API_KEY
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Evolution API erro: ${response.status} - ${errorBody}`);
-  }
-
-  return response.json();
+  console.warn('[DEPRECATED] sendWhatsAppMedia called. Use WhatsAppAdapter instead.');
+  const { sendWhatsAppMedia } = await import('../services/whatsappAdapterProvider.js');
+  const result = await sendWhatsAppMedia(number, media, options);
+  return result?.raw || result;
 }
 
 /**

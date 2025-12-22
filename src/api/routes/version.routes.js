@@ -73,13 +73,30 @@ function getBuildTime() {
     const buildInfoPath = path.join(__dirname, '../../../BUILD_INFO.json');
     if (fs.existsSync(buildInfoPath)) {
       const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf-8'));
-      return buildInfo.buildTime || null;
+      return buildInfo.buildTime || buildInfo.buildDate || null;
     }
 
     // If no build info, use server start time
     return new Date().toISOString();
   } catch {
     return process.env.BUILD_TIME || new Date().toISOString();
+  }
+}
+
+/**
+ * Get image tag
+ */
+function getImageTag() {
+  try {
+    const buildInfoPath = path.join(__dirname, '../../../BUILD_INFO.json');
+    if (fs.existsSync(buildInfoPath)) {
+      const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf-8'));
+      return buildInfo.imageTag || process.env.IMAGE_TAG || null;
+    }
+
+    return process.env.IMAGE_TAG || null;
+  } catch {
+    return process.env.IMAGE_TAG || null;
   }
 }
 
@@ -127,6 +144,7 @@ async function buildVersionInfo(db) {
   return {
     service: 'LEADLY AI Agent',
     version: process.env.npm_package_version || '2.1.0',
+    imageTag: getImageTag(),
     commit: getGitCommit(),
     branch: getGitBranch(),
     buildTime: getBuildTime(),

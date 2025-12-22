@@ -112,7 +112,7 @@ export class MessagePipeline {
 
       try {
         const cadenceService = getCadenceIntegrationService();
-        const leadContext = await cadenceService.getLeadContext(from);
+        const leadContext = await cadenceService.getLeadContext(from, context?.tenantId);
 
         if (leadContext.isKnownLead) {
           enrichedContext = {
@@ -426,7 +426,7 @@ export class MessagePipeline {
     const { from, text } = message;
 
     //  Opt-out check
-    const optOutResult = await checkOptOut(from, text);
+    const optOutResult = await checkOptOut(from, text, context?.tenantId);
 
     if (optOutResult.isOptOut) {
       log.success('Opt-out detectado', { reason: optOutResult.reason, from });

@@ -728,7 +728,7 @@ router.post('/api/leads/ingest', async (req, res) => {
         }
 
         // Verificar se já existe
-        const existing = phone ? leadRepository.findByPhone(phone) : null;
+        const existing = phone ? leadRepository.findByPhone(phone, tenantId) : null;
 
         if (existing) {
           // Atualizar lead existente (merge de dados)
@@ -754,7 +754,7 @@ router.post('/api/leads/ingest', async (req, res) => {
             });
           }
 
-          leadRepository.update(existing.id, updateData);
+          leadRepository.update(existing.id, updateData, tenantId);
           results.updated++;
           results.details.push({ action: 'updated', phone, id: existing.id });
 

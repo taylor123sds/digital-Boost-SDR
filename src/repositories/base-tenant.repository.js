@@ -9,8 +9,7 @@
  * STRATEGY:
  * - Internal name: tenantId (used in code)
  * - Database column: 'tenant_id' (canonical, used in migrations 025+)
- * - Legacy column: 'team_id' (deprecated, from migrations < 025)
- * - Subclasses can override getTenantColumn() for legacy tables using 'team_id'
+ * - Legacy column support removed; tenant_id is canonical everywhere
  * - All queries automatically filter by tenant
  *
  * @version 1.1.0 - P0-5 tenant_id canonical
@@ -18,12 +17,11 @@
 
 import { BaseRepository } from './base.repository.js';
 import { DatabaseError } from '../utils/errors/index.js';
+import { TENANT_REQUIRED_TABLES } from '../utils/tenantGuard.js';
 
 /**
  * Default tenant column name (canonical)
- * P0-5: Changed from 'team_id' to 'tenant_id' per ARCHITECTURE_DECISIONS.md
- * Legacy tables using 'team_id' should override getTenantColumn()
- * @deprecated 'team_id' is deprecated, use 'tenant_id' in new tables
+ * P0-5: tenant_id is canonical per ARCHITECTURE_DECISIONS.md
  */
 const DEFAULT_TENANT_COLUMN = 'tenant_id';
 
@@ -63,6 +61,12 @@ export class BaseTenantRepository extends BaseRepository {
    */
   hasTenantColumn() {
     if (this._hasTenantColumn !== undefined) {
+      if (this._hasTenantColumn === false && this.isTenantRequired()) {
+        throw new DatabaseError(
+          `Tenant column missing for ${this.tableName}`,
+          'hasTenantColumn'
+        );
+      }
       return this._hasTenantColumn;
     }
 
@@ -70,11 +74,24 @@ export class BaseTenantRepository extends BaseRepository {
       const info = this.db.prepare(`PRAGMA table_info(${this.tableName})`).all();
       const column = this.getTenantColumn();
       this._hasTenantColumn = info.some(col => col.name === column);
+      if (!this._hasTenantColumn && this.isTenantRequired()) {
+        throw new DatabaseError(
+          `Tenant column missing for ${this.tableName}`,
+          'hasTenantColumn'
+        );
+      }
       return this._hasTenantColumn;
     } catch (error) {
+      if (this.isTenantRequired()) {
+        throw error;
+      }
       this.logger.warn('Failed to check tenant column existence', { error: error.message });
       return false;
     }
+  }
+
+  isTenantRequired() {
+    return TENANT_REQUIRED_TABLES.has(this.tableName);
   }
 
   /**
@@ -532,42 +549,12 @@ export class BaseTenantRepository extends BaseRepository {
   }
 }
 
-// =========================================================================
-// COMPATIBILITY ALIASES
-// P0-5: For tables still using legacy 'team_id' column
-// =========================================================================
-
-/**
- * P0-5: Create a legacy repository class that uses 'team_id' column
- * Use this for tables that still have legacy 'team_id' column
- * New tables should use 'tenant_id' (canonical)
- */
-export class LegacyTenantRepository extends BaseTenantRepository {
-  constructor(db, logger, tableName, options = {}) {
-    super(db, logger, tableName, {
-      ...options,
-      tenantColumn: 'team_id'  // P0-5: Legacy column for older tables
-    });
-  }
-}
-
 /**
  * Repository factory with tenant column detection
  * Automatically uses correct column based on table schema
  */
 export function createTenantRepository(db, logger, tableName, options = {}) {
-  const repo = new BaseTenantRepository(db, logger, tableName, options);
-
-  // P0-5: Check if table has tenant_id (canonical), if not try team_id (legacy)
-  if (!repo.hasTenantColumn()) {
-    const legacyRepo = new LegacyTenantRepository(db, logger, tableName, options);
-    if (legacyRepo.hasTenantColumn()) {
-      logger.info(`Using legacy team_id column for ${tableName}`);
-      return legacyRepo;
-    }
-  }
-
-  return repo;
+  return new BaseTenantRepository(db, logger, tableName, options);
 }
 
 export default BaseTenantRepository;

@@ -2,16 +2,12 @@
  * @file tenantCompat.js
  * @description P0-5: Tenant/Team ID Compatibility Utilities
  *
- * Provides helpers for the migration period where we need to support
- * both tenant_id and team_id naming conventions.
+ * Provides helpers for tenant_id canonical usage.
  *
  * P0-5 UPDATE: Names updated per ARCHITECTURE_DECISIONS.md
  *
  * CANONICAL NAME: tenant_id (in database) / tenantId (in code)
- * LEGACY NAME: team_id (in old tables, migrations < 025)
- *
- * New code should always use tenant_id. This compat layer exists
- * for backward compatibility with older tables using team_id.
+ * New code should always use tenant_id.
  *
  * @version 1.1.0 - P0-5 tenant_id canonical
  */
@@ -23,36 +19,18 @@ export const DEFAULT_TENANT_ID = 'default';
 
 /**
  * Normalize a row from database to use consistent naming
- * - Ensures team_id is always present (aliased from tenant_id if needed)
- * - Optionally includes tenant_id for backward compatibility
+ * - Ensures tenant_id stays canonical in runtime
  *
  * @param {Object} row - Database row
- * @param {Object} options - Options
- * @param {boolean} options.includeAlias - Include tenant_id as alias of team_id
  * @returns {Object} Normalized row
  */
-export function normalizeDbRow(row, options = {}) {
+export function normalizeDbRow(row) {
   if (!row) return null;
-
-  const { includeAlias = true } = options;
-  const normalized = { ...row };
-
-  // If row has tenant_id but not team_id, alias it
-  if (row.tenant_id && !row.team_id) {
-    normalized.team_id = row.tenant_id;
-  }
-
-  // If row has team_id and we want backward compat alias
-  if (includeAlias && row.team_id && !row.tenant_id) {
-    normalized.tenant_id = row.team_id;
-  }
-
-  return normalized;
+  return { ...row };
 }
 
 /**
- * Normalize API response data to include both team_id and tenant_id
- * during migration period for frontend compatibility
+ * Normalize API response data to keep tenant_id canonical
  *
  * @param {Object} data - Response data
  * @returns {Object} Data with both field names
@@ -64,37 +42,18 @@ export function normalizeApiResponse(data) {
     return data.map(item => normalizeApiResponse(item));
   }
 
-  const normalized = { ...data };
-
-  // Ensure both naming conventions are present
-  if (data.team_id !== undefined && data.tenant_id === undefined) {
-    normalized.tenant_id = data.team_id;
-  }
-  if (data.tenant_id !== undefined && data.team_id === undefined) {
-    normalized.team_id = data.tenant_id;
-  }
-
-  // Also normalize tenantId/teamId (camelCase)
-  if (data.teamId !== undefined && data.tenantId === undefined) {
-    normalized.tenantId = data.teamId;
-  }
-  if (data.tenantId !== undefined && data.teamId === undefined) {
-    normalized.teamId = data.tenantId;
-  }
-
-  return normalized;
+  return { ...data };
 }
 
 /**
- * Extract tenant ID from request, supporting both naming conventions
+ * Extract tenant ID from request, canonical-only
  *
  * Priority:
  * 1. req.tenantId (canonical - set by auth middleware)
- * 2. req.body.team_id or req.body.tenant_id
- * 3. req.query.team_id or req.query.tenant_id
- * 4. req.params.teamId or req.params.tenantId
- * 5. req.user.teamId
- * 6. DEFAULT_TENANT_ID
+ * 2. req.body.tenant_id or req.body.tenantId
+ * 3. req.query.tenant_id or req.query.tenantId
+ * 4. req.params.tenantId
+ * 5. DEFAULT_TENANT_ID
  *
  * @param {Request} req - Express request
  * @returns {string} Tenant ID
@@ -104,30 +63,19 @@ export function extractTenantId(req) {
   if (req.tenantId && req.tenantId !== DEFAULT_TENANT_ID) {
     return req.tenantId;
   }
-  if (req.teamId && req.teamId !== DEFAULT_TENANT_ID) {
-    return req.teamId;
-  }
 
-  // 2. From body (both conventions)
-  if (req.body?.team_id) return req.body.team_id;
+  // 2. From body
   if (req.body?.tenant_id) return req.body.tenant_id;
-  if (req.body?.teamId) return req.body.teamId;
   if (req.body?.tenantId) return req.body.tenantId;
 
   // 3. From query
-  if (req.query?.team_id) return req.query.team_id;
   if (req.query?.tenant_id) return req.query.tenant_id;
-  if (req.query?.teamId) return req.query.teamId;
   if (req.query?.tenantId) return req.query.tenantId;
 
   // 4. From params
-  if (req.params?.teamId) return req.params.teamId;
   if (req.params?.tenantId) return req.params.tenantId;
 
-  // 5. From user
-  if (req.user?.teamId) return req.user.teamId;
-
-  // 6. Default
+  // 5. Default
   return req.tenantId || DEFAULT_TENANT_ID;
 }
 
@@ -137,7 +85,7 @@ export function extractTenantId(req) {
  *
  * @param {string} tableName - Table name
  * @param {Object} db - Database connection for schema check
- * @returns {string} Column name ('team_id' or 'tenant_id')
+ * @returns {string|null} Column name ('tenant_id') or null when missing
  */
 export function getTenantColumnForTable(tableName, db) {
   try {
@@ -148,11 +96,6 @@ export function getTenantColumnForTable(tableName, db) {
       return 'tenant_id';
     }
 
-    // Fall back to team_id (legacy)
-    if (info.some(col => col.name === 'team_id')) {
-      return 'team_id';
-    }
-
     // Table has no tenant column
     return null;
   } catch {
@@ -161,7 +104,7 @@ export function getTenantColumnForTable(tableName, db) {
 }
 
 /**
- * Append tenant_id/team_id columns to an insert payload based on table schema.
+ * Append tenant_id column to an insert payload based on table schema.
  * Returns updated { columns, values } arrays.
  *
  * @param {Object} db - Database connection
@@ -175,14 +118,9 @@ export function appendTenantColumns(db, tableName, columns, values, tenantId) {
   try {
     const info = db.prepare(`PRAGMA table_info(${tableName})`).all();
     const hasTenantId = info.some(col => col.name === 'tenant_id');
-    const hasTeamId = info.some(col => col.name === 'team_id');
 
     if (hasTenantId) {
       columns.push('tenant_id');
-      values.push(tenantId);
-    }
-    if (hasTeamId) {
-      columns.push('team_id');
       values.push(tenantId);
     }
   } catch {

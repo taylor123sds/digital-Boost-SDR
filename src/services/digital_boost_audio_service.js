@@ -14,7 +14,7 @@ export async function sendDigitalBoostAudio(to) {
     console.log(` [DIGITAL-BOOST-AUDIO] Enviando áudio explicativo para ${to}`);
 
     const { sendDigitalBoostAudioExplanation } = await import('../tools/digital_boost_explainer.js');
-    const { sendWhatsAppAudio } = await import('../tools/whatsapp.js');
+    const { sendWhatsAppAudio } = await import('./whatsappAdapterProvider.js');
 
     // Função wrapper para enviar áudio
     const sendAudioFunc = async (recipient, audioPath) => {

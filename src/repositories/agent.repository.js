@@ -8,7 +8,7 @@
  * P0-5: Uses 'tenant_id' column (CANONICAL per ARCHITECTURE_DECISIONS.md)
  * - Table agents uses 'tenant_id' (canonical)
  * - Code uses tenantId parameter (camelCase)
- * - Legacy tables use 'team_id' but agents table is already canonical
+ * - Legacy table compat removed; agents uses tenant_id only
  *
  * VPS Schema:
  * - id, tenant_id, name, slug, type, status
@@ -45,12 +45,15 @@ export class AgentRepository {
   /**
    * Find agent by ID
    */
-  findById(agentId) {
+  findById(agentId, tenantId) {
     const db = getDatabase();
     try {
+      if (!tenantId) {
+        throw new Error('tenantId is required for agent lookup');
+      }
       const agent = db.prepare(`
-        SELECT * FROM agents WHERE id = ?
-      `).get(agentId);
+        SELECT * FROM agents WHERE id = ? AND tenant_id = ?
+      `).get(agentId, tenantId);
 
       return agent ? this._parseAgent.call(this, agent) : null;
     } catch (error) {
@@ -186,7 +189,7 @@ export class AgentRepository {
         WHERE id = ? AND tenant_id = ?
       `).run(...Object.values(updates), agentId, tenantId);
 
-      return this.findById(agentId);
+      return this.findById(agentId, tenantId);
     } catch (error) {
       console.error('[AGENT-REPO] Error updating agent:', error);
       throw error;
@@ -222,7 +225,7 @@ export class AgentRepository {
    */
   duplicate(agentId, newData, tenantId, createdByUserId = null) {
     try {
-      const original = this.findById(agentId);
+      const original = this.findById(agentId, tenantId);
       if (!original) {
         throw new Error('Original agent not found');
       }
@@ -254,10 +257,10 @@ export class AgentRepository {
   /**
    * Update agent metrics
    */
-  updateMetrics(agentId, metricsUpdate) {
+  updateMetrics(agentId, tenantId, metricsUpdate) {
     const db = getDatabase();
     try {
-      const agent = this.findById(agentId);
+      const agent = this.findById(agentId, tenantId);
       if (!agent) return false;
 
       const currentMetrics = agent.metrics || {};
@@ -318,7 +321,7 @@ export class AgentRepository {
     const db = getDatabase();
     try {
       const agents = db.prepare(`
-        SELECT * FROM agents
+        SELECT * FROM agents /* tenant-guard: ignore (admin list) */
         WHERE status != 'deleted'
         ORDER BY tenant_id, created_at DESC
       `).all();

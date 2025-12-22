@@ -5,9 +5,17 @@
 
 import express from 'express';
 import Lead from '../../../models/Lead.js';
+import { authenticate } from '../../../middleware/auth.middleware.js';
+import { tenantContext, requireTenant } from '../../../middleware/tenant.middleware.js';
+import { extractTenantId } from '../../../utils/tenantCompat.js';
+import { getDatabase } from '../../../db/connection.js';
+import { getTenantColumnForTable } from '../../../utils/tenantCompat.js';
 
 const router = express.Router();
 const leadModel = new Lead();
+
+// Tenant-required routes (CRM leads)
+router.use('/api/crm/leads', authenticate, tenantContext, requireTenant);
 
 /**
  * GET /api/crm/leads
@@ -15,6 +23,9 @@ const leadModel = new Lead();
  */
 router.get('/api/crm/leads', async (req, res) => {
   try {
+    const tenantId = extractTenantId(req);
+    const db = getDatabase();
+    const tenantColumn = getTenantColumnForTable('leads', db) || 'tenant_id';
     const {
       page = 1,
       limit = 50,
@@ -30,14 +41,15 @@ router.get('/api/crm/leads', async (req, res) => {
     let total;
 
     if (search) {
-      leads = leadModel.search(search, { limit: parseInt(limit), offset });
-      total = leadModel.count();
+      leads = leadModel.search(search, { limit: parseInt(limit), offset, tenantId });
+      total = leadModel.count({ where: { [tenantColumn]: tenantId } });
     } else {
       const where = {};
       if (status) where.status = status;
       if (origem) where.origem = origem;
       if (owner_id) where.owner_id = owner_id;
       if (converted !== undefined) where.converted = converted === 'true' ? 1 : 0;
+      where[tenantColumn] = tenantId;
 
       leads = leadModel.findAll({
         where,
@@ -72,7 +84,8 @@ router.get('/api/crm/leads', async (req, res) => {
  */
 router.get('/api/crm/leads/stats', async (req, res) => {
   try {
-    const stats = leadModel.getStats();
+    const tenantId = extractTenantId(req);
+    const stats = leadModel.getStats(tenantId);
     res.json({
       success: true,
       data: stats
@@ -94,13 +107,10 @@ router.get('/api/crm/leads/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { withDetails } = req.query;
+    const tenantId = extractTenantId(req);
 
     let lead;
-    if (withDetails === 'true') {
-      lead = leadModel.findByIdWithDetails(id);
-    } else {
-      lead = leadModel.findById(id);
-    }
+    lead = leadModel.findByIdWithDetails(id, tenantId);
 
     if (!lead) {
       return res.status(404).json({
@@ -128,6 +138,7 @@ router.get('/api/crm/leads/:id', async (req, res) => {
  */
 router.post('/api/crm/leads', async (req, res) => {
   try {
+    const tenantId = extractTenantId(req);
     const leadData = req.body;
 
     // Validation
@@ -138,7 +149,10 @@ router.post('/api/crm/leads', async (req, res) => {
       });
     }
 
-    const lead = leadModel.create(leadData);
+    const lead = leadModel.create({
+      ...leadData,
+      tenant_id: tenantId
+    });
 
     res.status(201).json({
       success: true,
@@ -162,8 +176,17 @@ router.put('/api/crm/leads/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const tenantId = extractTenantId(req);
 
     delete updateData.id;
+
+    const existing = leadModel.findByIdWithDetails(id, tenantId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
+      });
+    }
 
     const lead = leadModel.update(id, updateData);
 
@@ -195,6 +218,15 @@ router.put('/api/crm/leads/:id', async (req, res) => {
 router.delete('/api/crm/leads/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const tenantId = extractTenantId(req);
+
+    const existing = leadModel.findByIdWithDetails(id, tenantId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
+      });
+    }
 
     const deleted = leadModel.delete(id);
 
@@ -226,6 +258,7 @@ router.put('/api/crm/leads/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const tenantId = extractTenantId(req);
 
     // Validate status
     const validStatuses = ['novo', 'contatado', 'qualificado', 'desqualificado', 'convertido'];
@@ -236,7 +269,15 @@ router.put('/api/crm/leads/:id/status', async (req, res) => {
       });
     }
 
-    const lead = leadModel.updateStatus(id, status);
+    const existing = leadModel.findByIdWithDetails(id, tenantId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
+      });
+    }
+
+    const lead = leadModel.updateStatus(id, status, tenantId);
 
     if (!lead) {
       return res.status(404).json({
@@ -267,13 +308,22 @@ router.put('/api/crm/leads/:id/bant', async (req, res) => {
   try {
     const { id } = req.params;
     const { budget, authority, need, timing } = req.body;
+    const tenantId = extractTenantId(req);
+
+    const existing = leadModel.findByIdWithDetails(id, tenantId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
+      });
+    }
 
     const lead = leadModel.updateBANT(id, {
       budget,
       authority,
       need,
       timing
-    });
+    }, tenantId);
 
     if (!lead) {
       return res.status(404).json({
@@ -304,12 +354,21 @@ router.post('/api/crm/leads/:id/convert', async (req, res) => {
   try {
     const { id } = req.params;
     const { opportunityId, accountId, contactId } = req.body;
+    const tenantId = extractTenantId(req);
 
     // Validation
     if (!opportunityId || !accountId) {
       return res.status(400).json({
         success: false,
         error: 'opportunityId and accountId are required'
+      });
+    }
+
+    const existing = leadModel.findByIdWithDetails(id, tenantId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
       });
     }
 

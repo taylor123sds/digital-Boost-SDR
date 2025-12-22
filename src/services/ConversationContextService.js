@@ -14,6 +14,8 @@
 import { getDatabase } from '../db/index.js';
 import OpenAI from 'openai';
 import log from '../utils/logger-wrapper.js';
+import { DEFAULT_TENANT_ID, appendTenantColumns } from '../utils/tenantCompat.js';
+import { assertTenantScoped, getTenantColumnOrThrow } from '../utils/tenantGuard.js';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -43,6 +45,7 @@ class ConversationContextService {
           id TEXT PRIMARY KEY,
           lead_id TEXT NOT NULL,
           phone TEXT NOT NULL,
+          tenant_id TEXT DEFAULT 'default',
           cadence_day INTEGER DEFAULT 1,
           conversation_summary TEXT,
           bant_stage TEXT,
@@ -61,6 +64,13 @@ class ConversationContextService {
           UNIQUE(lead_id, cadence_day)
         )
       `);
+      try {
+        db.exec(`ALTER TABLE conversation_context ADD COLUMN tenant_id TEXT DEFAULT 'default'`);
+      } catch (error) {
+        if (!error.message.includes('duplicate column')) {
+          log.warn('[CONVERSATION-CONTEXT] tenant_id column check failed', { error: error.message });
+        }
+      }
       log.info('[CONVERSATION-CONTEXT] Table ensured');
     } catch (error) {
       log.error('[CONVERSATION-CONTEXT] Table creation error:', { error: error.message });
@@ -87,8 +97,10 @@ class ConversationContextService {
         leadState = {},
         conversationHistory = [],
         lastLeadMessage,
-        lastAgentMessage
+        lastAgentMessage,
+        tenantId = DEFAULT_TENANT_ID
       } = context;
+      const tenantColumn = getTenantColumnOrThrow(db, 'conversation_context', tenantId, 'conversation_context save');
 
       // Generate summary using GPT
       const summary = await this._generateConversationSummary(
@@ -118,14 +130,49 @@ class ConversationContextService {
         m.content?.toLowerCase().includes('investimento')
       ) ? 1 : 0;
 
-      // Upsert context
-      db.prepare(`
-        INSERT INTO conversation_context (
-          id, lead_id, phone, cadence_day, conversation_summary, bant_stage, spin_stage,
-          topics_discussed, objections_raised, interest_level, next_action_suggested,
-          last_lead_message, last_agent_message, messages_exchanged,
-          meeting_mentioned, pricing_discussed, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      let columns = [
+        'id',
+        'lead_id',
+        'phone',
+        'cadence_day',
+        'conversation_summary',
+        'bant_stage',
+        'spin_stage',
+        'topics_discussed',
+        'objections_raised',
+        'interest_level',
+        'next_action_suggested',
+        'last_lead_message',
+        'last_agent_message',
+        'messages_exchanged',
+        'meeting_mentioned',
+        'pricing_discussed',
+        'updated_at'
+      ];
+      let values = [
+        id,
+        leadId,
+        phone,
+        cadenceDay,
+        summary.summary,
+        bantStage,
+        spinStage,
+        topicsDiscussed,
+        objectionsRaised,
+        summary.interestLevel || 5,
+        summary.nextAction,
+        lastLeadMessage,
+        lastAgentMessage,
+        conversationHistory.length,
+        meetingMentioned,
+        pricingDiscussed,
+        new Date().toISOString()
+      ];
+      ({ columns, values } = appendTenantColumns(db, 'conversation_context', columns, values, tenantId));
+      const placeholders = columns.map(() => '?').join(', ');
+      const upsertSql = `
+        INSERT INTO conversation_context (${columns.join(', ')})
+        VALUES (${placeholders})
         ON CONFLICT(lead_id, cadence_day) DO UPDATE SET
           conversation_summary = excluded.conversation_summary,
           bant_stage = excluded.bant_stage,
@@ -139,16 +186,18 @@ class ConversationContextService {
           messages_exchanged = excluded.messages_exchanged,
           meeting_mentioned = excluded.meeting_mentioned,
           pricing_discussed = excluded.pricing_discussed,
-          updated_at = datetime('now')
-      `).run(
-        id, leadId, phone, cadenceDay, summary.summary, bantStage, spinStage,
-        topicsDiscussed, objectionsRaised, summary.interestLevel || 5,
-        summary.nextAction, lastLeadMessage, lastAgentMessage,
-        conversationHistory.length, meetingMentioned, pricingDiscussed
-      );
+          updated_at = excluded.updated_at
+      `;
+      assertTenantScoped(upsertSql, values, {
+        tenantId,
+        tenantColumn,
+        operation: 'conversation_context upsert'
+      });
+      db.prepare(upsertSql).run(...values);
 
       log.info('[CONVERSATION-CONTEXT] Context saved', {
         phone,
+        tenantId,
         cadenceDay,
         interestLevel: summary.interestLevel,
         spinStage
@@ -169,26 +218,39 @@ class ConversationContextService {
    * @param {number} cadenceDay - Optional specific day (defaults to latest)
    * @returns {Promise<Object|null>} Conversation context
    */
-  async getConversationContext(phone, cadenceDay = null) {
+  async getConversationContext(phone, cadenceDay = null, tenantId = DEFAULT_TENANT_ID) {
     try {
       const db = getDatabase();
+      const tenantColumn = getTenantColumnOrThrow(db, 'conversation_context', tenantId, 'conversation_context get');
 
       let context;
       if (cadenceDay) {
-        context = db.prepare(`
+        const query = `
           SELECT * FROM conversation_context
-          WHERE phone = ? AND cadence_day = ?
+          WHERE phone = ? AND cadence_day = ? AND ${tenantColumn} = ?
           ORDER BY updated_at DESC
           LIMIT 1
-        `).get(phone, cadenceDay);
+        `;
+        assertTenantScoped(query, [phone, cadenceDay, tenantId], {
+          tenantId,
+          tenantColumn,
+          operation: 'conversation_context get (day)'
+        });
+        context = db.prepare(query).get(phone, cadenceDay, tenantId);
       } else {
         // Get most recent context
-        context = db.prepare(`
+        const query = `
           SELECT * FROM conversation_context
-          WHERE phone = ?
+          WHERE phone = ? AND ${tenantColumn} = ?
           ORDER BY cadence_day DESC, updated_at DESC
           LIMIT 1
-        `).get(phone);
+        `;
+        assertTenantScoped(query, [phone, tenantId], {
+          tenantId,
+          tenantColumn,
+          operation: 'conversation_context get'
+        });
+        context = db.prepare(query).get(phone, tenantId);
       }
 
       if (!context) {

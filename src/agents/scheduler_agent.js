@@ -8,6 +8,7 @@ import { createEvent, updateEvent } from '../tools/calendar_enhanced.js';
 import { detectChangeType } from '../utils/intent_detectors.js';
 //  FIX P0: Adicionar MessageUnderstanding para validação de contexto
 import messageUnderstanding from '../intelligence/MessageUnderstanding.js';
+import { DEFAULT_TENANT_ID } from '../utils/tenantCompat.js';
 
 //  STYLE GUIDE GLOBAL - ÚNICA FONTE DE VERDADE
 import {
@@ -331,7 +332,8 @@ export class SchedulerAgent {
               };
 
               // Usar upsert para criar ou atualizar lead existente
-              leadRepository.upsert(message.fromContact, opportunityData);
+              const tenantId = leadState?.tenant_id || leadState?.tenantId || DEFAULT_TENANT_ID;
+              leadRepository.upsert(message.fromContact, opportunityData, tenantId);
 
               console.log(` [SCHEDULER] Oportunidade criada no Pipeline SQLite: ${message.fromContact}`);
             } catch (error) {
@@ -408,9 +410,10 @@ export class SchedulerAgent {
           try {
             // Atualizar evento no Google Calendar
             const eventId = leadState.scheduler.meetingData.eventId;
+            const tenantId = leadState?.tenant_id || leadState?.tenantId || DEFAULT_TENANT_ID;
             const updateResult = await updateEvent(eventId, {
               attendees: [emailDetection.email]
-            });
+            }, { tenantId });
 
             if (updateResult.success) {
               return {
@@ -475,11 +478,12 @@ export class SchedulerAgent {
               };
             }
 
+            const tenantId = leadState?.tenant_id || leadState?.tenantId || DEFAULT_TENANT_ID;
             const updateResult = await updateEvent(eventId, {
               date: currentDate,
               time: newTime,
               duration: 30
-            });
+            }, { tenantId });
 
             if (updateResult.success) {
               const dateFormatted = this.formatDateBR(currentDate);
@@ -560,11 +564,12 @@ export class SchedulerAgent {
               };
             }
 
+            const tenantId = leadState?.tenant_id || leadState?.tenantId || DEFAULT_TENANT_ID;
             const updateResult = await updateEvent(eventId, {
               date: newDate,
               time: currentTime,
               duration: 30
-            });
+            }, { tenantId });
 
             if (updateResult.success) {
               const dateFormatted = this.formatDateBR(newDate);
@@ -912,11 +917,12 @@ Responda APENAS a mensagem, sem explicações.`;
         meet: 'google',
         timezone: 'America/Fortaleza'
       };
+      const tenantId = leadState?.tenant_id || leadState?.tenantId || DEFAULT_TENANT_ID;
 
       console.log(` [SCHEDULER] Dados do evento:`, JSON.stringify(eventData, null, 2));
 
       // Criar evento via Google Calendar (calendar_enhanced.js)
-      const result = await createEvent(eventData);
+      const result = await createEvent(eventData, { tenantId });
 
       console.log(` [SCHEDULER] Evento criado: ${result.eventId}`);
       console.log(` [SCHEDULER] Link: ${result.eventLink}`);

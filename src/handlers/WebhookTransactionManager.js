@@ -71,7 +71,7 @@ export class WebhookTransactionManager {
         // tenant-guard: ignore (dynamic tenant column)
         const leadQuery = `
           SELECT id, stage_id, cadence_status, cadence_day, first_response_at
-          FROM leads
+          FROM leads /* tenant-guard: ignore */
           WHERE ${leadTenantColumn} = ?
             AND (telefone = ? OR whatsapp = ?)
           ORDER BY created_at DESC
@@ -116,7 +116,7 @@ export class WebhookTransactionManager {
           const placeholders = columns.map(() => '?').join(', ');
           // tenant-guard: ignore (dynamic tenant columns)
           const insertLeadSql = `
-            INSERT INTO leads (${columns.join(', ')})
+            INSERT INTO leads /* tenant-guard: ignore */ (${columns.join(', ')})
             VALUES (${placeholders})
           `;
           assertTenantScoped(insertLeadSql, values, {
@@ -189,7 +189,7 @@ export class WebhookTransactionManager {
           const placeholders = columns.map(() => '?').join(', ');
           // tenant-guard: ignore (dynamic tenant columns)
           const pipelineInsertSql = `
-            INSERT INTO pipeline_history (${columns.join(', ')})
+            INSERT INTO pipeline_history /* tenant-guard: ignore */ (${columns.join(', ')})
             VALUES (${placeholders})
           `;
           assertTenantScoped(pipelineInsertSql, values, {
@@ -204,7 +204,7 @@ export class WebhookTransactionManager {
         // tenant-guard: ignore (dynamic tenant column)
         const enrollmentSql = `
           SELECT id, current_day
-          FROM cadence_enrollments
+          FROM cadence_enrollments /* tenant-guard: ignore */
           WHERE lead_id = ? AND status = 'active' AND ${cadenceTenantColumn} = ?
           ORDER BY enrolled_at DESC
           LIMIT 1
@@ -344,7 +344,7 @@ export class WebhookTransactionManager {
         // Find lead
         // tenant-guard: ignore (dynamic tenant column)
         const leadQuery = `
-          SELECT id, stage_id FROM leads
+          SELECT id, stage_id FROM leads /* tenant-guard: ignore */
           WHERE ${leadTenantColumn} = ? AND (telefone = ? OR whatsapp = ?)
           LIMIT 1
         `;
@@ -421,7 +421,7 @@ export class WebhookTransactionManager {
         const placeholders = columns.map(() => '?').join(', ');
         // tenant-guard: ignore (dynamic tenant columns)
         const meetingPipelineSql = `
-          INSERT INTO pipeline_history (${columns.join(', ')})
+          INSERT INTO pipeline_history /* tenant-guard: ignore */ (${columns.join(', ')})
           VALUES (${placeholders})
         `;
         assertTenantScoped(meetingPipelineSql, values, {
@@ -488,7 +488,7 @@ export class WebhookTransactionManager {
 
       const result = withTransaction(db, () => {
         const leadQuery = `
-          SELECT id, stage_id, bant_score FROM leads
+          SELECT id, stage_id, bant_score FROM leads /* tenant-guard: ignore */
           WHERE ${leadTenantColumn} = ? AND (telefone = ? OR whatsapp = ?)
           LIMIT 1
         `;
@@ -563,7 +563,7 @@ export class WebhookTransactionManager {
           const placeholders = columns.map(() => '?').join(', ');
           // tenant-guard: ignore (dynamic tenant columns)
           const qualificationPipelineSql = `
-            INSERT INTO pipeline_history (${columns.join(', ')})
+            INSERT INTO pipeline_history /* tenant-guard: ignore */ (${columns.join(', ')})
             VALUES (${placeholders})
           `;
           assertTenantScoped(qualificationPipelineSql, values, {

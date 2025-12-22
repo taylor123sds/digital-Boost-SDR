@@ -1,6 +1,7 @@
 /**
  * RUNTIME API ROUTES
  * Rotas para processamento de mensagens em tempo real
+ * STACK_DEPRECATED_OK: legacy route stack (read-only)
  */
 
 import { Router } from 'express';

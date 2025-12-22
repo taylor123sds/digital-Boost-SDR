@@ -17,7 +17,6 @@ if (!JWT_SECRET) {
  * Authenticate JWT token
  *
  * P0-5: Sets req.tenantId from JWT tenantId (canonical)
- * Backward compat: Also reads teamId for older JWTs
  * This is the canonical tenant identifier used throughout the app
  */
 export function authenticate(req, res, next) {
@@ -37,16 +36,15 @@ export function authenticate(req, res, next) {
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // P0-5: tenantId is canonical, teamId is legacy fallback
-    const tenantId = decoded.tenantId || decoded.teamId;
+    // P0-5: tenantId is canonical
+    const tenantId = decoded.tenantId;
 
     // Attach user info to request
     req.user = {
       id: decoded.userId,
       email: decoded.email,
       role: decoded.role,
-      tenantId: tenantId,  // P0-5: Canonical name
-      teamId: tenantId     // Legacy alias for backward compat
+      tenantId: tenantId  // P0-5: Canonical name
     };
 
     // P0-5: Set tenantId directly from JWT (canonical tenant identifier)
@@ -82,15 +80,14 @@ export function optionalAuth(req, res, next) {
       const token = authHeader.split(' ')[1];
       const decoded = jwt.verify(token, JWT_SECRET);
 
-      // P0-5: tenantId is canonical, teamId is legacy fallback
-      const tenantId = decoded.tenantId || decoded.teamId;
+      // P0-5: tenantId is canonical
+      const tenantId = decoded.tenantId;
 
       req.user = {
         id: decoded.userId,
         email: decoded.email,
         role: decoded.role,
-        tenantId: tenantId,  // P0-5: Canonical name
-        teamId: tenantId     // Legacy alias
+        tenantId: tenantId  // P0-5: Canonical name
       };
 
       // P0-5: Set tenantId when authenticated
@@ -178,7 +175,6 @@ export function requireOwnerOrAdmin(ownerIdField = 'owner_id') {
 
 /**
  * Check if user is in the same tenant/team
- * P0-5: Accepts both tenant_id and team_id for backward compat
  */
 export function requireSameTeam(req, res, next) {
   if (!req.user) {
@@ -193,9 +189,9 @@ export function requireSameTeam(req, res, next) {
     return next();
   }
 
-  // P0-5: Canonical tenant_id with legacy compatibility
+  // P0-5: Canonical tenant_id only
   const resourceTenantId = extractTenantId(req);
-  const userTenantId = req.user.tenantId || req.user.teamId;
+  const userTenantId = req.user.tenantId;
 
   if (!userTenantId || userTenantId !== resourceTenantId) {
     return res.status(403).json({

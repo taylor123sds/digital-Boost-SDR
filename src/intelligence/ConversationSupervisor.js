@@ -16,6 +16,7 @@
 import { getDatabase } from '../db/index.js';
 import openaiClient from '../core/openai_client.js';
 import log from '../utils/logger-wrapper.js';
+import { DEFAULT_TENANT_ID, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO
@@ -262,19 +263,21 @@ class ConversationSupervisor {
    * @param {string} contactId - ID do contato
    * @returns {Object} Auditoria da conversa
    */
-  async auditConversation(contactId) {
+  async auditConversation(contactId, tenantId = DEFAULT_TENANT_ID) {
     try {
       log.info('[SUPERVISOR] Auditando conversa', { contactId });
 
       //  FIX: Obter conexão fresh
       const db = getDatabase();
+      const tenantColumn = getTenantColumnForTable('whatsapp_messages', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       // Buscar conversa completa
       const messages = db.prepare(`
         SELECT role, content, created_at
-        FROM whatsapp_messages
-        WHERE contact_id = ?
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE contact_id = ?${tenantClause}
         ORDER BY created_at ASC
-      `).all(contactId);
+      `).all(...(tenantColumn ? [contactId, tenantId] : [contactId]));
 
       if (!messages || messages.length === 0) {
         return { success: false, error: 'Nenhuma mensagem encontrada' };
@@ -344,19 +347,21 @@ class ConversationSupervisor {
    * @param {string} since - Data ISO (ex: '2024-01-01')
    * @returns {Object} Resumo das auditorias
    */
-  async auditConversationsSince(since) {
+  async auditConversationsSince(since, tenantId = DEFAULT_TENANT_ID) {
     try {
       log.info('[SUPERVISOR] Auditando conversas desde', { since });
 
       //  FIX: Obter conexão fresh
       const db = getDatabase();
+      const tenantColumn = getTenantColumnForTable('whatsapp_messages', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       // Buscar contatos com mensagens desde a data
       const contacts = db.prepare(`
         SELECT DISTINCT contact_id
-        FROM whatsapp_messages
-        WHERE created_at >= ?
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE created_at >= ?${tenantClause}
         AND contact_id IS NOT NULL
-      `).all(since);
+      `).all(...(tenantColumn ? [since, tenantId] : [since]));
 
       if (!contacts || contacts.length === 0) {
         return { success: true, message: 'Nenhuma conversa encontrada', audited: 0 };
@@ -380,7 +385,7 @@ class ConversationSupervisor {
         const { contact_id } = contacts[i];
 
         try {
-          const audit = await this.auditConversation(contact_id);
+          const audit = await this.auditConversation(contact_id, tenantId);
 
           if (audit.success) {
             results.audited++;
@@ -476,17 +481,19 @@ class ConversationSupervisor {
   /**
    * Busca histórico recente de um contato
    */
-  async getRecentHistory(contactId, limit = 5) {
+  async getRecentHistory(contactId, limit = 5, tenantId = DEFAULT_TENANT_ID) {
     try {
       //  FIX: Obter conexão fresh
       const db = getDatabase();
+      const tenantColumn = getTenantColumnForTable('whatsapp_messages', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
       const messages = db.prepare(`
         SELECT role, content as text
-        FROM whatsapp_messages
-        WHERE contact_id = ?
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE contact_id = ?${tenantClause}
         ORDER BY created_at DESC
         LIMIT ?
-      `).all(contactId, limit);
+      `).all(...(tenantColumn ? [contactId, tenantId, limit] : [contactId, limit]));
 
       return messages.reverse(); // Ordem cronológica
     } catch (error) {

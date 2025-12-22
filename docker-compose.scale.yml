@@ -40,7 +40,7 @@
 
 # Common configuration for leadly services
 x-leadly-common: &leadly-common
-  image: orbion-leadly:${GIT_COMMIT:-local}
+  image: orbion-leadly:${IMAGE_TAG:-local}
   build:
     context: .
     dockerfile: Dockerfile
@@ -48,6 +48,7 @@ x-leadly-common: &leadly-common
       GIT_COMMIT: ${GIT_COMMIT:-unknown}
       GIT_BRANCH: ${GIT_BRANCH:-unknown}
       BUILD_DATE: ${BUILD_DATE:-unknown}
+      IMAGE_TAG: ${IMAGE_TAG:-local}
   restart: always
   depends_on:
     evolution-api:
@@ -65,6 +66,7 @@ x-leadly-common: &leadly-common
 # Common environment variables
 x-leadly-env: &leadly-env
   NODE_ENV: production
+  IMAGE_TAG: ${IMAGE_TAG:-local}
   # OpenAI
   OPENAI_API_KEY: ${OPENAI_API_KEY}
   OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}

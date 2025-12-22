@@ -20,6 +20,7 @@ import { getWebhookTransactionManager } from './WebhookTransactionManager.js';
 import config from '../config/index.js';
 // BILLING: Import EntitlementService for trial/subscription checks
 import { getEntitlementService } from '../services/EntitlementService.js';
+import { incrementInboundMetric } from '../services/InboundPipelineMetrics.js';
 
 // ============================================================
 // CONFIG LOADER - Carrega config dinamica do banco ou defaults
@@ -353,7 +354,8 @@ export class WebhookHandler {
         const cadenceResult = await cadenceService.handleLeadResponse(contactId, {
           channel: 'whatsapp',
           responseType: responseType,
-          content: messageData.text
+          content: messageData.text,
+          tenantId
         });
 
         if (cadenceResult.action === 'cadence_stopped') {
@@ -616,28 +618,36 @@ export const webhookHandler = new WebhookHandler();
 export default webhookHandler;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// P0-3: CANONICAL JOB PROCESSOR - For worker.js async job processing
+// P0-3: CANONICAL JOB PROCESSOR - For async job processing (ROLE=worker)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Process a message job from the async_jobs queue
- * Called by worker.js when processing MESSAGE_PROCESS jobs
+ * Process a message job via the async_jobs queue
+ * Called by the ROLE=worker process when processing MESSAGE_PROCESS jobs
  *
- * @param {Object} jobPayload - The job payload from async_jobs table
- * @param {string} jobPayload.inboundEventId - ID from inbound_events table
+ * @param {Object} jobPayload - The job payload in async_jobs table
+ * @param {string} jobPayload.inboundEventId - ID in inbound_events table
  * @param {string} jobPayload.integrationId - Integration ID
  * @param {string} jobPayload.instanceName - Evolution instance name
  * @param {Object} jobPayload.payload - Original webhook payload
  * @returns {Promise<Object>} Processing result
  */
-export async function processMessageJob(jobPayload) {
+export async function processMessageJob(jobPayload, jobMeta = {}) {
   const { inboundEventId, integrationId, instanceName, payload } = jobPayload;
+  const jobId = jobMeta.jobId;
+  const providerEventId = jobPayload?.providerEventId;
+  const correlationId = jobPayload?.correlationId;
+  const tenantId = jobPayload?.tenantId;
 
   log.info('[CANONICAL] Processing message job', {
     inboundEventId,
     integrationId,
     instanceName,
-    event: payload?.event
+    event: payload?.event,
+    tenantId,
+    provider_event_id: providerEventId,
+    job_id: jobId,
+    correlation_id: correlationId
   });
 
   try {
@@ -646,10 +656,15 @@ export async function processMessageJob(jobPayload) {
       tenantId: jobPayload?.tenantId
     });
 
+    incrementInboundMetric('job_processed_ok');
     log.info('[CANONICAL] Message job completed', {
       inboundEventId,
       status: result.status,
-      from: result.from
+      from: result.from,
+      tenantId,
+      provider_event_id: providerEventId,
+      job_id: jobId,
+      correlation_id: correlationId
     });
 
     return {
@@ -658,10 +673,15 @@ export async function processMessageJob(jobPayload) {
       ...result
     };
   } catch (error) {
+    incrementInboundMetric('job_failed');
     log.error('[CANONICAL] Message job failed', {
       inboundEventId,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      tenantId,
+      provider_event_id: providerEventId,
+      job_id: jobId,
+      correlation_id: correlationId
     });
 
     return {

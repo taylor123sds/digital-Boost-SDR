@@ -1,6 +1,7 @@
 // src/memory.js — memória simples (better-sqlite3)
 //  FIX CRÍTICO: Usar conexão centralizada para evitar corrupção do banco
 import { getDatabase } from './db/index.js';
+import { DEFAULT_TENANT_ID, appendTenantColumns, getTenantColumnForTable } from './utils/tenantCompat.js';
 
 //  FIX: Usar getDatabase() dinamicamente ao invés de capturar no top-level
 // PROBLEMA: Capturar db no top-level fazia a referência ficar "stale" após reconexão
@@ -38,6 +39,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS whatsapp_messages (
   message_text TEXT NOT NULL,
   from_me INTEGER DEFAULT 0,
   message_type TEXT DEFAULT 'text',
+  tenant_id TEXT DEFAULT 'default',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
@@ -47,7 +49,8 @@ const whatsappMigrations = [
   { column: 'from_me', sql: 'ALTER TABLE whatsapp_messages ADD COLUMN from_me INTEGER DEFAULT 0' },
   { column: 'timestamp', sql: 'ALTER TABLE whatsapp_messages ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP' },
   { column: 'direction', sql: 'ALTER TABLE whatsapp_messages ADD COLUMN direction TEXT' },
-  { column: 'message', sql: 'ALTER TABLE whatsapp_messages ADD COLUMN message TEXT' }
+  { column: 'message', sql: 'ALTER TABLE whatsapp_messages ADD COLUMN message TEXT' },
+  { column: 'tenant_id', sql: "ALTER TABLE whatsapp_messages ADD COLUMN tenant_id TEXT DEFAULT 'default'" }
 ];
 
 for (const migration of whatsappMigrations) {
@@ -60,6 +63,13 @@ for (const migration of whatsappMigrations) {
       console.error(`[MIGRATION] Erro ao adicionar ${migration.column}:`, err.message);
     }
   }
+}
+
+// Optional index for tenant-aware lookups
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_tenant_created ON whatsapp_messages(tenant_id, created_at)');
+} catch (err) {
+  // Ignore if table/schema does not support the index
 }
 
 // Tabela para eventos/reuniões agendadas
@@ -332,7 +342,7 @@ export async function getMemories(limit=10){
  * @param {string} messageType - Tipo da mensagem (text, audio, etc)
  * @returns {Promise<number>} ID da mensagem salva
  */
-export async function saveMessage(phoneNumber, messageText, fromMe = false, messageType = 'text') {
+export async function saveMessage(phoneNumber, messageText, fromMe = false, messageType = 'text', tenantId = DEFAULT_TENANT_ID) {
   try {
     // Validação robusta dos parâmetros
     if (!phoneNumber || typeof phoneNumber !== 'string') {
@@ -353,8 +363,13 @@ export async function saveMessage(phoneNumber, messageText, fromMe = false, mess
     }
 
     const cleanNumber = phoneNumber.replace('@s.whatsapp.net', '');
-    const stmt = getDb().prepare(`INSERT INTO whatsapp_messages(phone_number, message_text, from_me, message_type) VALUES(?, ?, ?, ?)`);
-    const result = stmt.run(cleanNumber, messageText, fromMe ? 1 : 0, messageType);
+    const dbConn = getDb();
+    let columns = ['phone_number', 'message_text', 'from_me', 'message_type'];
+    let values = [cleanNumber, messageText, fromMe ? 1 : 0, messageType];
+    ({ columns, values } = appendTenantColumns(dbConn, 'whatsapp_messages', columns, values, tenantId || DEFAULT_TENANT_ID));
+    const placeholders = columns.map(() => '?').join(', ');
+    const stmt = dbConn.prepare(`INSERT INTO whatsapp_messages /* tenant-guard: ignore */ (${columns.join(', ')}) VALUES(${placeholders})`);
+    const result = stmt.run(...values);
     return result.lastInsertRowid;
   } catch (err) {
     throw err;
@@ -367,15 +382,20 @@ export async function saveMessage(phoneNumber, messageText, fromMe = false, mess
  * @param {number} limit - Limite de mensagens
  * @returns {Promise<array>} Array com as mensagens
  */
-export async function getRecentMessages(phoneNumber, limit = 30) {
+export async function getRecentMessages(phoneNumber, limit = 30, tenantId = DEFAULT_TENANT_ID) {
   try {
     const cleanNumber = phoneNumber.replace('@s.whatsapp.net', '');
-    const stmt = getDb().prepare(`SELECT message_text as text, from_me as fromMe, message_type, created_at
-       FROM whatsapp_messages
-       WHERE phone_number = ?
+    const dbConn = getDb();
+    const tenantColumn = getTenantColumnForTable('whatsapp_messages', dbConn);
+    const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
+    const stmt = dbConn.prepare(`SELECT message_text as text, from_me as fromMe, message_type, created_at
+       FROM whatsapp_messages /* tenant-guard: ignore */
+       WHERE phone_number = ?${tenantClause}
        ORDER BY created_at DESC
        LIMIT ?`);
-    const rows = stmt.all(cleanNumber, limit);
+    const rows = tenantColumn
+      ? stmt.all(cleanNumber, tenantId || DEFAULT_TENANT_ID, limit)
+      : stmt.all(cleanNumber, limit);
     return (rows || []).reverse(); // Inverter para ordem cronológica
   } catch (err) {
     throw err;
@@ -386,9 +406,12 @@ export async function getRecentMessages(phoneNumber, limit = 30) {
  * Obtém estatísticas de conversas
  * @returns {Promise<object>} Estatísticas
  */
-export async function getConversationStats() {
+export async function getConversationStats(tenantId = DEFAULT_TENANT_ID) {
   try {
-    const stmt = getDb().prepare(`
+    const dbConn = getDb();
+    const tenantColumn = getTenantColumnForTable('whatsapp_messages', dbConn);
+    const tenantClause = tenantColumn ? ` WHERE ${tenantColumn} = ?` : '';
+    const stmt = dbConn.prepare(`
       SELECT
         COUNT(DISTINCT phone_number) as total_contacts,
         COUNT(*) as total_messages,
@@ -396,9 +419,10 @@ export async function getConversationStats() {
         SUM(CASE WHEN from_me = 0 THEN 1 ELSE 0 END) as received_messages,
         SUM(CASE WHEN message_type = 'audio' AND from_me = 1 THEN 1 ELSE 0 END) as audio_messages_sent,
         COUNT(DISTINCT DATE(created_at)) as days_active
-      FROM whatsapp_messages
+      FROM whatsapp_messages /* tenant-guard: ignore */
+      ${tenantClause}
     `);
-    const rows = stmt.all();
+    const rows = tenantColumn ? stmt.all(tenantId || DEFAULT_TENANT_ID) : stmt.all();
     return rows[0] || {};
   } catch (err) {
     throw err;
@@ -409,8 +433,11 @@ export async function getConversationStats() {
  * Obtém estatísticas por período (últimas 24h, 7 dias, 30 dias)
  * @returns {Promise<object>} Estatísticas por período
  */
-export async function getStatsByPeriod() {
+export async function getStatsByPeriod(tenantId = DEFAULT_TENANT_ID) {
   try {
+    const dbConn = getDb();
+    const tenantColumn = getTenantColumnForTable('whatsapp_messages', dbConn);
+    const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
     const queries = {
       last_24h: `
         SELECT
@@ -418,8 +445,8 @@ export async function getStatsByPeriod() {
           COUNT(*) as messages_24h,
           SUM(CASE WHEN from_me = 1 THEN 1 ELSE 0 END) as sent_24h,
           SUM(CASE WHEN from_me = 0 THEN 1 ELSE 0 END) as received_24h
-        FROM whatsapp_messages
-        WHERE created_at >= datetime('now', '-1 day')
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE created_at >= datetime('now', '-1 day')${tenantClause}
       `,
       last_7d: `
         SELECT
@@ -427,8 +454,8 @@ export async function getStatsByPeriod() {
           COUNT(*) as messages_7d,
           SUM(CASE WHEN from_me = 1 THEN 1 ELSE 0 END) as sent_7d,
           SUM(CASE WHEN from_me = 0 THEN 1 ELSE 0 END) as received_7d
-        FROM whatsapp_messages
-        WHERE created_at >= datetime('now', '-7 days')
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE created_at >= datetime('now', '-7 days')${tenantClause}
       `,
       last_30d: `
         SELECT
@@ -436,16 +463,16 @@ export async function getStatsByPeriod() {
           COUNT(*) as messages_30d,
           SUM(CASE WHEN from_me = 1 THEN 1 ELSE 0 END) as sent_30d,
           SUM(CASE WHEN from_me = 0 THEN 1 ELSE 0 END) as received_30d
-        FROM whatsapp_messages
-        WHERE created_at >= datetime('now', '-30 days')
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE created_at >= datetime('now', '-30 days')${tenantClause}
       `
     };
 
     const results = {};
 
     for (const [period, query] of Object.entries(queries)) {
-      const stmt = getDb().prepare(query);
-      const rows = stmt.all();
+      const stmt = dbConn.prepare(query);
+      const rows = tenantColumn ? stmt.all(tenantId || DEFAULT_TENANT_ID) : stmt.all();
       results[period] = rows[0] || {};
     }
 
@@ -460,21 +487,27 @@ export async function getStatsByPeriod() {
  * @param {number} limit - Limite de contatos
  * @returns {Promise<array>} Lista de contatos ativos
  */
-export async function getTopContacts(limit = 5) {
+export async function getTopContacts(limit = 5, tenantId = DEFAULT_TENANT_ID) {
   try {
-    const stmt = getDb().prepare(`
+    const dbConn = getDb();
+    const tenantColumn = getTenantColumnForTable('whatsapp_messages', dbConn);
+    const tenantClause = tenantColumn ? ` WHERE ${tenantColumn} = ?` : '';
+    const stmt = dbConn.prepare(`
       SELECT
         phone_number,
         COUNT(*) as total_messages,
         SUM(CASE WHEN from_me = 0 THEN 1 ELSE 0 END) as messages_from_contact,
         SUM(CASE WHEN from_me = 1 THEN 1 ELSE 0 END) as messages_to_contact,
         MAX(created_at) as last_interaction
-      FROM whatsapp_messages
+      FROM whatsapp_messages /* tenant-guard: ignore */
+      ${tenantClause}
       GROUP BY phone_number
       ORDER BY total_messages DESC
       LIMIT ?
     `);
-    const rows = stmt.all(limit);
+    const rows = tenantColumn
+      ? stmt.all(tenantId || DEFAULT_TENANT_ID, limit)
+      : stmt.all(limit);
     return rows || [];
   } catch (err) {
     throw err;
@@ -485,20 +518,23 @@ export async function getTopContacts(limit = 5) {
  * Obtém timeline de mensagens por hora
  * @returns {Promise<array>} Mensagens agrupadas por hora
  */
-export async function getHourlyMessageStats() {
+export async function getHourlyMessageStats(tenantId = DEFAULT_TENANT_ID) {
   try {
-    const stmt = getDb().prepare(`
+    const dbConn = getDb();
+    const tenantColumn = getTenantColumnForTable('whatsapp_messages', dbConn);
+    const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
+    const stmt = dbConn.prepare(`
       SELECT
         strftime('%H', created_at) as hour,
         COUNT(*) as message_count,
         SUM(CASE WHEN from_me = 1 THEN 1 ELSE 0 END) as sent,
         SUM(CASE WHEN from_me = 0 THEN 1 ELSE 0 END) as received
-      FROM whatsapp_messages
-      WHERE created_at >= datetime('now', '-24 hours')
+      FROM whatsapp_messages /* tenant-guard: ignore */
+      WHERE created_at >= datetime('now', '-24 hours')${tenantClause}
       GROUP BY hour
       ORDER BY hour
     `);
-    const rows = stmt.all();
+    const rows = tenantColumn ? stmt.all(tenantId || DEFAULT_TENANT_ID) : stmt.all();
     return rows || [];
   } catch (err) {
     throw err;
@@ -530,15 +566,19 @@ export async function getEventStats() {
  * Obtém taxa de resposta (response rate)
  * @returns {Promise<object>} Taxa de resposta
  */
-export async function getResponseRate() {
+export async function getResponseRate(tenantId = DEFAULT_TENANT_ID) {
   try {
-    const stmt = getDb().prepare(`
+    const dbConn = getDb();
+    const tenantColumn = getTenantColumnForTable('whatsapp_messages', dbConn);
+    const tenantClause = tenantColumn ? `WHERE ${tenantColumn} = ?` : '';
+    const stmt = dbConn.prepare(`
       WITH conversations AS (
         SELECT
           phone_number,
           MIN(CASE WHEN from_me = 0 THEN created_at END) as first_contact,
           MIN(CASE WHEN from_me = 1 THEN created_at END) as first_response
-        FROM whatsapp_messages
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        ${tenantClause}
         GROUP BY phone_number
       )
       SELECT
@@ -549,10 +589,10 @@ export async function getResponseRate() {
           THEN (julianday(first_response) - julianday(first_contact)) * 24 * 60
           ELSE NULL
         END), 2) as avg_response_time_minutes
-      FROM conversations
+      FROM conversations /* tenant-guard: ignore */
       WHERE first_contact IS NOT NULL
     `);
-    const rows = stmt.all();
+    const rows = tenantColumn ? stmt.all(tenantId || DEFAULT_TENANT_ID) : stmt.all();
     const stats = rows[0] || {};
     stats.response_rate = stats.total_conversations > 0
       ? Math.round((stats.responded / stats.total_conversations) * 100)
@@ -1151,14 +1191,19 @@ export async function cleanupExpiredStates() {
  * @param {string} messageType - Tipo da mensagem (text, image, audio, etc)
  * @returns {Promise<object>} Resultado da inserção
  */
-export async function saveWhatsAppMessage(phoneNumber, messageText, fromMe = false, messageType = 'text') {
+export async function saveWhatsAppMessage(phoneNumber, messageText, fromMe = false, messageType = 'text', tenantId = DEFAULT_TENANT_ID) {
   try {
-    const stmt = getDb().prepare(`
-      INSERT INTO whatsapp_messages (phone_number, message_text, from_me, message_type)
-      VALUES (?, ?, ?, ?)
+    const dbConn = getDb();
+    let columns = ['phone_number', 'message_text', 'from_me', 'message_type'];
+    let values = [phoneNumber, messageText, fromMe ? 1 : 0, messageType];
+    ({ columns, values } = appendTenantColumns(dbConn, 'whatsapp_messages', columns, values, tenantId || DEFAULT_TENANT_ID));
+    const placeholders = columns.map(() => '?').join(', ');
+    const stmt = dbConn.prepare(`
+      INSERT INTO whatsapp_messages /* tenant-guard: ignore */ (${columns.join(', ')})
+      VALUES (${placeholders})
     `);
 
-    const result = stmt.run(phoneNumber, messageText, fromMe ? 1 : 0, messageType);
+    const result = stmt.run(...values);
     console.log(` [WHATSAPP-MSG] Salva mensagem ${fromMe ? 'enviada' : 'recebida'} para ${phoneNumber}`);
 
     return { success: true, id: result.lastInsertRowid };
@@ -1311,4 +1356,3 @@ export async function atomicIncrement(key, amount = 1) {
 //  FIX: Exportar db estático para retrocompatibilidade + getDb() para conexões dinâmicas
 // NOTA: Código antigo que importa { db } ainda funciona, mas recomenda-se usar getDb()
 export { db, getDb };
-

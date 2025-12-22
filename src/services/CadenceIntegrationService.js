@@ -14,6 +14,8 @@
 import { getCadenceEngine } from '../automation/CadenceEngine.js';
 import { getDatabase } from '../db/index.js';
 import log from '../utils/logger-wrapper.js';
+import { DEFAULT_TENANT_ID } from '../utils/tenantCompat.js';
+import { assertTenantScoped, getTenantColumnOrThrow } from '../utils/tenantGuard.js';
 
 /**
  * Singleton instance
@@ -45,9 +47,10 @@ class CadenceIntegrationService {
 
     try {
       log.info('[CADENCE-INTEGRATION] Processando resposta de lead', { phone });
+      const tenantId = responseData.tenantId || DEFAULT_TENANT_ID;
 
       // 1. Buscar lead pelo telefone
-      const leadId = await this._findLeadIdByPhone(phone);
+      const leadId = await this._findLeadIdByPhone(phone, tenantId);
 
       if (!leadId) {
         log.debug('[CADENCE-INTEGRATION] Lead não encontrado na cadência', { phone });
@@ -107,10 +110,10 @@ class CadenceIntegrationService {
    * @param {string} phone - Telefone do lead
    * @returns {Object} Resultado do registro
    */
-  trackInteraction(phone) {
+  trackInteraction(phone, tenantId = DEFAULT_TENANT_ID) {
     try {
       const cadenceEngine = getCadenceEngine();
-      const result = cadenceEngine.recordInteraction(phone);
+      const result = cadenceEngine.recordInteraction(phone, tenantId);
 
       if (result.success) {
         log.debug('[CADENCE-INTEGRATION] Interação registrada', {
@@ -135,12 +138,14 @@ class CadenceIntegrationService {
    * @param {string} phone - Telefone do lead
    * @returns {Promise<Object>} Contexto do lead
    */
-  async getLeadContext(phone) {
+  async getLeadContext(phone, tenantId = DEFAULT_TENANT_ID) {
     try {
       const db = getDatabase();
+      const leadTenantColumn = getTenantColumnOrThrow(db, 'leads', tenantId, 'cadence getLeadContext leads');
+      const cadenceTenantColumn = getTenantColumnOrThrow(db, 'cadence_enrollments', tenantId, 'cadence getLeadContext enrollments');
 
       // Buscar lead pelo telefone
-      const lead = db.prepare(`
+      const leadQuery = `
         SELECT
           l.*,
           ce.current_day as cadence_day,
@@ -149,12 +154,21 @@ class CadenceIntegrationService {
           ce.responded_at,
           c.name as cadence_name
         FROM leads l
-        LEFT JOIN cadence_enrollments ce ON l.id = ce.lead_id AND ce.status IN ('active', 'responded')
+        LEFT JOIN cadence_enrollments ce ON l.id = ce.lead_id
+          AND ce.status IN ('active', 'responded')
+          AND ce.${cadenceTenantColumn} = l.${leadTenantColumn}
         LEFT JOIN cadences c ON ce.cadence_id = c.id
-        WHERE l.telefone = ? OR l.telefone LIKE ?
+        WHERE (l.telefone = ? OR l.telefone LIKE ?)
+          AND l.${leadTenantColumn} = ?
         ORDER BY l.updated_at DESC
         LIMIT 1
-      `).get(phone, `%${phone.slice(-8)}%`);
+      `;
+      assertTenantScoped(leadQuery, [phone, `%${phone.slice(-8)}%`, tenantId], {
+        tenantId,
+        tenantColumn: leadTenantColumn,
+        operation: 'cadence lead lookup'
+      });
+      const lead = db.prepare(leadQuery).get(phone, `%${phone.slice(-8)}%`, tenantId);
 
       if (!lead) {
         return {
@@ -321,25 +335,38 @@ class CadenceIntegrationService {
    * Busca leadId pelo telefone
    * @private
    */
-  async _findLeadIdByPhone(phone) {
+  async _findLeadIdByPhone(phone, tenantId = DEFAULT_TENANT_ID) {
     try {
       const db = getDatabase();
+      const leadTenantColumn = getTenantColumnOrThrow(db, 'leads', tenantId, 'cadence _findLeadIdByPhone');
 
       // Tentar match exato primeiro
-      let lead = db.prepare(`
+      const exactQuery = `
         SELECT id FROM leads
-        WHERE telefone = ?
+        WHERE telefone = ? AND ${leadTenantColumn} = ?
         LIMIT 1
-      `).get(phone);
+      `;
+      assertTenantScoped(exactQuery, [phone, tenantId], {
+        tenantId,
+        tenantColumn: leadTenantColumn,
+        operation: 'cadence lead lookup (exact)'
+      });
+      let lead = db.prepare(exactQuery).get(phone, tenantId);
 
       // Se não encontrar, tentar match parcial (últimos 8 dígitos)
       if (!lead && phone.length >= 8) {
         const lastDigits = phone.slice(-8);
-        lead = db.prepare(`
+        const partialQuery = `
           SELECT id FROM leads
-          WHERE telefone LIKE ?
+          WHERE telefone LIKE ? AND ${leadTenantColumn} = ?
           LIMIT 1
-        `).get(`%${lastDigits}`);
+        `;
+        assertTenantScoped(partialQuery, [`%${lastDigits}`, tenantId], {
+          tenantId,
+          tenantColumn: leadTenantColumn,
+          operation: 'cadence lead lookup (partial)'
+        });
+        lead = db.prepare(partialQuery).get(`%${lastDigits}`, tenantId);
       }
 
       return lead?.id || null;
@@ -355,8 +382,8 @@ class CadenceIntegrationService {
    * @param {string} phone - Telefone do lead
    * @returns {Promise<boolean>}
    */
-  async isLeadInActiveCadence(phone) {
-    const context = await this.getLeadContext(phone);
+  async isLeadInActiveCadence(phone, tenantId = DEFAULT_TENANT_ID) {
+    const context = await this.getLeadContext(phone, tenantId);
     return context.isInCadence;
   }
 

@@ -10,7 +10,7 @@
 | **Inbound WhatsApp** | `/api/webhooks/inbound/:webhookPublicId` | Multi-tenant, validacao de secret, suporte a multiplos providers |
 | **Migrations** | `src/db/migrations/` + `src/db/migrate.js` | 38 migrations, tracking via `_migrations`, executa no boot |
 | **Deploy** | Sem tag/commit = sem deploy | Imagem versionada por commit SHA, BUILD_INFO.json obrigatorio |
-| **Tenant ID** | `tenant_id` (NOT `team_id`) | Padrao unico, team_id e alias interno |
+| **Tenant ID** | `tenant_id` (NOT `team_id`) | Padrao unico, `team_id` e apenas alias legado |
 
 ## Paths Deprecados (NAO USAR)
 
@@ -20,6 +20,19 @@
 | `/api/webhook/evolution` | `/api/webhooks/inbound/:webhookPublicId` |
 | `src/platform/database/migrations/` | `src/db/migrations/` |
 | `public/dashboard-pro.html` | `apps/web-vite/dist/` servido em `/app` |
+
+## Legacy permitido (TEAM_ID)
+
+`team_id` so pode existir em tabelas legadas e compat layer:
+
+- `users.team_id` (legacy)
+- `user_teams.team_id` (legacy)
+- `billing_events.team_id` (legacy)
+- `usage_metrics.team_id` (legacy)
+- `user_trial_grants.first_team_id` (legacy)
+
+Todo novo codigo deve usar `tenant_id`/`tenantId`. Se precisar ler legado, usar
+`tenantCompat`/`appendTenantColumns` ou `getTenantColumnForTable()`.
 
 ## Regras de Deploy
 

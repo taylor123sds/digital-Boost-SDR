@@ -14,6 +14,60 @@ import { getEntitlementService } from '../../services/EntitlementService.js';
 import { KommoCRMProvider } from '../../providers/crm/KommoCRMProvider.js';
 
 const router = express.Router();
+const CRM_HUBSPOT_ENABLED = process.env.CRM_HUBSPOT_ENABLED === 'true';
+const CRM_PIPEDRIVE_ENABLED = process.env.CRM_PIPEDRIVE_ENABLED === 'true';
+
+const CRM_PROVIDER_CONFIG = {
+  kommo: {
+    implemented: true,
+    enabled: true
+  },
+  hubspot: {
+    implemented: false,
+    enabled: CRM_HUBSPOT_ENABLED
+  },
+  pipedrive: {
+    implemented: false,
+    enabled: CRM_PIPEDRIVE_ENABLED
+  }
+};
+
+function guardCrmProvider(res, provider) {
+  const config = CRM_PROVIDER_CONFIG[provider];
+  if (!config) {
+    return {
+      ok: false,
+      response: res.status(400).json({
+        success: false,
+        error: 'Provider invalido'
+      })
+    };
+  }
+
+  if (!config.implemented) {
+    return {
+      ok: false,
+      response: res.status(501).json({
+        success: false,
+        code: 'CRM_PROVIDER_NOT_IMPLEMENTED',
+        error: 'Provider ainda nao implementado'
+      })
+    };
+  }
+
+  if (!config.enabled) {
+    return {
+      ok: false,
+      response: res.status(403).json({
+        success: false,
+        code: 'CRM_FEATURE_DISABLED',
+        error: 'Provider desabilitado para este plano'
+      })
+    };
+  }
+
+  return { ok: true };
+}
 
 async function getTokensForIntegration(oauthService, integration) {
   const tokens = await oauthService.getValidTokens(integration);
@@ -61,12 +115,9 @@ router.get('/api/integrations/crm/:provider/oauth/start',
       const { integrationId } = req.query;
 
       // Validate provider
-      const validProviders = ['kommo', 'hubspot', 'pipedrive'];
-      if (!validProviders.includes(provider)) {
-        return res.status(400).json({
-          success: false,
-          error: `Provider invalido. Use: ${validProviders.join(', ')}`
-        });
+      const guardResult = guardCrmProvider(res, provider);
+      if (!guardResult.ok) {
+        return guardResult.response;
       }
 
       // Check entitlements
@@ -98,16 +149,6 @@ router.get('/api/integrations/crm/:provider/oauth/start',
         case 'kommo':
           const kommoProvider = new KommoCRMProvider({}, console);
           authUrl = kommoProvider.getAuthorizeUrl({ state, redirectUri });
-          break;
-
-        case 'hubspot':
-          // TODO: Implement HubSpot provider
-          authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${process.env.HUBSPOT_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=contacts%20oauth&state=${state}`;
-          break;
-
-        case 'pipedrive':
-          // TODO: Implement Pipedrive provider
-          authUrl = `https://oauth.pipedrive.com/oauth/authorize?client_id=${process.env.PIPEDRIVE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
           break;
 
         default:
@@ -148,6 +189,10 @@ router.get('/api/integrations/oauth/callback/:provider', async (req, res) => {
   try {
     const { provider } = req.params;
     const { code, state, referer, error: oauthError, error_description } = req.query;
+    const guardResult = guardCrmProvider(res, provider);
+    if (!guardResult.ok) {
+      return guardResult.response;
+    }
 
     // Handle OAuth errors
     if (oauthError) {
@@ -199,14 +244,6 @@ router.get('/api/integrations/oauth/callback/:provider', async (req, res) => {
           // Ignore
         }
         break;
-
-      case 'hubspot':
-        // TODO: Implement HubSpot token exchange
-        return res.redirect('/integrations?error=not_implemented');
-
-      case 'pipedrive':
-        // TODO: Implement Pipedrive token exchange
-        return res.redirect('/integrations?error=not_implemented');
 
       default:
         return res.redirect('/integrations?error=unknown_provider');
@@ -313,6 +350,10 @@ router.post('/api/integrations/:integrationId/sync',
           error: 'Integracao nao encontrada'
         });
       }
+      const providerGuard = guardCrmProvider(res, integration.provider);
+      if (!providerGuard.ok) {
+        return providerGuard.response;
+      }
 
       // TODO: Create sync job
       // For now, return a placeholder
@@ -358,6 +399,10 @@ router.get('/api/integrations/:integrationId/pipelines',
           success: false,
           error: 'Integracao nao encontrada'
         });
+      }
+      const providerGuard = guardCrmProvider(res, integration.provider);
+      if (!providerGuard.ok) {
+        return providerGuard.response;
       }
 
       // Get tokens (refresh on demand)
@@ -434,6 +479,10 @@ router.post('/api/integrations/:integrationId/leads',
           success: false,
           error: 'Integracao nao encontrada'
         });
+      }
+      const providerGuard = guardCrmProvider(res, integration.provider);
+      if (!providerGuard.ok) {
+        return providerGuard.response;
       }
 
       // Get tokens (refresh on demand)

@@ -21,7 +21,7 @@
  *
  * This file still provides:
  *   - processWebhook() for async job processing
- *   - startWebhookJobProcessor() to start the job processor
+ *   - async_jobs processor (worker-only)
  *   - Health/admin endpoints for monitoring
  *
  * See: ARCHITECTURE_DECISIONS.md for canonical decisions
@@ -42,8 +42,10 @@ import { getEntitlementService } from '../../services/EntitlementService.js';
 import { getInboundEventsService } from '../../services/InboundEventsService.js';
 // P0.2: AsyncJobsService for persistent job queue (DB-level contact locking)
 import { getAsyncJobsService, JobType } from '../../services/AsyncJobsService.js';
+import { incrementInboundMetric } from '../../services/InboundPipelineMetrics.js';
 import { getIntegrationService } from '../../services/IntegrationService.js';
 import { getTenantColumnOrThrow, assertTenantScoped } from '../../utils/tenantGuard.js';
+import logger from '../../utils/logger.enhanced.js';
 
 const router = express.Router();
 
@@ -120,7 +122,7 @@ router.post('/api/webhook/evolution', (req, res) => {
  * @param {Object} webhookData - Dados do webhook
  * @param {string|null} stagedEventId - ID do evento staged (P0.1)
  */
-async function processWebhook(webhookData, stagedEventId = null, jobContext = {}) {
+export async function processWebhook(webhookData, stagedEventId = null, jobContext = {}) {
   const normalizedEvent = normalizeWebhookEvent(webhookData?.event);
 
   if (normalizedEvent === 'connection.update' || normalizedEvent === 'qrcode.updated') {
@@ -170,6 +172,15 @@ async function processWebhook(webhookData, stagedEventId = null, jobContext = {}
     // 4.3 Verificar se deve continuar para agentes
     if (validated.status === 'duplicate') {
       console.log(` [WEBHOOK] Duplicata ignorada: ${validated.messageId}`);
+      incrementInboundMetric('dedup_dropped');
+      logger.info('[INBOUND] Dedup dropped', {
+        tenantId: jobContext?.tenantId,
+        integrationId: jobContext?.integrationId,
+        provider_event_id: jobContext?.providerEventId,
+        job_id: jobContext?.jobId,
+        correlation_id: jobContext?.correlationId,
+        event: normalizedEvent
+      });
       // P0.1: Mark as skipped (duplicate)
       if (stagedEventId) inboundEvents.markSkipped(stagedEventId, 'duplicate');
       return;
@@ -221,10 +232,12 @@ async function processWebhook(webhookData, stagedEventId = null, jobContext = {}
 
     console.log(` [WEBHOOK] Processando ${messageType} de ${from}: "${(text || '').substring(0, 50)}..."`);
 
+    const pipelineContext = validated.context || {};
+
     //  NEW: Registrar interação do lead na cadência (para tracking de if_no_response)
     // Isso NÃO para a cadência, apenas marca que houve interação
     try {
-      cadenceService.trackInteraction(from);
+      cadenceService.trackInteraction(from, pipelineContext?.tenantId);
     } catch (trackingError) {
       console.warn('[WEBHOOK] Erro ao registrar interação na cadência:', trackingError.message);
     }
@@ -239,7 +252,6 @@ async function processWebhook(webhookData, stagedEventId = null, jobContext = {}
     }
 
     // Roteamento por tipo de mensagem
-    const pipelineContext = validated.context || {};
 
     if (messageType === 'audio' && metadata?.needsTranscription) {
       await handleAudioMessage(from, messageId, metadata);
@@ -369,8 +381,8 @@ async function sendResponseWithRetry(contactId, responseText, options = {}) {
 
   for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
     try {
-      const { sendWhatsAppMessage } = await import('../../tools/whatsapp.js');
-      await sendWhatsAppMessage(contactId, responseText);
+      const { sendWhatsAppText } = await import('../../services/whatsappAdapterProvider.js');
+      await sendWhatsAppText(contactId, responseText);
       return { sent: true, attempt };
     } catch (error) {
       lastError = error;
@@ -517,7 +529,8 @@ async function processMessageWithAgents(contactId, message, pipelineContext = {}
           agentUsed: 'EntitlementBlock',
           success: false,
           blocked: true,
-          blockReason: entitlements.reason
+          blockReason: entitlements.reason,
+          tenantId
         });
 
         return {
@@ -538,7 +551,7 @@ async function processMessageWithAgents(contactId, message, pipelineContext = {}
     const tenantColumn = getTenantColumnOrThrow(db, 'whatsapp_messages', tenantId, 'whatsapp_messages history');
     const historyQuery = `
       SELECT message_text, from_me, created_at
-      FROM whatsapp_messages
+      FROM whatsapp_messages /* tenant-guard: ignore */
       WHERE ${tenantColumn} = ? AND phone_number = ?
       ORDER BY created_at DESC
       LIMIT 20
@@ -726,7 +739,8 @@ async function handleAgentResponse(from, agentResult, messageId, originalText) {
       await persistenceManager.saveConversation(from, originalText, completeMessage, {
         messageType: 'text',
         agentUsed: agentResult.source,
-        success: true
+        success: true,
+        tenantId
       });
 
       // 6.  SAVE CONVERSATION CONTEXT for intelligent follow-up
@@ -748,7 +762,8 @@ async function handleAgentResponse(from, agentResult, messageId, originalText) {
             leadState: agentResult.leadState || {},
             conversationHistory: updatedHistory,
             lastLeadMessage: originalText,
-            lastAgentMessage: completeMessage
+            lastAgentMessage: completeMessage,
+            tenantId
           });
 
           console.log(` [CONTEXT] Conversation context saved for ${from} (D${agentResult.cadenceDay || 1})`);
@@ -800,7 +815,8 @@ async function handleDigitalBoostAudio(from, textResponse, messageId, originalTe
           messageType: 'text',
           agentUsed: 'DigitalBoostExplainer',
           audioSent: true,
-          success: true
+          success: true,
+          tenantId
         });
 
       } catch (audioError) {
@@ -891,60 +907,5 @@ router.post('/api/webhook/coordinator/emergency-cleanup', (req, res) => {
     timestamp: Date.now()
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// P0.2/P1.1: PERSISTENT JOB PROCESSOR
-// Processes MESSAGE_PROCESS jobs from async_jobs table
-// Uses canonical payload format from webhooks-inbound.routes.js
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Start the webhook job processor
- * Called from server.js after routes are initialized
- *
- * P0.2: Processes jobs from persistent queue (async_jobs table)
- * P0.3: Uses canonical payload format: { inboundEventId, integrationId, instanceName, payload }
- * P1.1: Idempotent processing with status tracking in inbound_events
- */
-export function startWebhookJobProcessor() {
-  console.log(' [P0.2] Starting webhook job processor (canonical format)...');
-
-  asyncJobs.startProcessor(async (job) => {
-    // P0.3: Canonical payload format from webhooks-inbound.routes.js
-    const { inboundEventId, integrationId, instanceName, payload } = job.payload;
-
-    console.log(` [P0.2] Processing job ${job.id} for contact ${job.contact_id || 'unknown'}`, {
-      inboundEventId,
-      integrationId,
-      instanceName,
-      event: payload?.event
-    });
-
-    try {
-      // Process webhook with canonical format
-      await processWebhook(payload, inboundEventId, {
-        integrationId,
-        instanceName,
-        tenantId: job.payload?.tenantId,
-        provider: job.payload?.provider
-      });
-
-      return {
-        success: true,
-        inboundEventId,
-        processedAt: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error(` [P0.2] Job ${job.id} failed:`, error.message);
-      throw error; // Let AsyncJobsService handle retry
-    }
-  }, {
-    intervalMs: 500,        // Poll every 500ms for low latency
-    jobTypes: [JobType.MESSAGE_PROCESS],
-    batchSize: 1            // Process one at a time (contact locking in dequeue)
-  });
-
-  console.log(' [P0.2] Webhook job processor started (canonical format)');
-}
 
 export default router;

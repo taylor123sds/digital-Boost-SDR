@@ -9,10 +9,13 @@ import { getTenantColumnForTable } from '../utils/tenantCompat.js';
 function getUserTeamsColumns(db) {
   const info = db.prepare('PRAGMA table_info(user_teams)').all();
   const hasTenantId = info.some(col => col.name === 'tenant_id');
-  const hasTeamId = info.some(col => col.name === 'team_id');
-  const tenantColumn = getTenantColumnForTable('user_teams', db) || (hasTenantId ? 'tenant_id' : 'team_id');
+  const tenantColumn = getTenantColumnForTable('user_teams', db) || (hasTenantId ? 'tenant_id' : null);
 
-  return { tenantColumn, hasTenantId, hasTeamId };
+  if (!tenantColumn) {
+    throw new Error('Missing tenant_id column on user_teams');
+  }
+
+  return { tenantColumn };
 }
 
 export class Team extends BaseModel {
@@ -85,22 +88,12 @@ export class Team extends BaseModel {
   addMember(teamId, userId, role = 'member') {
     const db = this.getDb();
     try {
-      const { hasTenantId, hasTeamId } = getUserTeamsColumns(db);
-
-      if (hasTenantId && hasTeamId) {
-        const stmt = db.prepare(`
-          INSERT OR REPLACE INTO user_teams (user_id, tenant_id, team_id, role, joined_at)
-          VALUES (?, ?, ?, ?, datetime('now'))
-        `);
-        stmt.run(userId, teamId, teamId, role);
-      } else {
-        const tenantColumn = getTenantColumnForTable('user_teams', db) || 'team_id';
-        const stmt = db.prepare(`
-          INSERT OR REPLACE INTO user_teams (user_id, ${tenantColumn}, role, joined_at)
-          VALUES (?, ?, ?, datetime('now'))
-        `);
-        stmt.run(userId, teamId, role);
-      }
+      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'tenant_id';
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO user_teams (user_id, ${tenantColumn}, role, joined_at)
+        VALUES (?, ?, ?, datetime('now'))
+      `);
+      stmt.run(userId, teamId, role);
       return true;
     } catch (error) {
       throw error;
@@ -113,13 +106,9 @@ export class Team extends BaseModel {
   removeMember(teamId, userId) {
     const db = this.getDb();
     try {
-      const { hasTenantId, hasTeamId } = getUserTeamsColumns(db);
-      const sql = hasTenantId && hasTeamId
-        ? 'DELETE FROM user_teams WHERE (tenant_id = ? OR team_id = ?) AND user_id = ?'
-        : `DELETE FROM user_teams WHERE ${getTenantColumnForTable('user_teams', db) || 'team_id'} = ? AND user_id = ?`;
-      const result = hasTenantId && hasTeamId
-        ? db.prepare(sql).run(teamId, teamId, userId)
-        : db.prepare(sql).run(teamId, userId);
+      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'tenant_id';
+      const sql = `DELETE FROM user_teams WHERE ${tenantColumn} = ? AND user_id = ?`;
+      const result = db.prepare(sql).run(teamId, userId);
       return result.changes > 0;
     } catch (error) {
       throw error;
@@ -132,13 +121,9 @@ export class Team extends BaseModel {
   updateMemberRole(teamId, userId, newRole) {
     const db = this.getDb();
     try {
-      const { hasTenantId, hasTeamId } = getUserTeamsColumns(db);
-      const sql = hasTenantId && hasTeamId
-        ? 'UPDATE user_teams SET role = ? WHERE (tenant_id = ? OR team_id = ?) AND user_id = ?'
-        : `UPDATE user_teams SET role = ? WHERE ${getTenantColumnForTable('user_teams', db) || 'team_id'} = ? AND user_id = ?`;
-      const result = hasTenantId && hasTeamId
-        ? db.prepare(sql).run(newRole, teamId, teamId, userId)
-        : db.prepare(sql).run(newRole, teamId, userId);
+      const tenantColumn = getTenantColumnForTable('user_teams', db) || 'tenant_id';
+      const sql = `UPDATE user_teams SET role = ? WHERE ${tenantColumn} = ? AND user_id = ?`;
+      const result = db.prepare(sql).run(newRole, teamId, userId);
       return result.changes > 0;
     } catch (error) {
       throw error;

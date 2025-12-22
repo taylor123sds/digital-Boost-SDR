@@ -300,6 +300,7 @@ export async function getStats() {
 }
 
 // ==================== EXPRESS MIDDLEWARE ====================
+// STACK_DEPRECATED_OK: legacy route stack (read-only)
 
 /**
  * Middleware Express para injetar componentes escaláveis

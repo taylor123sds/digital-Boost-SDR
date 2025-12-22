@@ -17,6 +17,7 @@ import { getDatabase } from '../db/index.js';
 import { sendConviteEmail } from '../services/EmailService.js';
 import { normalizePhone } from '../utils/phone_normalizer.js';
 import log from '../utils/logger-wrapper.js';
+import { DEFAULT_TENANT_ID, appendTenantColumns, getTenantColumnForTable } from '../utils/tenantCompat.js';
 
 /**
  * Estados do Engine
@@ -76,6 +77,7 @@ class EmailOptInEngine {
     this.state = EngineState.STOPPED;
     this.timerId = null;
     this.schedulerId = null;
+    this.tenantId = DEFAULT_TENANT_ID;
 
     // Fila de processamento
     this.queue = [];
@@ -145,6 +147,7 @@ class EmailOptInEngine {
           whatsapp_eligible_at TEXT,
           error_message TEXT,
           fonte TEXT DEFAULT 'instagram',
+          tenant_id TEXT DEFAULT 'default',
           created_at TEXT DEFAULT (datetime('now')),
           updated_at TEXT DEFAULT (datetime('now')),
           UNIQUE(email)
@@ -153,7 +156,17 @@ class EmailOptInEngine {
         CREATE INDEX IF NOT EXISTS idx_email_optins_status ON email_optins(status);
         CREATE INDEX IF NOT EXISTS idx_email_optins_email ON email_optins(email);
         CREATE INDEX IF NOT EXISTS idx_email_optins_telefone ON email_optins(telefone);
+        CREATE INDEX IF NOT EXISTS idx_email_optins_tenant ON email_optins(tenant_id);
       `);
+
+      // Ensure tenant_id exists on legacy tables
+      try {
+        db.exec("ALTER TABLE email_optins ADD COLUMN tenant_id TEXT DEFAULT 'default'");
+      } catch (err) {
+        if (!err.message.includes('duplicate column')) {
+          log.warn('[EMAIL-OPTIN] Erro ao adicionar tenant_id em email_optins:', err.message);
+        }
+      }
 
       // NOTA: Tabela prospect_leads ja existe com schema diferente
       // Colunas: whatsapp, origem, erro_ultima_tentativa (nao: telefone, fonte, erro)
@@ -243,6 +256,9 @@ class EmailOptInEngine {
     if (options.config) {
       this.config = { ...this.config, ...options.config };
     }
+    if (options.tenantId) {
+      this.tenantId = options.tenantId;
+    }
 
     // Reset metricas
     this.metrics = {
@@ -330,25 +346,37 @@ class EmailOptInEngine {
   async _loadQueue() {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const tenantColumnProspects = getTenantColumnForTable('prospect_leads', db);
+      const tenantColumnOptins = getTenantColumnForTable('email_optins', db);
 
       // Buscar leads da prospect_leads que:
       // 1. Tem email valido
       // 2. Status = 'pendente'
       // 3. Nao tem registro em email_optins ainda
       // Nota: tabela prospect_leads usa 'whatsapp' como campo principal de telefone
+      const prospectTenantClause = tenantColumnProspects ? ` AND p.${tenantColumnProspects} = ?` : '';
+      const optinTenantClause = tenantColumnOptins ? ` AND e.${tenantColumnOptins} = ?` : '';
+      const params = [];
+      if (tenantColumnProspects) params.push(tenantId);
+      if (tenantColumnOptins) params.push(tenantId);
+      params.push(this.config.maxPerDay || 200);
+
       const prospects = db.prepare(`
         SELECT p.*, p.whatsapp as telefone, p.origem as fonte
-        FROM prospect_leads p
+        FROM prospect_leads /* tenant-guard: ignore */ p
         WHERE p.status = 'pendente'
           AND p.email IS NOT NULL
           AND p.email != ''
+          ${prospectTenantClause}
           AND NOT EXISTS (
-            SELECT 1 FROM email_optins e
+            SELECT 1 FROM email_optins /* tenant-guard: ignore */ e
             WHERE e.email = p.email
+            ${optinTenantClause}
           )
         ORDER BY p.prioridade DESC, p.created_at ASC
         LIMIT ?
-      `).all(this.config.maxPerDay || 200);
+      `).all(...params);
 
       log.info(`[EMAIL-OPTIN] ${prospects.length} prospects com email encontrados`);
 
@@ -529,17 +557,24 @@ class EmailOptInEngine {
   _logOptIn(email, telefone, nome, empresa, status, messageId, error = null) {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+
+      const sentAt = new Date().toISOString();
+      let columns = ['email', 'telefone', 'nome', 'empresa', 'status', 'message_id', 'sent_at', 'error_message'];
+      let values = [email, telefone, nome, empresa, status, messageId, sentAt, error];
+      ({ columns, values } = appendTenantColumns(db, 'email_optins', columns, values, tenantId));
+      const placeholders = columns.map(() => '?').join(', ');
 
       db.prepare(`
-        INSERT INTO email_optins (email, telefone, nome, empresa, status, message_id, sent_at, error_message)
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
+        INSERT INTO email_optins /* tenant-guard: ignore */ (${columns.join(', ')})
+        VALUES (${placeholders})
         ON CONFLICT(email) DO UPDATE SET
           status = excluded.status,
           message_id = excluded.message_id,
           sent_at = excluded.sent_at,
           error_message = excluded.error_message,
           updated_at = datetime('now')
-      `).run(email, telefone, nome, empresa, status, messageId, error);
+      `).run(...values);
 
     } catch (e) {
       log.error('[EMAIL-OPTIN] Erro ao registrar opt-in', e);
@@ -549,13 +584,16 @@ class EmailOptInEngine {
   _updateProspectStatus(prospectId, status, erro = null) {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const tenantColumn = getTenantColumnForTable('prospect_leads', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
 
       // Nota: tabela prospect_leads usa 'erro_ultima_tentativa' em vez de 'erro'
       db.prepare(`
-        UPDATE prospect_leads
+        UPDATE prospect_leads /* tenant-guard: ignore */
         SET status = ?, erro_ultima_tentativa = ?, processado_at = datetime('now'), updated_at = datetime('now')
-        WHERE id = ?
-      `).run(status, erro, prospectId);
+        WHERE id = ?${tenantClause}
+      `).run(...(tenantColumn ? [status, erro, prospectId, tenantId] : [status, erro, prospectId]));
 
     } catch (e) {
       log.error('[EMAIL-OPTIN] Erro ao atualizar prospect', e);
@@ -565,29 +603,39 @@ class EmailOptInEngine {
   _createOrUpdateLead(telefone, email, nome, empresa) {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const tenantColumn = getTenantColumnForTable('leads', db);
+      const tenantClause = tenantColumn ? ` AND ${tenantColumn} = ?` : '';
 
       // Verificar se lead ja existe
-      const existing = db.prepare('SELECT id FROM leads WHERE telefone = ?').get(telefone);
+      const existing = db.prepare(`SELECT id FROM leads /* tenant-guard: ignore */ WHERE telefone = ?${tenantClause}`)
+        .get(...(tenantColumn ? [telefone, tenantId] : [telefone]));
 
       if (existing) {
         // Atualizar campos de opt-in
         db.prepare(`
-          UPDATE leads
+          UPDATE leads /* tenant-guard: ignore */
           SET email = ?,
               email_optin_status = 'sent',
               email_optin_sent_at = datetime('now'),
               whatsapp_eligible = 0,
               updated_at = datetime('now')
-          WHERE telefone = ?
-        `).run(email, telefone);
+          WHERE telefone = ?${tenantClause}
+        `).run(...(tenantColumn ? [email, telefone, tenantId] : [email, telefone]));
 
         log.info(`[EMAIL-OPTIN] Lead ${telefone} atualizado com email opt-in`);
       } else {
         // Criar novo lead
+        const sentAt = new Date().toISOString();
+        let columns = ['telefone', 'email', 'nome', 'empresa', 'fonte', 'stage_id', 'cadence_status', 'email_optin_status', 'email_optin_sent_at', 'whatsapp_eligible'];
+        let values = [telefone, email, nome || empresa, empresa, 'instagram', 'stage_email_optin', 'not_started', 'sent', sentAt, 0];
+        ({ columns, values } = appendTenantColumns(db, 'leads', columns, values, tenantId));
+        const placeholders = columns.map(() => '?').join(', ');
+
         db.prepare(`
-          INSERT INTO leads (telefone, email, nome, empresa, fonte, stage_id, cadence_status, email_optin_status, email_optin_sent_at, whatsapp_eligible)
-          VALUES (?, ?, ?, ?, 'instagram', 'stage_email_optin', 'not_started', 'sent', datetime('now'), 0)
-        `).run(telefone, email, nome || empresa, empresa);
+          INSERT INTO leads /* tenant-guard: ignore */ (${columns.join(', ')})
+          VALUES (${placeholders})
+        `).run(...values);
 
         log.info(`[EMAIL-OPTIN] Lead ${telefone} criado com email opt-in`);
       }
@@ -604,6 +652,11 @@ class EmailOptInEngine {
   _updateWhatsAppEligibility() {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const leadsTenantColumn = getTenantColumnForTable('leads', db);
+      const leadsTenantClause = leadsTenantColumn ? ` AND ${leadsTenantColumn} = ?` : '';
+      const optinsTenantColumn = getTenantColumnForTable('email_optins', db);
+      const optinsTenantClause = optinsTenantColumn ? ` AND ${optinsTenantColumn} = ?` : '';
       const delayHours = this.config.whatsappEligibilityDelayHours || 24;
 
       // Atualizar leads que:
@@ -611,7 +664,7 @@ class EmailOptInEngine {
       // 2. Email foi enviado ha mais de X horas
       // 3. Ainda nao estao elegiveis
       const result = db.prepare(`
-        UPDATE leads
+        UPDATE leads /* tenant-guard: ignore */
         SET whatsapp_eligible = 1,
             stage_id = 'stage_lead_novo',
             updated_at = datetime('now')
@@ -619,20 +672,22 @@ class EmailOptInEngine {
           AND email_optin_sent_at IS NOT NULL
           AND whatsapp_eligible = 0
           AND datetime(email_optin_sent_at, '+${delayHours} hours') <= datetime('now')
-      `).run();
+          ${leadsTenantClause}
+      `).run(...(leadsTenantColumn ? [tenantId] : []));
 
       if (result.changes > 0) {
         log.info(`[EMAIL-OPTIN] ${result.changes} leads ficaram elegiveis para WhatsApp`);
 
         // Atualizar email_optins tambem
         db.prepare(`
-          UPDATE email_optins
+          UPDATE email_optins /* tenant-guard: ignore */
           SET whatsapp_eligible_at = datetime('now'),
               updated_at = datetime('now')
           WHERE status = 'sent'
             AND whatsapp_eligible_at IS NULL
             AND datetime(sent_at, '+${delayHours} hours') <= datetime('now')
-        `).run();
+            ${optinsTenantClause}
+        `).run(...(optinsTenantColumn ? [tenantId] : []));
       }
 
     } catch (e) {
@@ -703,24 +758,34 @@ class EmailOptInEngine {
   getStats() {
     try {
       const db = getDatabase();
+      const tenantId = this.tenantId || DEFAULT_TENANT_ID;
+      const optinsTenantColumn = getTenantColumnForTable('email_optins', db);
+      const optinsWhere = optinsTenantColumn ? ` WHERE ${optinsTenantColumn} = ?` : '';
+      const leadsTenantColumn = getTenantColumnForTable('leads', db);
+      const leadsWhere = leadsTenantColumn ? ` WHERE ${leadsTenantColumn} = ?` : '';
+      const prospectTenantColumn = getTenantColumnForTable('prospect_leads', db);
+      const prospectWhere = prospectTenantColumn ? ` WHERE ${prospectTenantColumn} = ?` : '';
+      const optinsParams = optinsTenantColumn ? [tenantId] : [];
+      const leadsParams = leadsTenantColumn ? [tenantId] : [];
+      const prospectParams = prospectTenantColumn ? [tenantId] : [];
 
       return {
         email_optins: {
-          total: db.prepare('SELECT COUNT(*) as c FROM email_optins').get().c,
-          sent: db.prepare("SELECT COUNT(*) as c FROM email_optins WHERE status = 'sent'").get().c,
-          failed: db.prepare("SELECT COUNT(*) as c FROM email_optins WHERE status = 'failed'").get().c,
-          pending: db.prepare("SELECT COUNT(*) as c FROM email_optins WHERE status = 'pending'").get().c
+          total: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}`).get(...optinsParams).c,
+          sent: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}${optinsWhere ? " AND" : " WHERE"} status = 'sent'`).get(...optinsParams).c,
+          failed: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}${optinsWhere ? " AND" : " WHERE"} status = 'failed'`).get(...optinsParams).c,
+          pending: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}${optinsWhere ? " AND" : " WHERE"} status = 'pending'`).get(...optinsParams).c
         },
         prospect_leads: {
-          total: db.prepare('SELECT COUNT(*) as c FROM prospect_leads').get().c,
-          pendente: db.prepare("SELECT COUNT(*) as c FROM prospect_leads WHERE status = 'pendente'").get().c,
-          email_enviado: db.prepare("SELECT COUNT(*) as c FROM prospect_leads WHERE status = 'email_enviado'").get().c,
-          whatsapp_enviado: db.prepare("SELECT COUNT(*) as c FROM prospect_leads WHERE status = 'whatsapp_enviado'").get().c
+          total: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}`).get(...prospectParams).c,
+          pendente: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}${prospectWhere ? " AND" : " WHERE"} status = 'pendente'`).get(...prospectParams).c,
+          email_enviado: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}${prospectWhere ? " AND" : " WHERE"} status = 'email_enviado'`).get(...prospectParams).c,
+          whatsapp_enviado: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}${prospectWhere ? " AND" : " WHERE"} status = 'whatsapp_enviado'`).get(...prospectParams).c
         },
         leads: {
-          total: db.prepare('SELECT COUNT(*) as c FROM leads').get().c,
-          whatsapp_eligible: db.prepare('SELECT COUNT(*) as c FROM leads WHERE whatsapp_eligible = 1').get().c,
-          optin_sent: db.prepare("SELECT COUNT(*) as c FROM leads WHERE email_optin_status = 'sent'").get().c
+          total: db.prepare(`SELECT COUNT(*) as c FROM leads /* tenant-guard: ignore */${leadsWhere}`).get(...leadsParams).c,
+          whatsapp_eligible: db.prepare(`SELECT COUNT(*) as c FROM leads /* tenant-guard: ignore */${leadsWhere}${leadsWhere ? " AND" : " WHERE"} whatsapp_eligible = 1`).get(...leadsParams).c,
+          optin_sent: db.prepare(`SELECT COUNT(*) as c FROM leads /* tenant-guard: ignore */${leadsWhere}${leadsWhere ? " AND" : " WHERE"} email_optin_status = 'sent'`).get(...leadsParams).c
         }
       };
 
@@ -733,7 +798,10 @@ class EmailOptInEngine {
   /**
    * Importar leads de uma fonte externa (ex: instagram-automation)
    */
-  async importLeads(leads) {
+  async importLeads(leads, tenantId = null) {
+    if (tenantId) {
+      this.tenantId = tenantId;
+    }
     const db = getDatabase();
     let imported = 0;
     let skipped = 0;
@@ -748,23 +816,29 @@ class EmailOptInEngine {
         }
 
         // Nota: tabela prospect_leads usa 'whatsapp', 'origem' e 'telefone_normalizado'
-        db.prepare(`
-          INSERT INTO prospect_leads (whatsapp, telefone_normalizado, email, nome, empresa, cidade, origem, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'pendente')
-          ON CONFLICT(telefone_normalizado) DO UPDATE SET
-            email = COALESCE(excluded.email, prospect_leads.email),
-            nome = COALESCE(excluded.nome, prospect_leads.nome),
-            empresa = COALESCE(excluded.empresa, prospect_leads.empresa),
-            updated_at = datetime('now')
-        `).run(
+        let columns = ['whatsapp', 'telefone_normalizado', 'email', 'nome', 'empresa', 'cidade', 'origem', 'status'];
+        let values = [
           lead.telefone || lead.phone || lead.whatsapp,
           telefoneNormalizado,
           lead.email?.toLowerCase().trim(),
           lead.nome || lead.name,
           lead.empresa || lead.company,
           lead.cidade || lead.city,
-          lead.fonte || lead.origem || 'instagram'
-        );
+          lead.fonte || lead.origem || 'instagram',
+          'pendente'
+        ];
+        ({ columns, values } = appendTenantColumns(db, 'prospect_leads', columns, values, this.tenantId || DEFAULT_TENANT_ID));
+        const placeholders = columns.map(() => '?').join(', ');
+
+        db.prepare(`
+          INSERT INTO prospect_leads /* tenant-guard: ignore */ (${columns.join(', ')})
+          VALUES (${placeholders})
+          ON CONFLICT(telefone_normalizado) DO UPDATE SET
+            email = COALESCE(excluded.email, prospect_leads.email),
+            nome = COALESCE(excluded.nome, prospect_leads.nome),
+            empresa = COALESCE(excluded.empresa, prospect_leads.empresa),
+            updated_at = datetime('now')
+        `).run(...values);
 
         imported++;
       } catch (e) {

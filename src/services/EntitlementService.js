@@ -486,25 +486,24 @@ export class EntitlementService {
    * Record that user consumed their trial
    * @param {string} userId - User ID
    * @param {string} email - User email
-   * @param {string} teamId - Team ID that got the trial
+   * @param {string} tenantId - Tenant ID that got the trial
    * @param {Object} metadata - Additional metadata (ip, user_agent)
    */
-  recordTrialConsumption(userId, email, teamId, metadata = {}) {
+  recordTrialConsumption(userId, email, tenantId, metadata = {}) {
     const db = this.getDb();
     const normalizedEmail = this.normalizeEmail(email);
 
     const trialId = `utg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const baseColumns = ['id', 'user_id', 'email', 'normalized_email', 'first_team_id', 'ip_address', 'user_agent'];
+    const baseColumns = ['id', 'user_id', 'email', 'normalized_email', 'ip_address', 'user_agent'];
     const baseValues = [
       trialId,
       userId,
       email,
       normalizedEmail,
-      teamId,
       metadata.ipAddress || null,
       metadata.userAgent || null
     ];
-    const { columns, values } = appendTenantColumns(db, 'user_trial_grants', baseColumns, baseValues, teamId);
+    const { columns, values } = appendTenantColumns(db, 'user_trial_grants', baseColumns, baseValues, tenantId);
     const placeholders = columns.map(() => '?').join(', ');
 
     db.prepare(`
@@ -516,7 +515,7 @@ export class EntitlementService {
       userId,
       email,
       normalizedEmail,
-      teamId,
+      tenantId,
       ip: metadata.ipAddress
     });
   }

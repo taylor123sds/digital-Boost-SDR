@@ -350,10 +350,10 @@ async function alertSheetsFailure(error, failureCount) {
   //  Send WhatsApp notification if configured
   if (process.env.ALERT_WHATSAPP_NUMBER) {
     try {
-      const { sendWhatsAppMessage } = await import('../tools/whatsapp.js');
+      const { sendWhatsAppText } = await import('../services/whatsappAdapterProvider.js');
       const alertMessage = ` *ALERTA CRÍTICO*\n\nGoogle Sheets Sync falhou ${failureCount}x consecutivas.\n\nErro: ${error.message}\n\nAção: Verifique credenciais e quota da API.`;
 
-      await sendWhatsAppMessage(process.env.ALERT_WHATSAPP_NUMBER, alertMessage);
+      await sendWhatsAppText(process.env.ALERT_WHATSAPP_NUMBER, alertMessage);
       console.log(' [SHEETS-MANAGER] WhatsApp alert sent');
     } catch (waError) {
       console.error(' [SHEETS-MANAGER] Failed to send WhatsApp alert:', waError.message);

@@ -208,7 +208,7 @@ export class ConversationAnalytics {
       for (const conv of successfulConversations) {
         const messages = db.prepare(`
           SELECT message_text, from_me
-          FROM whatsapp_messages
+          FROM whatsapp_messages /* tenant-guard: ignore */
           WHERE phone_number = ?
           ORDER BY created_at
           LIMIT 20

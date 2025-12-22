@@ -196,6 +196,9 @@ router.post('/api/auth/register', registrationRateLimit, sanitizeRegistrationInp
     // Create user (new users are 'manager' role by default for self-registration)
     // ═══════════════════════════════════════════════════════════════════════
 
+    const { tenant_id, tenantId } = req.body;
+    const resolvedTenantId = tenant_id || tenantId || null;
+
     const result = await authService.register({
       email: email.toLowerCase().trim(),
       password,
@@ -203,6 +206,7 @@ router.post('/api/auth/register', registrationRateLimit, sanitizeRegistrationInp
       role: 'manager', // Self-registered users are managers of their own account
       company: company.trim(),
       sector: sector || 'outro',
+      tenantId: resolvedTenantId,
       ipAddress: req.ip || req.connection?.remoteAddress,
       userAgent: req.headers['user-agent']
     });
@@ -250,7 +254,8 @@ router.post('/api/auth/create-user', authenticate, async (req, res) => {
       });
     }
 
-    const { email, password, name, role, teamId } = req.body;
+    const { email, password, name, role, tenant_id, tenantId } = req.body;
+    const resolvedTenantId = tenant_id || tenantId || null;
 
     // Validation
     if (!email || !password || !name) {
@@ -272,7 +277,7 @@ router.post('/api/auth/create-user', authenticate, async (req, res) => {
       password,
       name,
       role: role || 'sdr',
-      teamId
+      tenantId: resolvedTenantId
     });
 
     res.status(201).json({
@@ -395,9 +400,9 @@ router.get('/api/auth/me', authenticate, (req, res) => {
 
     // Get entitlements for user's team
     // P0-5: Use req.tenantId (set by auth middleware) for consistency
-    // Fallback order: req.tenantId > user.tenant_id > user.team_id (legacy) > first team
+    // Fallback order: req.tenantId > user.tenant_id > first team
     let entitlements = null;
-    const tenantId = req.tenantId || user.tenant_id || user.team_id || user.teams?.[0]?.id;
+    const tenantId = req.tenantId || user.tenant_id || user.teams?.[0]?.id;
 
     if (tenantId && tenantId !== 'default') {
       const entitlementService = getEntitlementService();

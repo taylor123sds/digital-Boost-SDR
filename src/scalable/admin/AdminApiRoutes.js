@@ -1,6 +1,7 @@
 /**
  * @file AdminApiRoutes.js
  * @description API Routes para painel administrativo SaaS
+ * STACK_DEPRECATED_OK: legacy route stack (read-only)
  *
  * Endpoints para gerenciamento centralizado de todos os tenants/agentes
  */

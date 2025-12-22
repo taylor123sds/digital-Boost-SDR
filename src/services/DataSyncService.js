@@ -382,10 +382,10 @@ class DataSyncService {
       for (const action of failedActions) {
         try {
           // Importar função de envio
-          const { sendWhatsAppMessage } = await import('../tools/whatsapp.js');
+          const { sendWhatsAppText } = await import('./whatsappAdapterProvider.js');
 
           // Tentar reenviar
-          const result = await sendWhatsAppMessage(action.telefone, action.content_sent);
+          const result = await sendWhatsAppText(action.telefone, action.content_sent);
 
           if (result && !result.error) {
             // Sucesso - atualizar status

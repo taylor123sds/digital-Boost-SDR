@@ -1,0 +1,452 @@
+# DB schema (from migrations)
+
+## Tables created (by migration)
+- src/db/migrations/001_create_accounts.sql:5 => accounts
+- src/db/migrations/002_create_contacts.sql:5 => contacts
+- src/db/migrations/003_create_leads.sql:5 => leads
+- src/db/migrations/003_prospect_leads.js:23 => prospect_leads
+- src/db/migrations/003_prospect_leads.js:92 => prospect_history
+- src/db/migrations/004_create_opportunities.sql:5 => opportunities
+- src/db/migrations/004_pattern_applier.js:101 => pattern_usage_log
+- src/db/migrations/004_pattern_applier.js:119 => real_time_adaptations
+- src/db/migrations/005_create_activities.sql:5 => activities
+- src/db/migrations/005_delivery_tracking.sql:5 => cadence_actions_log
+- src/db/migrations/006_create_messages.sql:6 => crm_messages
+- src/db/migrations/007_add_last_response_at.sql:5 => cadence_enrollments
+- src/db/migrations/007_create_meetings.sql:5 => meetings
+- src/db/migrations/008_create_products.sql:5 => products
+- src/db/migrations/008_create_products.sql:75 => opportunity_products
+- src/db/migrations/009_create_custom_fields.sql:5 => custom_field_definitions
+- src/db/migrations/010_create_workflows.sql:6 => workflows
+- src/db/migrations/010_create_workflows.sql:44 => workflow_actions
+- src/db/migrations/010_create_workflows.sql:82 => workflow_executions
+- src/db/migrations/011_create_meeting_analysis_tables.sql:10 => meeting_transcriptions
+- src/db/migrations/011_create_meeting_analysis_tables.sql:64 => meeting_analysis
+- src/db/migrations/011_create_meeting_analysis_tables.sql:122 => meeting_scores
+- src/db/migrations/011_create_meeting_analysis_tables.sql:188 => meeting_insights
+- src/db/migrations/012_create_automations.sql:6 => automations
+- src/db/migrations/012_create_automations.sql:39 => automation_executions
+- src/db/migrations/013_create_users.sql:5 => users
+- src/db/migrations/014_create_teams.sql:5 => teams
+- src/db/migrations/014_create_teams.sql:20 => user_teams
+- src/db/migrations/015_create_notifications.sql:5 => notifications
+- src/db/migrations/015_create_notifications.sql:28 => notification_preferences
+- src/db/migrations/016_create_scoring_rules.sql:6 => scoring_rules
+- src/db/migrations/016_create_scoring_rules.sql:29 => lead_scores
+- src/db/migrations/016_create_scoring_rules.sql:47 => score_history
+- src/db/migrations/017_extend_activities.sql:17 => activities
+- src/db/migrations/018_create_sessions.sql:5 => sessions
+- src/db/migrations/018_create_sessions.sql:22 => auth_audit_log
+- src/db/migrations/018_create_sessions.sql:40 => password_reset_tokens
+- src/db/migrations/019_create_pipeline_stages.sql:5 => pipelines
+- src/db/migrations/019_create_pipeline_stages.sql:17 => pipeline_stages
+- src/db/migrations/019_create_pipeline_stages.sql:48 => loss_reasons
+- src/db/migrations/019_create_pipeline_stages.sql:59 => pipeline_history
+- src/db/migrations/020_extend_leads_cadence.sql:66 => cadences
+- src/db/migrations/020_extend_leads_cadence.sql:92 => cadence_steps
+- src/db/migrations/020_extend_leads_cadence.sql:129 => cadence_enrollments
+- src/db/migrations/020_extend_leads_cadence.sql:171 => cadence_actions_log
+- src/db/migrations/021_insert_cadence_steps.sql:325 => response_templates
+- src/db/migrations/025_multi_tenancy.sql:44 => agents
+- src/db/migrations/025_multi_tenancy.sql:72 => agent_versions
+- src/db/migrations/025_multi_tenancy.sql:93 => integrations
+- src/db/migrations/025_multi_tenancy.sql:121 => integration_bindings
+- src/db/migrations/025_multi_tenancy_simple.sql:30 => integrations
+- src/db/migrations/028_trial_billing.sql:42 => user_trial_grants
+- src/db/migrations/028_trial_billing.sql:61 => subscription_plans
+- src/db/migrations/028_trial_billing.sql:92 => billing_events
+- src/db/migrations/028_trial_billing.sql:119 => usage_metrics
+- src/db/migrations/030_crm_integration.sql:12 => oauth_states
+- src/db/migrations/030_crm_integration.sql:36 => crm_sync_cursors
+- src/db/migrations/030_crm_integration.sql:60 => crm_mappings
+- src/db/migrations/030_crm_integration.sql:87 => crm_sync_jobs
+- src/db/migrations/030_crm_integration.sql:118 => crm_field_mappings
+- src/db/migrations/031_inbound_events.sql:21 => inbound_events
+- src/db/migrations/032_async_jobs.sql:22 => async_jobs
+- src/db/migrations/035_conversation_contexts.sql:14 => conversation_contexts
+- src/db/migrations/036_agent_versions_immutability.sql:22 => agent_versions
+- src/db/migrations/043_fix_missing_critical_tables.sql:12 => sessions
+- src/db/migrations/043_fix_missing_critical_tables.sql:38 => auth_audit_log
+- src/db/migrations/043_fix_missing_critical_tables.sql:63 => password_reset_tokens
+- src/db/migrations/043_fix_missing_critical_tables.sql:80 => agents
+- src/db/migrations/043_fix_missing_critical_tables.sql:108 => agent_versions
+- src/db/migrations/043_fix_missing_critical_tables.sql:129 => integrations
+- src/db/migrations/043_fix_missing_critical_tables.sql:157 => integration_bindings
+
+## tenant_id references in migrations
+- src/db/migrations/025_multi_tenancy.sql:4 => -- Adds tenant_id column to main tables for data isolation
+- src/db/migrations/025_multi_tenancy.sql:9 => -- STEP 1: Add tenant_id to existing tables
+- src/db/migrations/025_multi_tenancy.sql:12 => -- Add tenant_id to leads table
+- src/db/migrations/025_multi_tenancy.sql:13 => ALTER TABLE leads ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:14 => CREATE INDEX IF NOT EXISTS idx_leads_tenant_id ON leads(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:16 => -- Add tenant_id to accounts table
+- src/db/migrations/025_multi_tenancy.sql:17 => ALTER TABLE accounts ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:18 => CREATE INDEX IF NOT EXISTS idx_accounts_tenant_id ON accounts(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:20 => -- Add tenant_id to contacts table
+- src/db/migrations/025_multi_tenancy.sql:21 => ALTER TABLE contacts ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:22 => CREATE INDEX IF NOT EXISTS idx_contacts_tenant_id ON contacts(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:24 => -- Add tenant_id to opportunities table
+- src/db/migrations/025_multi_tenancy.sql:25 => ALTER TABLE opportunities ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:26 => CREATE INDEX IF NOT EXISTS idx_opportunities_tenant_id ON opportunities(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:28 => -- Add tenant_id to activities table
+- src/db/migrations/025_multi_tenancy.sql:29 => ALTER TABLE activities ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:30 => CREATE INDEX IF NOT EXISTS idx_activities_tenant_id ON activities(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:32 => -- Add tenant_id to whatsapp_messages table
+- src/db/migrations/025_multi_tenancy.sql:33 => ALTER TABLE whatsapp_messages ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:34 => CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_tenant_id ON whatsapp_messages(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:36 => -- Add tenant_id to pipelines table
+- src/db/migrations/025_multi_tenancy.sql:37 => ALTER TABLE pipelines ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy.sql:38 => CREATE INDEX IF NOT EXISTS idx_pipelines_tenant_id ON pipelines(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:46 => tenant_id TEXT NOT NULL DEFAULT 'default',
+- src/db/migrations/025_multi_tenancy.sql:61 => UNIQUE(tenant_id, slug)
+- src/db/migrations/025_multi_tenancy.sql:64 => CREATE INDEX IF NOT EXISTS idx_agents_tenant_id ON agents(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:74 => tenant_id TEXT NOT NULL,
+- src/db/migrations/025_multi_tenancy.sql:87 => CREATE INDEX IF NOT EXISTS idx_agent_versions_tenant_id ON agent_versions(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:95 => tenant_id TEXT NOT NULL,
+- src/db/migrations/025_multi_tenancy.sql:110 => UNIQUE(tenant_id, provider, instance_name)
+- src/db/migrations/025_multi_tenancy.sql:113 => CREATE INDEX IF NOT EXISTS idx_integrations_tenant_id ON integrations(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:123 => tenant_id TEXT NOT NULL,
+- src/db/migrations/025_multi_tenancy.sql:134 => CREATE INDEX IF NOT EXISTS idx_integration_bindings_tenant_id ON integration_bindings(tenant_id);
+- src/db/migrations/025_multi_tenancy.sql:143 => UPDATE leads SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:146 => UPDATE accounts SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:149 => UPDATE contacts SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:152 => UPDATE opportunities SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:155 => UPDATE activities SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:158 => UPDATE whatsapp_messages SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:161 => UPDATE pipelines SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy.sql:167 => INSERT OR IGNORE INTO integrations (id, tenant_id, provider, instance_name, status, is_active)
+- src/db/migrations/025_multi_tenancy.sql:174 => INSERT OR IGNORE INTO agents (id, tenant_id, name, slug, type, status, description, created_by_user_id)
+- src/db/migrations/025_multi_tenancy.sql:187 => INSERT OR IGNORE INTO integration_bindings (id, tenant_id, agent_id, integration_id, is_primary)
+- src/db/migrations/025_multi_tenancy_simple.sql:4 => -- Only adds tenant_id to tables that don't have it
+- src/db/migrations/025_multi_tenancy_simple.sql:5 => -- Does NOT modify existing agents table (already has tenant_id)
+- src/db/migrations/025_multi_tenancy_simple.sql:9 => -- STEP 1: Add tenant_id to whatsapp_messages if missing
+- src/db/migrations/025_multi_tenancy_simple.sql:14 => ALTER TABLE whatsapp_messages ADD COLUMN tenant_id TEXT DEFAULT 'default';
+- src/db/migrations/025_multi_tenancy_simple.sql:15 => CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_tenant_id ON whatsapp_messages(tenant_id);
+- src/db/migrations/025_multi_tenancy_simple.sql:19 => -- Only update tables that have tenant_id column
+- src/db/migrations/025_multi_tenancy_simple.sql:22 => UPDATE whatsapp_messages SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy_simple.sql:23 => UPDATE agents SET tenant_id = 'default' WHERE tenant_id IS NULL;
+- src/db/migrations/025_multi_tenancy_simple.sql:24 => -- Note: leads table is single-tenant by design, no tenant_id column
+- src/db/migrations/025_multi_tenancy_simple.sql:32 => tenant_id TEXT NOT NULL DEFAULT 'default',
+- src/db/migrations/025_multi_tenancy_simple.sql:47 => UNIQUE(tenant_id, provider, instance_name)
+- src/db/migrations/025_multi_tenancy_simple.sql:50 => CREATE INDEX IF NOT EXISTS idx_integrations_tenant_id ON integrations(tenant_id);
+- src/db/migrations/025_multi_tenancy_simple.sql:58 => INSERT OR IGNORE INTO integrations (id, tenant_id, provider, instance_name, status, is_active)
+- src/db/migrations/030_crm_integration.sql:14 => tenant_id TEXT NOT NULL,
+- src/db/migrations/030_crm_integration.sql:24 => FOREIGN KEY (tenant_id) REFERENCES teams(id) ON DELETE CASCADE,
+- src/db/migrations/030_crm_integration.sql:29 => CREATE INDEX IF NOT EXISTS idx_oauth_states_tenant ON oauth_states(tenant_id);
+- src/db/migrations/030_crm_integration.sql:38 => tenant_id TEXT NOT NULL,
+- src/db/migrations/030_crm_integration.sql:50 => FOREIGN KEY (tenant_id) REFERENCES teams(id) ON DELETE CASCADE,
+- src/db/migrations/030_crm_integration.sql:62 => tenant_id TEXT NOT NULL,
+- src/db/migrations/030_crm_integration.sql:74 => FOREIGN KEY (tenant_id) REFERENCES teams(id) ON DELETE CASCADE,
+- src/db/migrations/030_crm_integration.sql:89 => tenant_id TEXT NOT NULL,
+- src/db/migrations/030_crm_integration.sql:106 => FOREIGN KEY (tenant_id) REFERENCES teams(id) ON DELETE CASCADE,
+- src/db/migrations/030_crm_integration.sql:120 => tenant_id TEXT NOT NULL,
+- src/db/migrations/030_crm_integration.sql:132 => FOREIGN KEY (tenant_id) REFERENCES teams(id) ON DELETE CASCADE,
+- src/db/migrations/030_crm_integration.sql:160 => JOIN teams t ON i.tenant_id = t.id
+- src/db/migrations/031_inbound_events.sql:23 => tenant_id TEXT DEFAULT 'default',                 -- Multi-tenant support
+- src/db/migrations/031_inbound_events.sql:52 => ON inbound_events(tenant_id, created_at DESC);
+- src/db/migrations/032_async_jobs.sql:24 => tenant_id TEXT DEFAULT 'default',                 -- Multi-tenant support
+- src/db/migrations/032_async_jobs.sql:68 => ON async_jobs(tenant_id, created_at DESC);
+- src/db/migrations/035_conversation_contexts.sql:18 => tenant_id TEXT DEFAULT 'default',                 -- Multi-tenant support
+- src/db/migrations/035_conversation_contexts.sql:44 => ON conversation_contexts(tenant_id, created_at DESC);
+- src/db/migrations/037_webhook_public_id_column.sql:98 => i.tenant_id,
+- src/db/migrations/039_add_tenant_id_aliases.js:3 => * @description Add tenant_id aliases for legacy team_id columns
+- src/db/migrations/039_add_tenant_id_aliases.js:55 => // users: tenant_id alias
+- src/db/migrations/039_add_tenant_id_aliases.js:56 => addColumnIfMissing(db, 'users', 'tenant_id', 'TEXT');
+- src/db/migrations/039_add_tenant_id_aliases.js:57 => backfillColumn(db, 'users', 'tenant_id', 'team_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:58 => ensureIndex(db, 'idx_users_tenant', 'users', 'tenant_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:60 => // user_teams: tenant_id alias
+- src/db/migrations/039_add_tenant_id_aliases.js:61 => addColumnIfMissing(db, 'user_teams', 'tenant_id', 'TEXT');
+- src/db/migrations/039_add_tenant_id_aliases.js:62 => backfillColumn(db, 'user_teams', 'tenant_id', 'team_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:63 => ensureIndex(db, 'idx_user_teams_tenant', 'user_teams', 'tenant_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:65 => // billing_events: tenant_id alias
+- src/db/migrations/039_add_tenant_id_aliases.js:66 => addColumnIfMissing(db, 'billing_events', 'tenant_id', 'TEXT');
+- src/db/migrations/039_add_tenant_id_aliases.js:67 => backfillColumn(db, 'billing_events', 'tenant_id', 'team_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:68 => ensureIndex(db, 'idx_billing_events_tenant', 'billing_events', 'tenant_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:70 => // usage_metrics: tenant_id alias
+- src/db/migrations/039_add_tenant_id_aliases.js:71 => addColumnIfMissing(db, 'usage_metrics', 'tenant_id', 'TEXT');
+- src/db/migrations/039_add_tenant_id_aliases.js:72 => backfillColumn(db, 'usage_metrics', 'tenant_id', 'team_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:73 => ensureIndex(db, 'idx_usage_metrics_tenant', 'usage_metrics', 'tenant_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:74 => ensureUniqueIndex(db, 'uq_usage_metrics_tenant_period', 'usage_metrics', ['tenant_id', 'metric_type', 'period_start']);
+- src/db/migrations/039_add_tenant_id_aliases.js:76 => // user_trial_grants: tenant_id alias
+- src/db/migrations/039_add_tenant_id_aliases.js:77 => addColumnIfMissing(db, 'user_trial_grants', 'tenant_id', 'TEXT');
+- src/db/migrations/039_add_tenant_id_aliases.js:78 => backfillColumn(db, 'user_trial_grants', 'tenant_id', 'first_team_id');
+- src/db/migrations/039_add_tenant_id_aliases.js:79 => ensureIndex(db, 'idx_user_trial_grants_tenant', 'user_trial_grants', 'tenant_id');
+- src/db/migrations/039_tenant_id_canonical.sql:4 => -- P0-5: Establishes tenant_id as the canonical column name
+- src/db/migrations/039_tenant_id_canonical.sql:9 => -- - All other tables use tenant_id for tenant isolation
+- src/db/migrations/039_tenant_id_canonical.sql:11 => -- This migration ensures the users table has a tenant_id column
+- src/db/migrations/039_tenant_id_canonical.sql:15 => -- Add tenant_id to users table (mirrors team_id)
+- src/db/migrations/039_tenant_id_canonical.sql:17 => ALTER TABLE users ADD COLUMN tenant_id TEXT DEFAULT NULL;
+- src/db/migrations/039_tenant_id_canonical.sql:19 => -- Backfill tenant_id from team_id
+- src/db/migrations/039_tenant_id_canonical.sql:20 => UPDATE users SET tenant_id = team_id WHERE tenant_id IS NULL AND team_id IS NOT NULL;
+- src/db/migrations/039_tenant_id_canonical.sql:22 => -- Create index for tenant_id
+- src/db/migrations/039_tenant_id_canonical.sql:23 => CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
+- src/db/migrations/039_tenant_id_canonical.sql:25 => -- Trigger to keep tenant_id in sync with team_id
+- src/db/migrations/039_tenant_id_canonical.sql:28 => WHEN NEW.tenant_id IS NULL AND NEW.team_id IS NOT NULL
+- src/db/migrations/039_tenant_id_canonical.sql:30 => UPDATE users SET tenant_id = NEW.team_id WHERE id = NEW.id;
+- src/db/migrations/039_tenant_id_canonical.sql:37 => UPDATE users SET tenant_id = NEW.team_id WHERE id = NEW.id;
+- src/db/migrations/039_tenant_id_canonical.sql:41 => -- Add tenant_id to teams table (self-referencing)
+- src/db/migrations/039_tenant_id_canonical.sql:42 => -- teams.tenant_id = teams.id (a team is its own tenant)
+- src/db/migrations/039_tenant_id_canonical.sql:45 => ALTER TABLE teams ADD COLUMN tenant_id TEXT DEFAULT NULL;
+- src/db/migrations/039_tenant_id_canonical.sql:47 => -- Backfill: team's tenant_id is itself
+- src/db/migrations/039_tenant_id_canonical.sql:48 => UPDATE teams SET tenant_id = id WHERE tenant_id IS NULL;
+- src/db/migrations/039_tenant_id_canonical.sql:50 => -- Trigger to auto-set tenant_id on insert
+- src/db/migrations/039_tenant_id_canonical.sql:53 => WHEN NEW.tenant_id IS NULL
+- src/db/migrations/039_tenant_id_canonical.sql:55 => UPDATE teams SET tenant_id = NEW.id WHERE id = NEW.id;
+- src/db/migrations/039_tenant_id_canonical.sql:67 => -- DONE: tenant_id is now canonical across all tables
+- src/db/migrations/040_add_tenant_id_learning_tables.js:3 => * @description Add tenant_id to learning/analytics tables if missing.
+- src/db/migrations/040_add_tenant_id_learning_tables.js:49 => addColumnIfMissing(db, 'meetings', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:50 => ensureIndex(db, 'idx_meetings_tenant', 'meetings', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:51 => backfillDefault(db, 'meetings', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:54 => addColumnIfMissing(db, 'conversation_outcomes', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:55 => ensureIndex(db, 'idx_conversation_outcomes_tenant', 'conversation_outcomes', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:56 => backfillDefault(db, 'conversation_outcomes', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:58 => addColumnIfMissing(db, 'abandonment_patterns', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:59 => ensureIndex(db, 'idx_abandonment_patterns_tenant', 'abandonment_patterns', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:60 => backfillDefault(db, 'abandonment_patterns', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:63 => addColumnIfMissing(db, 'sentiment_momentum', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:64 => ensureIndex(db, 'idx_sentiment_momentum_tenant', 'sentiment_momentum', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:65 => backfillDefault(db, 'sentiment_momentum', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:67 => addColumnIfMissing(db, 'ab_experiments', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:68 => ensureIndex(db, 'idx_ab_experiments_tenant', 'ab_experiments', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:69 => backfillDefault(db, 'ab_experiments', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:72 => addColumnIfMissing(db, 'message_sentiment', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:73 => ensureIndex(db, 'idx_message_sentiment_tenant', 'message_sentiment', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:74 => backfillDefault(db, 'message_sentiment', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:77 => addColumnIfMissing(db, 'conversation_activity', 'tenant_id', `TEXT DEFAULT '${DEFAULT_TENANT_ID}'`);
+- src/db/migrations/040_add_tenant_id_learning_tables.js:78 => ensureIndex(db, 'idx_conversation_activity_tenant', 'conversation_activity', 'tenant_id');
+- src/db/migrations/040_add_tenant_id_learning_tables.js:79 => backfillDefault(db, 'conversation_activity', 'tenant_id', DEFAULT_TENANT_ID);
+- src/db/migrations/040_add_tenant_to_cadence.js:3 => * @description Add tenant_id to cadence and pipeline tables
+- src/db/migrations/040_add_tenant_to_cadence.js:59 => addColumnIfMissing(db, 'cadences', 'tenant_id', "TEXT DEFAULT 'default'");
+- src/db/migrations/040_add_tenant_to_cadence.js:60 => backfillDefault(db, 'cadences', 'tenant_id');
+- src/db/migrations/040_add_tenant_to_cadence.js:61 => ensureIndex(db, 'idx_cadences_tenant', 'cadences', 'tenant_id');
+- src/db/migrations/040_add_tenant_to_cadence.js:64 => addColumnIfMissing(db, 'cadence_steps', 'tenant_id', "TEXT DEFAULT 'default'");
+- src/db/migrations/040_add_tenant_to_cadence.js:68 => 'tenant_id',
+- src/db/migrations/040_add_tenant_to_cadence.js:69 => "(SELECT tenant_id FROM cadences WHERE cadences.id = cadence_steps.cadence_id)"
+- src/db/migrations/040_add_tenant_to_cadence.js:71 => ensureIndex(db, 'idx_cadence_steps_tenant', 'cadence_steps', 'tenant_id');
+- src/db/migrations/040_add_tenant_to_cadence.js:74 => addColumnIfMissing(db, 'cadence_enrollments', 'tenant_id', "TEXT DEFAULT 'default'");
+- src/db/migrations/040_add_tenant_to_cadence.js:78 => 'tenant_id',
+- src/db/migrations/040_add_tenant_to_cadence.js:79 => "(SELECT tenant_id FROM leads WHERE leads.id = cadence_enrollments.lead_id)"
+- src/db/migrations/040_add_tenant_to_cadence.js:81 => ensureIndex(db, 'idx_cadence_enrollments_tenant', 'cadence_enrollments', 'tenant_id');
+- src/db/migrations/040_add_tenant_to_cadence.js:84 => addColumnIfMissing(db, 'cadence_actions_log', 'tenant_id', "TEXT DEFAULT 'default'");
+- src/db/migrations/040_add_tenant_to_cadence.js:88 => 'tenant_id',
+- src/db/migrations/040_add_tenant_to_cadence.js:89 => "(SELECT tenant_id FROM cadence_enrollments WHERE cadence_enrollments.id = cadence_actions_log.enrollment_id)"
+- src/db/migrations/040_add_tenant_to_cadence.js:91 => ensureIndex(db, 'idx_cadence_actions_tenant', 'cadence_actions_log', 'tenant_id');
+- src/db/migrations/040_add_tenant_to_cadence.js:94 => addColumnIfMissing(db, 'pipeline_stages', 'tenant_id', "TEXT DEFAULT 'default'");
+- src/db/migrations/040_add_tenant_to_cadence.js:95 => backfillDefault(db, 'pipeline_stages', 'tenant_id');
+- src/db/migrations/040_add_tenant_to_cadence.js:96 => ensureIndex(db, 'idx_pipeline_stages_tenant', 'pipeline_stages', 'tenant_id');
+- src/db/migrations/042_add_hot_table_indexes.js:41 => ensureCompositeIndex(db, 'idx_leads_tenant_created', 'leads', ['tenant_id', 'created_at DESC']);
+- src/db/migrations/042_add_hot_table_indexes.js:42 => ensureCompositeIndex(db, 'idx_leads_tenant_phone', 'leads', ['tenant_id', 'telefone']);
+- src/db/migrations/042_add_hot_table_indexes.js:43 => ensureCompositeIndex(db, 'idx_leads_tenant_whatsapp', 'leads', ['tenant_id', 'whatsapp']);
+- src/db/migrations/042_add_hot_table_indexes.js:46 => ensureCompositeIndex(db, 'idx_whatsapp_messages_tenant_created', 'whatsapp_messages', ['tenant_id', 'created_at DESC']);
+- src/db/migrations/042_add_hot_table_indexes.js:47 => ensureCompositeIndex(db, 'idx_whatsapp_messages_tenant_phone', 'whatsapp_messages', ['tenant_id', 'phone_number']);
+- src/db/migrations/043_fix_missing_critical_tables.sql:82 => tenant_id TEXT NOT NULL DEFAULT 'default',
+- src/db/migrations/043_fix_missing_critical_tables.sql:97 => UNIQUE(tenant_id, slug)
+- src/db/migrations/043_fix_missing_critical_tables.sql:100 => CREATE INDEX IF NOT EXISTS idx_agents_tenant_id ON agents(tenant_id);
+- src/db/migrations/043_fix_missing_critical_tables.sql:110 => tenant_id TEXT NOT NULL,
+- src/db/migrations/043_fix_missing_critical_tables.sql:123 => CREATE INDEX IF NOT EXISTS idx_agent_versions_tenant_id ON agent_versions(tenant_id);
+- src/db/migrations/043_fix_missing_critical_tables.sql:131 => tenant_id TEXT NOT NULL,
+- src/db/migrations/043_fix_missing_critical_tables.sql:146 => UNIQUE(tenant_id, provider, instance_name)
+- src/db/migrations/043_fix_missing_critical_tables.sql:149 => CREATE INDEX IF NOT EXISTS idx_integrations_tenant_id ON integrations(tenant_id);
+- src/db/migrations/043_fix_missing_critical_tables.sql:159 => tenant_id TEXT NOT NULL,
+- src/db/migrations/043_fix_missing_critical_tables.sql:170 => CREATE INDEX IF NOT EXISTS idx_integration_bindings_tenant_id ON integration_bindings(tenant_id);
+
+## Queries with tenant-guard ignore
+- src/api/routes/ai-insights.routes.js:44 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:50 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:135 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:137 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:207 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:211 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:308 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:314 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:322 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:331 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:341 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:345 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:356 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:358 => FROM meetings /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:366 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:370 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:421 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:422 => SELECT COUNT(*) as count FROM activities /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:441 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:443 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:464 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:466 => FROM opportunities /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:485 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:486 => SELECT COUNT(*) as count FROM meetings /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:504 => /* tenant-guard: ignore */
+- src/api/routes/ai-insights.routes.js:508 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:47 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:49 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:53 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:55 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:61 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:63 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:137 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:139 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:145 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:147 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:151 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:153 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:159 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:161 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:223 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:228 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:270 => /* tenant-guard: ignore */
+- src/api/routes/analytics.routes.js:274 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:50 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:56 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:63 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:71 => FROM opportunities /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:87 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:93 => FROM activities /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:100 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:102 => FROM meetings /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:110 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:115 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:170 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:177 => FROM activities a /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:230 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:239 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:242 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:293 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:303 => FROM activities a /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:314 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:324 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:334 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:344 => FROM opportunities /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:379 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:386 => FROM opportunities /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:439 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:443 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:452 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:457 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:466 => /* tenant-guard: ignore */
+- src/api/routes/command-center.routes.js:471 => FROM activities /* tenant-guard: ignore */
+- src/api/routes/email-optin.routes.js:306 => /* tenant-guard: ignore */
+- src/api/routes/email-optin.routes.js:308 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/email-optin.routes.js:362 => UPDATE leads /* tenant-guard: ignore */
+- src/api/routes/email-optin.routes.js:376 => UPDATE leads /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:345 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:347 => SELECT 1 FROM whatsapp_messages wm /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:469 => (SELECT COUNT(*) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as total_messages,
+- src/api/routes/funil.routes.js:470 => (SELECT MAX(created_at) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as last_message,
+- src/api/routes/funil.routes.js:472 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:473 => LEFT JOIN pipeline_stages ps /* tenant-guard: ignore */ ON l.stage_id = ps.id
+- src/api/routes/funil.routes.js:588 => (SELECT COUNT(*) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as total_messages,
+- src/api/routes/funil.routes.js:589 => (SELECT MAX(created_at) FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp ${messageFilter.tenantAnd}) as last_message_at,
+- src/api/routes/funil.routes.js:590 => (SELECT message_text FROM whatsapp_messages /* tenant-guard: ignore */ WHERE phone_number = l.whatsapp AND from_me = 0 ${messageFilter.tenantAnd} ORDER BY created_at DESC LIMIT 1) as last_lead_message
+- src/api/routes/funil.routes.js:591 => FROM leads l /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:592 => LEFT JOIN pipeline_stages ps /* tenant-guard: ignore */ ON l.stage_id = ps.id ${stageFilter.tenantAnd}
+- src/api/routes/funil.routes.js:593 => LEFT JOIN cadence_enrollments ce /* tenant-guard: ignore */ ON ce.lead_id = l.id AND ce.status = 'active' ${enrollmentFilter.tenantAnd}
+- src/api/routes/funil.routes.js:609 => SELECT * FROM pipeline_stages /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:774 => SELECT id, stage_id FROM leads /* tenant-guard: ignore */ WHERE telefone = ? ${leadFilter.tenantAnd}
+- src/api/routes/funil.routes.js:905 => total: db.prepare(`SELECT COUNT(*) as count FROM leads /* tenant-guard: ignore */ WHERE origem = 'instagram_prospector' ${leadFilter.tenantAnd}`).get(...leadFilter.tenantParam).count,
+- src/api/routes/funil.routes.js:906 => hoje: db.prepare(`SELECT COUNT(*) as count FROM leads /* tenant-guard: ignore */ WHERE origem = 'instagram_prospector' AND DATE(created_at) = DATE('now') ${leadFilter.tenantAnd}`).get(...leadFilter.tenantParam).count,
+- src/api/routes/funil.routes.js:907 => semana: db.prepare(`SELECT COUNT(*) as count FROM leads /* tenant-guard: ignore */ WHERE origem = 'instagram_prospector' AND created_at >= datetime('now', '-7 days') ${leadFilter.tenantAnd}`).get(...leadFilter.tenantParam).count,
+- src/api/routes/funil.routes.js:912 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/funil.routes.js:921 => FROM leads /* tenant-guard: ignore */
+- src/api/routes/webhook.routes.js:541 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/automation/EmailOptInEngine.js:367 => FROM prospect_leads /* tenant-guard: ignore */ p
+- src/automation/EmailOptInEngine.js:373 => SELECT 1 FROM email_optins /* tenant-guard: ignore */ e
+- src/automation/EmailOptInEngine.js:569 => INSERT INTO email_optins /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/automation/EmailOptInEngine.js:593 => UPDATE prospect_leads /* tenant-guard: ignore */
+- src/automation/EmailOptInEngine.js:611 => const existing = db.prepare(`SELECT id FROM leads /* tenant-guard: ignore */ WHERE telefone = ?${tenantClause}`)
+- src/automation/EmailOptInEngine.js:617 => UPDATE leads /* tenant-guard: ignore */
+- src/automation/EmailOptInEngine.js:636 => INSERT INTO leads /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/automation/EmailOptInEngine.js:667 => UPDATE leads /* tenant-guard: ignore */
+- src/automation/EmailOptInEngine.js:683 => UPDATE email_optins /* tenant-guard: ignore */
+- src/automation/EmailOptInEngine.js:774 => total: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}`).get(...optinsParams).c,
+- src/automation/EmailOptInEngine.js:775 => sent: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}${optinsWhere ? " AND" : " WHERE"} status = 'sent'`).get(...optinsParams).c,
+- src/automation/EmailOptInEngine.js:776 => failed: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}${optinsWhere ? " AND" : " WHERE"} status = 'failed'`).get(...optinsParams).c,
+- src/automation/EmailOptInEngine.js:777 => pending: db.prepare(`SELECT COUNT(*) as c FROM email_optins /* tenant-guard: ignore */${optinsWhere}${optinsWhere ? " AND" : " WHERE"} status = 'pending'`).get(...optinsParams).c
+- src/automation/EmailOptInEngine.js:780 => total: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}`).get(...prospectParams).c,
+- src/automation/EmailOptInEngine.js:781 => pendente: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}${prospectWhere ? " AND" : " WHERE"} status = 'pendente'`).get(...prospectParams).c,
+- src/automation/EmailOptInEngine.js:782 => email_enviado: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}${prospectWhere ? " AND" : " WHERE"} status = 'email_enviado'`).get(...prospectParams).c,
+- src/automation/EmailOptInEngine.js:783 => whatsapp_enviado: db.prepare(`SELECT COUNT(*) as c FROM prospect_leads /* tenant-guard: ignore */${prospectWhere}${prospectWhere ? " AND" : " WHERE"} status = 'whatsapp_enviado'`).get(...prospectParams).c
+- src/automation/EmailOptInEngine.js:786 => total: db.prepare(`SELECT COUNT(*) as c FROM leads /* tenant-guard: ignore */${leadsWhere}`).get(...leadsParams).c,
+- src/automation/EmailOptInEngine.js:787 => whatsapp_eligible: db.prepare(`SELECT COUNT(*) as c FROM leads /* tenant-guard: ignore */${leadsWhere}${leadsWhere ? " AND" : " WHERE"} whatsapp_eligible = 1`).get(...leadsParams).c,
+- src/automation/EmailOptInEngine.js:788 => optin_sent: db.prepare(`SELECT COUNT(*) as c FROM leads /* tenant-guard: ignore */${leadsWhere}${leadsWhere ? " AND" : " WHERE"} email_optin_status = 'sent'`).get(...leadsParams).c
+- src/automation/EmailOptInEngine.js:834 => INSERT INTO prospect_leads /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/automation/ProspectingEngine.js:484 => FROM leads /* tenant-guard: ignore */ l
+- src/automation/ProspectingEngine.js:584 => FROM prospect_leads /* tenant-guard: ignore */ p
+- src/automation/ProspectingEngine.js:590 => SELECT 1 FROM leads /* tenant-guard: ignore */ l
+- src/automation/ProspectingEngine.js:843 => SELECT id, stage_id FROM leads /* tenant-guard: ignore */
+- src/automation/ProspectingEngine.js:880 => SELECT 1 FROM cadence_enrollments /* tenant-guard: ignore */ e
+- src/automation/ProspectingEngine.js:897 => SELECT 1 FROM whatsapp_messages /* tenant-guard: ignore */
+- src/automation/engine.js:278 => SELECT * FROM leads /* tenant-guard: ignore */
+- src/automation/engine.js:290 => SELECT * FROM opportunities /* tenant-guard: ignore */
+- src/automation/engine.js:295 => return db.prepare('SELECT * FROM leads /* tenant-guard: ignore */ WHERE status = "novo"').all();
+- src/automation/engine.js:568 => UPDATE leads /* tenant-guard: ignore */ SET status = ?, updated_at = datetime('now') WHERE id = ?
+- src/automation/engine.js:585 => UPDATE leads /* tenant-guard: ignore */
+- src/handlers/WebhookTransactionManager.js:71 => // tenant-guard: ignore (dynamic tenant column)
+- src/handlers/WebhookTransactionManager.js:74 => FROM leads /* tenant-guard: ignore */
+- src/handlers/WebhookTransactionManager.js:117 => // tenant-guard: ignore (dynamic tenant columns)
+- src/handlers/WebhookTransactionManager.js:119 => INSERT INTO leads /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/handlers/WebhookTransactionManager.js:144 => // tenant-guard: ignore (dynamic tenant column)
+- src/handlers/WebhookTransactionManager.js:146 => UPDATE leads -- tenant-guard: ignore
+- src/handlers/WebhookTransactionManager.js:190 => // tenant-guard: ignore (dynamic tenant columns)
+- src/handlers/WebhookTransactionManager.js:192 => INSERT INTO pipeline_history /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/handlers/WebhookTransactionManager.js:204 => // tenant-guard: ignore (dynamic tenant column)
+- src/handlers/WebhookTransactionManager.js:207 => FROM cadence_enrollments /* tenant-guard: ignore */
+- src/handlers/WebhookTransactionManager.js:220 => // tenant-guard: ignore (dynamic tenant column)
+- src/handlers/WebhookTransactionManager.js:222 => UPDATE cadence_enrollments -- tenant-guard: ignore
+- src/handlers/WebhookTransactionManager.js:345 => // tenant-guard: ignore (dynamic tenant column)
+- src/handlers/WebhookTransactionManager.js:347 => SELECT id, stage_id FROM leads /* tenant-guard: ignore */
+- src/handlers/WebhookTransactionManager.js:366 => // tenant-guard: ignore (dynamic tenant column)
+- src/handlers/WebhookTransactionManager.js:368 => UPDATE leads -- tenant-guard: ignore
+- src/handlers/WebhookTransactionManager.js:386 => UPDATE cadence_enrollments -- tenant-guard: ignore
+- src/handlers/WebhookTransactionManager.js:422 => // tenant-guard: ignore (dynamic tenant columns)
+- src/handlers/WebhookTransactionManager.js:424 => INSERT INTO pipeline_history /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/handlers/WebhookTransactionManager.js:491 => SELECT id, stage_id, bant_score FROM leads /* tenant-guard: ignore */
+- src/handlers/WebhookTransactionManager.js:515 => UPDATE leads -- tenant-guard: ignore
+- src/handlers/WebhookTransactionManager.js:564 => // tenant-guard: ignore (dynamic tenant columns)
+- src/handlers/WebhookTransactionManager.js:566 => INSERT INTO pipeline_history /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/handlers/persistence_manager.js:314 => const stmt = db.prepare(`DELETE FROM whatsapp_messages /* tenant-guard: ignore */ WHERE created_at < datetime(?, 'unixepoch')`);
+- src/handlers/persistence_manager.js:354 => const stmt = db.prepare('SELECT COUNT(*) as count FROM whatsapp_messages /* tenant-guard: ignore */');
+- src/intelligence/ConversationSupervisor.js:277 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/intelligence/ConversationSupervisor.js:361 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/intelligence/ConversationSupervisor.js:492 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/learning/conversation_analytics.js:211 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:371 => const stmt = dbConn.prepare(`INSERT INTO whatsapp_messages /* tenant-guard: ignore */ (${columns.join(', ')}) VALUES(${placeholders})`);
+- src/memory.js:392 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:422 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:448 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:457 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:466 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:502 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:532 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:580 => FROM whatsapp_messages /* tenant-guard: ignore */
+- src/memory.js:592 => FROM conversations /* tenant-guard: ignore */
+- src/memory.js:1202 => INSERT INTO whatsapp_messages /* tenant-guard: ignore */ (${columns.join(', ')})
+- src/services/AsyncJobsService.js:139 => UPDATE async_jobs /* tenant-guard: ignore */ SET
+- src/services/AsyncJobsService.js:145 => SELECT id FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:150 => SELECT contact_id FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:187 => UPDATE async_jobs /* tenant-guard: ignore */ SET
+- src/services/AsyncJobsService.js:211 => const job = db.prepare('SELECT retry_count FROM async_jobs /* tenant-guard: ignore */ WHERE id = ?').get(jobId);
+- src/services/AsyncJobsService.js:218 => UPDATE async_jobs /* tenant-guard: ignore */ SET
+- src/services/AsyncJobsService.js:246 => UPDATE async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:267 => SELECT * FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:289 => UPDATE async_jobs /* tenant-guard: ignore */ SET
+- src/services/AsyncJobsService.js:308 => UPDATE async_jobs /* tenant-guard: ignore */ SET
+- src/services/AsyncJobsService.js:333 => const job = db.prepare('SELECT * FROM async_jobs /* tenant-guard: ignore */ WHERE id = ?').get(jobId);
+- src/services/AsyncJobsService.js:357 => FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:382 => SELECT COUNT(*) as count FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:405 => FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:421 => SELECT COUNT(*) as count FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:427 => SELECT COUNT(*) as count FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:448 => DELETE FROM async_jobs /* tenant-guard: ignore */
+- src/services/AsyncJobsService.js:541 => UPDATE async_jobs /* tenant-guard: ignore */ SET
+- src/services/InboundEventsService.js:141 => // tenant-guard: ignore (eventId is globally unique)
+- src/services/InboundEventsService.js:172 => // tenant-guard: ignore (eventId is globally unique)
+- src/services/InboundEventsService.js:197 => : db.prepare(eventSql).get(eventId); // tenant-guard: ignore (eventId unique)
+- src/services/InboundEventsService.js:223 => // tenant-guard: ignore (eventId is globally unique)
+- src/services/InboundEventsService.js:260 => // tenant-guard: ignore (eventId is globally unique)
+- src/services/InboundEventsService.js:282 => `).all(limit); // tenant-guard: ignore (global retry queue)
+- src/services/InboundEventsService.js:302 => `).all(timeoutMinutes); // tenant-guard: ignore (global watchdog)
+- src/services/InboundEventsService.js:314 => UPDATE inbound_events -- tenant-guard: ignore
+- src/services/InboundEventsService.js:340 => const event = db.prepare('SELECT * FROM inbound_events -- tenant-guard: ignore\nWHERE id = ?').get(eventId);
+- src/services/InboundEventsService.js:361 => -- tenant-guard: ignore (admin lookup by contact)
+- src/services/InboundEventsService.js:380 => -- tenant-guard: ignore (global stats)
+- src/services/InboundEventsService.js:403 => DELETE FROM inbound_events -- tenant-guard: ignore

@@ -17,6 +17,8 @@
 import { blacklist } from '../utils/blacklist.js';
 import { getDatabase } from '../db/connection.js';
 import log from '../utils/logger-wrapper.js';
+import { DEFAULT_TENANT_ID } from '../utils/tenantCompat.js';
+import { assertTenantScoped, getTenantColumnOrThrow } from '../utils/tenantGuard.js';
 
 // ═══════════════════════════════════════════════════════════════
 // PADRÕES DE OPT-OUT
@@ -61,10 +63,11 @@ function normalizePhone(contactId) {
  * @param {string} contactId - ID do contato
  * @returns {Object} Resultado da persistência
  */
-async function persistOptOutToDatabase(contactId) {
+async function persistOptOutToDatabase(contactId, tenantId = DEFAULT_TENANT_ID) {
   try {
     const db = getDatabase();
     const phone = normalizePhone(contactId);
+    const leadTenantColumn = getTenantColumnOrThrow(db, 'leads', tenantId, 'opt_out leads');
 
     log.info('[OPT-OUT] Persistindo opt-out no banco', { phone });
 
@@ -73,16 +76,22 @@ async function persistOptOutToDatabase(contactId) {
 
     // 1. Atualizar leads (buscar por telefone ou whatsapp)
     try {
-      const updateLeads = db.prepare(`
+      const updateLeadsSql = `
         UPDATE leads
         SET cadence_status = 'opt_out',
             stage_id = 'stage_perdeu',
             updated_at = datetime('now'),
             notes = COALESCE(notes, '') || ' | OPT-OUT: ' || datetime('now')
-        WHERE telefone LIKE ? OR whatsapp LIKE ?
-      `);
-
-      const leadsResult = updateLeads.run(`%${phone}%`, `%${phone}%`);
+        WHERE (${leadTenantColumn} = ?)
+          AND (telefone LIKE ? OR whatsapp LIKE ?)
+      `;
+      assertTenantScoped(updateLeadsSql, [tenantId, `%${phone}%`, `%${phone}%`], {
+        tenantId,
+        tenantColumn: leadTenantColumn,
+        operation: 'opt_out leads update'
+      });
+      const updateLeads = db.prepare(updateLeadsSql);
+      const leadsResult = updateLeads.run(tenantId, `%${phone}%`, `%${phone}%`);
       leadsUpdated = leadsResult.changes;
 
       if (leadsUpdated > 0) {
@@ -94,15 +103,27 @@ async function persistOptOutToDatabase(contactId) {
 
     // 2. Atualizar prospect_leads
     try {
-      const updateProspects = db.prepare(`
-        UPDATE prospect_leads
-        SET status = 'opt_out',
-            updated_at = datetime('now')
-        WHERE telefone_normalizado LIKE ? OR whatsapp LIKE ?
-      `);
-
-      const prospectsResult = updateProspects.run(`%${phone}%`, `%${phone}%`);
-      prospectsUpdated = prospectsResult.changes;
+      const hasProspectTable = db.prepare(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='prospect_leads'`
+      ).get();
+      if (hasProspectTable) {
+        const prospectTenantColumn = getTenantColumnOrThrow(db, 'prospect_leads', tenantId, 'opt_out prospects');
+        const updateProspectsSql = `
+          UPDATE prospect_leads
+          SET status = 'opt_out',
+              updated_at = datetime('now')
+          WHERE (${prospectTenantColumn} = ?)
+            AND (telefone_normalizado LIKE ? OR whatsapp LIKE ?)
+        `;
+        assertTenantScoped(updateProspectsSql, [tenantId, `%${phone}%`, `%${phone}%`], {
+          tenantId,
+          tenantColumn: prospectTenantColumn,
+          operation: 'opt_out prospects update'
+        });
+        const updateProspects = db.prepare(updateProspectsSql);
+        const prospectsResult = updateProspects.run(tenantId, `%${phone}%`, `%${phone}%`);
+        prospectsUpdated = prospectsResult.changes;
+      }
 
       if (prospectsUpdated > 0) {
         log.info('[OPT-OUT] Prospects atualizados', { count: prospectsUpdated, phone });
@@ -116,19 +137,35 @@ async function persistOptOutToDatabase(contactId) {
       db.exec(`
         CREATE TABLE IF NOT EXISTS opt_out_registry (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          phone TEXT UNIQUE NOT NULL,
+          phone TEXT NOT NULL,
+          tenant_id TEXT DEFAULT 'default',
           contact_id TEXT,
           opted_out_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          reason TEXT DEFAULT 'user_request'
+          reason TEXT DEFAULT 'user_request',
+          UNIQUE(tenant_id, phone)
         )
       `);
 
-      const insertOptOut = db.prepare(`
-        INSERT OR REPLACE INTO opt_out_registry (phone, contact_id, opted_out_at, reason)
-        VALUES (?, ?, datetime('now'), 'user_request')
-      `);
+      try {
+        db.exec(`ALTER TABLE opt_out_registry ADD COLUMN tenant_id TEXT DEFAULT 'default'`);
+      } catch (err) {
+        if (!err.message.includes('duplicate column')) {
+          log.warn('[OPT-OUT] tenant_id column check failed', { error: err.message });
+        }
+      }
 
-      insertOptOut.run(phone, contactId);
+      const registryTenantColumn = getTenantColumnOrThrow(db, 'opt_out_registry', tenantId, 'opt_out registry');
+      const insertOptOutSql = `
+        INSERT OR REPLACE INTO opt_out_registry (phone, tenant_id, contact_id, opted_out_at, reason)
+        VALUES (?, ?, ?, datetime('now'), 'user_request')
+      `;
+      assertTenantScoped(insertOptOutSql, [phone, tenantId, contactId], {
+        tenantId,
+        tenantColumn: registryTenantColumn,
+        operation: 'opt_out registry insert'
+      });
+      const insertOptOut = db.prepare(insertOptOutSql);
+      insertOptOut.run(phone, tenantId, contactId);
       log.info('[OPT-OUT] Registrado na opt_out_registry', { phone });
     } catch (err) {
       log.warn('[OPT-OUT] Erro ao registrar opt-out (continuando)', { error: err.message });
@@ -155,27 +192,50 @@ async function persistOptOutToDatabase(contactId) {
  * @param {string} contactId - ID do contato
  * @returns {boolean} True se está em opt-out permanente
  */
-function isOptOutInDatabase(contactId) {
+function isOptOutInDatabase(contactId, tenantId = DEFAULT_TENANT_ID) {
   try {
     const db = getDatabase();
     const phone = normalizePhone(contactId);
+    const leadTenantColumn = getTenantColumnOrThrow(db, 'leads', tenantId, 'opt_out lookup leads');
 
     // Verificar na tabela opt_out_registry
-    const checkRegistry = db.prepare(`
-      SELECT 1 FROM opt_out_registry WHERE phone = ? LIMIT 1
-    `);
-    const inRegistry = checkRegistry.get(phone);
+    let inRegistry = null;
+    const hasRegistryTable = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='opt_out_registry'`
+    ).get();
+    if (hasRegistryTable) {
+      const registryTenantColumn = getTenantColumnOrThrow(db, 'opt_out_registry', tenantId, 'opt_out lookup registry');
+      const registryQuery = `
+        SELECT 1 FROM opt_out_registry
+        WHERE phone = ? AND ${registryTenantColumn} = ?
+        LIMIT 1
+      `;
+      assertTenantScoped(registryQuery, [phone, tenantId], {
+        tenantId,
+        tenantColumn: registryTenantColumn,
+        operation: 'opt_out registry lookup'
+      });
+      const checkRegistry = db.prepare(registryQuery);
+      inRegistry = checkRegistry.get(phone, tenantId);
+    }
 
     if (inRegistry) return true;
 
     // Verificar se lead tem status opt_out
-    const checkLead = db.prepare(`
+    const leadQuery = `
       SELECT 1 FROM leads
       WHERE (telefone LIKE ? OR whatsapp LIKE ?)
       AND cadence_status = 'opt_out'
+      AND ${leadTenantColumn} = ?
       LIMIT 1
-    `);
-    const leadOptOut = checkLead.get(`%${phone}%`, `%${phone}%`);
+    `;
+    assertTenantScoped(leadQuery, [`%${phone}%`, `%${phone}%`, tenantId], {
+      tenantId,
+      tenantColumn: leadTenantColumn,
+      operation: 'opt_out lead lookup'
+    });
+    const checkLead = db.prepare(leadQuery);
+    const leadOptOut = checkLead.get(`%${phone}%`, `%${phone}%`, tenantId);
 
     return !!leadOptOut;
 
@@ -196,7 +256,7 @@ function isOptOutInDatabase(contactId) {
  * @param {string} messageText - Texto da mensagem
  * @returns {Object} Resultado da verificação
  */
-export async function checkOptOut(contactId, messageText) {
+export async function checkOptOut(contactId, messageText, tenantId = DEFAULT_TENANT_ID) {
   log.info('[OPT-OUT] Verificando opt-out', { contactId: contactId?.substring(0, 15) });
 
   // 1. Verificar se já está na blacklist em memória
@@ -211,7 +271,7 @@ export async function checkOptOut(contactId, messageText) {
   }
 
   // 2. Verificar se já está em opt-out no banco de dados
-  if (isOptOutInDatabase(contactId)) {
+  if (isOptOutInDatabase(contactId, tenantId)) {
     log.warn('[OPT-OUT] Contato já está em opt-out (banco)', { contactId: contactId?.substring(0, 15) });
     // Adicionar também à blacklist em memória para bloqueio rápido
     blacklist.block(contactId, 'opt_out_database', 0);
@@ -233,7 +293,7 @@ export async function checkOptOut(contactId, messageText) {
     blacklist.block(contactId, 'opt_out_request', 0);
 
     //  NOVO: Persistir no banco de dados (permanente)
-    const persistResult = await persistOptOutToDatabase(contactId);
+    const persistResult = await persistOptOutToDatabase(contactId, tenantId);
 
     log.success('[OPT-OUT] Opt-out processado', {
       contactId: contactId?.substring(0, 15),

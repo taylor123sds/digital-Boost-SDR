@@ -565,8 +565,8 @@ class CadenceEngine extends EventEmitter {
     try {
       const result = await this.withRetry(
         async () => {
-          const { sendWhatsAppMessage } = await import('../tools/whatsapp.js');
-          const sendResult = await sendWhatsAppMessage(normalizedPhone, message);
+          const { sendWhatsAppText } = await import('../services/whatsappAdapterProvider.js');
+          const sendResult = await sendWhatsAppText(normalizedPhone, message);
 
           // If blocked by deduplication, don't retry
           if (sendResult.blocked) {
@@ -696,7 +696,7 @@ class CadenceEngine extends EventEmitter {
                 stage_id: 'stage_nutricao',
                 cadence_status: 'completed',
                 cadence_day: enrollment.duration_days
-              });
+              }, enrollment.tenant_id);
             } catch (err) {
               console.error('[CADENCE-ENGINE] SQLite sync error:', err.message);
             }
@@ -862,7 +862,7 @@ class CadenceEngine extends EventEmitter {
             cadence_day: enrollment.current_day,
             response_type: responseType,
             first_response_at: new Date().toISOString()
-          });
+          }, tenantId);
         } catch (err) {
           console.error('[CADENCE-ENGINE] SQLite sync error:', err.message);
         }
@@ -954,7 +954,7 @@ class CadenceEngine extends EventEmitter {
    * Used to track that lead responded but cadence may continue
    * @param {string} telefone - Lead phone number
    */
-  recordInteraction(telefone) {
+  recordInteraction(telefone, tenantId = 'default') {
     const db = this.getDb();
     try {
       // Find active enrollment by phone
@@ -964,8 +964,9 @@ class CadenceEngine extends EventEmitter {
         JOIN leads l ON ce.lead_id = l.id
         WHERE l.telefone LIKE ? AND ce.status = 'active'
           AND ce.tenant_id = l.tenant_id
+          AND ce.tenant_id = ?
         ORDER BY ce.enrolled_at DESC LIMIT 1
-      `).get(`%${telefone.replace(/\D/g, '')}%`);
+      `).get(`%${telefone.replace(/\D/g, '')}%`, tenantId);
 
       if (enrollment) {
         db.prepare(`

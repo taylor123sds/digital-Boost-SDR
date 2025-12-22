@@ -52,17 +52,34 @@ export const APP_VERSION = process.env.APP_VERSION || '2.2.0-p0';
 export const BUILD_TIME = BUILD_INFO.buildDate || process.env.BUILD_TIME || new Date().toISOString();
 export const GIT_COMMIT = BUILD_INFO.commit || process.env.GIT_COMMIT || 'local';
 export const GIT_BRANCH = BUILD_INFO.branch || process.env.GIT_BRANCH || 'unknown';
+export const IMAGE_TAG = BUILD_INFO.imageTag || process.env.IMAGE_TAG || APP_VERSION || GIT_COMMIT || 'unknown';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P0-3: ROLE-based process control
 // ═══════════════════════════════════════════════════════════════════════════
 // ROLE controls what this process does:
-// - 'api': Only HTTP server, no background jobs (for horizontal scaling)
-// - 'worker': Only background jobs, no HTTP server (for job processing)
-// - 'full' or undefined: Both HTTP server and background jobs (single-instance mode)
+// - 'api': Only HTTP server, no background jobs (default)
+// - 'worker': Only background jobs, no HTTP server (job processing)
+// - 'full' or undefined: API only (worker disabled unless dev flag enabled)
 export const PROCESS_ROLE = process.env.ROLE || 'full';
-const shouldStartAPI = PROCESS_ROLE === 'api' || PROCESS_ROLE === 'full';
-const shouldStartWorker = PROCESS_ROLE === 'worker' || PROCESS_ROLE === 'full';
+const isDevEnv = config.env !== 'production';
+const runJobsInApi = isDevEnv && process.env.RUN_JOBS_IN_API === 'true';
+const shouldStartAPI = PROCESS_ROLE !== 'worker';
+const shouldStartWorker = PROCESS_ROLE === 'worker' || runJobsInApi;
+
+const legacyWorkerEntrypoint =
+  process.env.LEGACY_WORKER_ENTRYPOINT === 'true'
+  || process.env.WORKER_ENTRYPOINT === 'worker.js'
+  || process.argv.some(arg => arg.endsWith('worker.js'));
+
+if (PROCESS_ROLE === 'worker' && legacyWorkerEntrypoint) {
+  logger.error('═══════════════════════════════════════════════════════════');
+  logger.error(' BOOT FAILED: Legacy worker entrypoint detected');
+  logger.error(' Use: ROLE=worker node src/server.js');
+  logger.error(' Remove any references to src/worker.js in your scripts.');
+  logger.error('═══════════════════════════════════════════════════════════');
+  process.exit(1);
+}
 
 import { getContainer } from './config/di-container.js';
 import { configureExpress, configure404Handler, configureSPAFallback } from './config/express.config.js';
@@ -84,7 +101,6 @@ import { getServiceLocator } from './services/ServiceLocator.js';
 //  P0.4: Schema validation and migrations
 import { runMigrations, getMigrationStatus, validateSchemaOrFail, detectSchemaDrift } from './db/migrate.js';
 //  P0.2: Persistent webhook job processor
-import { startWebhookJobProcessor } from './api/routes/webhook.routes.js';
 
 // Create logger for server module
 const logger = defaultLogger.child({ module: 'Server' });
@@ -159,6 +175,7 @@ logger.info('══════════════════════�
 logger.info(`  LEADLY AI Agent v${APP_VERSION}`);
 logger.info(`  Commit: ${GIT_COMMIT} (${GIT_BRANCH})`);
 logger.info(`  Build: ${BUILD_TIME}`);
+logger.info(`  Image Tag: ${IMAGE_TAG}`);
 logger.info(`  Environment: ${config.env}`);
 logger.info(`  Role: ${PROCESS_ROLE.toUpperCase()}`);
 logger.info(`  Port: ${shouldStartAPI ? config.server.port : 'N/A (worker mode)'}`);
@@ -166,6 +183,14 @@ logger.info(`  Database: ${DATABASE_PATH}`);
 logger.info(`  Migrations: ${migrationsInfo.inDb}/${migrationsInfo.onDisk} applied`);
 logger.info('═══════════════════════════════════════════════════════════');
 logger.info('');
+logger.info('Boot version info', {
+  version: APP_VERSION,
+  imageTag: IMAGE_TAG,
+  commit: GIT_COMMIT,
+  buildTime: BUILD_TIME,
+  environment: config.env,
+  migrationsApplied: `${migrationsInfo.inDb}/${migrationsInfo.onDisk}`
+});
 
 /**
  * Initialize application with Wave 1 foundation layer
@@ -268,12 +293,12 @@ async function initializeApp() {
     ).get();
 
     if (!hasMigrationsTable) {
-      logger.warn('═══════════════════════════════════════════════════════════');
-      logger.warn(' WARNING: _migrations table not found!');
-      logger.warn('   This may indicate migrations never ran properly.');
-      logger.warn('   Consider running: node src/db/migrate.js');
-      logger.warn('═══════════════════════════════════════════════════════════');
-      // Don't fail - just warn (migrations might have been run manually)
+      logger.error('═══════════════════════════════════════════════════════════');
+      logger.error(' BOOT FAILED: _migrations table not found!');
+      logger.error('   This indicates migrations were not applied.');
+      logger.error('   Run: node src/db/migrate.js (or deploy script)');
+      logger.error('═══════════════════════════════════════════════════════════');
+      process.exit(1);
     } else {
       const migrationCount = db.prepare(
         `SELECT COUNT(*) as count FROM _migrations`
@@ -324,9 +349,13 @@ async function initializeApp() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // P0-3: CONDITIONAL WORKER STARTUP (only when ROLE=worker or ROLE=full)
+    // P1: Worker-only background jobs (ROLE=worker).
+    // DEV override: RUN_JOBS_IN_API=true (local run-once/testing).
     // ═══════════════════════════════════════════════════════════════════════
     if (shouldStartWorker) {
+      if (runJobsInApi) {
+        logger.warn('[ROLE] Running background jobs inside API process (DEV override)');
+      }
       // Initialize Cadence Engine
       logger.info('Initializing Cadence Engine...');
       const cadenceEngine = getCadenceEngine();
@@ -367,11 +396,6 @@ async function initializeApp() {
       startIntegrationOAuthRefreshJob();
       logger.info(' OAuth Refresh Job initialized');
 
-      //  P0.2: Start persistent webhook job processor (runs in worker for background processing)
-      logger.info('Starting Webhook Job Processor (P0.2)...');
-      startWebhookJobProcessor();
-      logger.info(' Webhook Job Processor initialized (persistent queue)');
-
       //  SYNC: Iniciar job de sincronização Sheet1  SQLite (a cada 30 min)
       logger.info('Starting Prospect Sync Job (Sheet1  SQLite)...');
       startProspectSyncJob({
@@ -404,7 +428,7 @@ async function initializeApp() {
 
         if (job.job_type === JobType.MESSAGE_PROCESS) {
           try {
-            const result = await processMessageJob(job.payload);
+            const result = await processMessageJob(job.payload, { jobId: job.id });
             if (job.payload?.inboundEventId) {
               inboundEventsService.markProcessed(job.payload.inboundEventId, job.payload?.tenantId);
             }
@@ -424,8 +448,9 @@ async function initializeApp() {
         batchSize: 1
       });
       logger.info(' Async Jobs Processor started (500ms poll, MESSAGE_PROCESS)');
+      logger.info(' Worker processors: MESSAGE_PROCESS (async_jobs)');
     } else {
-      logger.info('[ROLE] Skipping worker startup (ROLE=api)');
+      logger.info('[ROLE] Skipping worker startup (ROLE=api/full)');
     }
 
     // P0-3: Keep process alive when running as worker-only (no HTTP server)
@@ -440,7 +465,7 @@ async function initializeApp() {
     logger.info(' LEADLY Agent successfully started!');
     logger.info(` Role: ${PROCESS_ROLE.toUpperCase()}`);
     if (shouldStartAPI && shouldStartWorker) {
-      logger.info(' Mode: Full (API + Worker)');
+      logger.info(' Mode: API + Worker (DEV override)');
     } else if (shouldStartAPI) {
       logger.info(' Mode: API Only (scalable HTTP server)');
     } else {

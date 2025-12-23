@@ -252,6 +252,9 @@ services:
       - PROSPECTING_AUTO_START=${PROSPECTING_AUTO_START:-false}
       # Redis (for rate limiting and caching)
       - REDIS_URL=redis://:${REDIS_PASSWORD:-evolution_redis_pass_2025_secure}@redis:6379
+    # Worker não expõe HTTP, então desabilita healthcheck do Dockerfile
+    healthcheck:
+      disable: true
 
   # ==========================================================================
   # P0-3: HORIZONTAL SCALING EXAMPLE (uncomment to use)

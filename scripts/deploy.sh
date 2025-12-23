@@ -11,6 +11,7 @@
 #   ./scripts/deploy.sh v2.3.0
 #
 # O script faz:
+#   0. Sync docker-compose.prod.yml do repo (previne drift)
 #   1. Pull da imagem do registry
 #   2. Backup do database
 #   3. Executa migrations (fail-fast)
@@ -34,6 +35,13 @@ COMPOSE_FILE="${DEPLOY_DIR}/docker-compose.prod.yml"
 BACKUP_DIR="${DEPLOY_DIR}/backups"
 DATA_DIR="${DEPLOY_DIR}/data"
 DATABASE_FILE="${DATA_DIR}/orbion.db"
+
+# GitHub repo configuration for syncing compose file
+# This ensures docker-compose.prod.yml stays in sync with the deployed version
+# and prevents configuration drift between repo and VPS
+GITHUB_REPO="taylor123sds/digital-Boost-SDR"
+COMPOSE_RAW_URL="https://raw.githubusercontent.com/${GITHUB_REPO}"
+COMPOSE_FILENAME="docker-compose.prod.yml"
 
 # Functions
 log_info() {
@@ -89,9 +97,49 @@ fi
 cd "${DEPLOY_DIR}"
 
 # =============================================================================
+# STEP 0: Sync docker-compose.prod.yml from repo (prevents config drift)
+# =============================================================================
+log_info "Step 0/6: Syncing compose file from repo..."
+
+COMPOSE_URL="${COMPOSE_RAW_URL}/${APP_VERSION}/${COMPOSE_FILENAME}"
+COMPOSE_TMP="${DEPLOY_DIR}/.compose-download-tmp"
+COMPOSE_BACKUP="${COMPOSE_FILE}.bak-$(date +%Y%m%d-%H%M%S)"
+
+# Build curl command (add auth header if GITHUB_TOKEN is set)
+CURL_OPTS="-fsSL --connect-timeout 10 --max-time 30"
+if [ -n "${GITHUB_TOKEN}" ]; then
+    CURL_OPTS="${CURL_OPTS} -H \"Authorization: token ${GITHUB_TOKEN}\""
+fi
+
+# Download to temp file
+if curl ${CURL_OPTS} -o "${COMPOSE_TMP}" "${COMPOSE_URL}" 2>/dev/null; then
+    # Validate file is not empty and contains expected content
+    if [ -s "${COMPOSE_TMP}" ] && grep -q "leadly:" "${COMPOSE_TMP}"; then
+        # Backup current compose file
+        if [ -f "${COMPOSE_FILE}" ]; then
+            cp "${COMPOSE_FILE}" "${COMPOSE_BACKUP}"
+            log_info "Compose backup: ${COMPOSE_BACKUP}"
+        fi
+        # Replace with downloaded version
+        mv "${COMPOSE_TMP}" "${COMPOSE_FILE}"
+        log_success "Compose file synced from ${APP_VERSION}"
+    else
+        log_warn "Downloaded compose file appears invalid, keeping current version"
+        rm -f "${COMPOSE_TMP}"
+    fi
+else
+    log_warn "Failed to download compose file from repo (continuing with current version)"
+    log_warn "URL attempted: ${COMPOSE_URL}"
+    rm -f "${COMPOSE_TMP}"
+fi
+
+# Keep only last 5 compose backups
+ls -t "${COMPOSE_FILE}".bak-* 2>/dev/null | tail -n +6 | xargs -r rm -f
+
+# =============================================================================
 # STEP 1: Pull new image
 # =============================================================================
-log_info "Step 1/5: Pulling new image..."
+log_info "Step 1/6: Pulling new image..."
 
 export APP_VERSION
 export BUILD_TIME
@@ -108,7 +156,7 @@ log_success "Images pulled successfully"
 # =============================================================================
 # STEP 2: Backup database
 # =============================================================================
-log_info "Step 2/5: Backing up database..."
+log_info "Step 2/6: Backing up database..."
 
 mkdir -p "${BACKUP_DIR}"
 BACKUP_FILE="${BACKUP_DIR}/orbion_$(date +%Y%m%d_%H%M%S).db"
@@ -128,7 +176,7 @@ log_success "Backup cleanup complete"
 # =============================================================================
 # STEP 3: Run migrations (BEFORE starting containers)
 # =============================================================================
-log_info "Step 3/5: Running migrations..."
+log_info "Step 3/6: Running migrations..."
 
 # Run migrations in a temporary container
 docker compose -f "${COMPOSE_FILE}" run --rm \
@@ -168,7 +216,7 @@ log_success "Schema verified (no drift)"
 # =============================================================================
 # STEP 4: Restart containers
 # =============================================================================
-log_info "Step 4/5: Restarting containers..."
+log_info "Step 4/6: Restarting containers..."
 
 docker compose -f "${COMPOSE_FILE}" up -d leadly leadly-worker || {
     log_error "Failed to start containers!"
@@ -183,7 +231,7 @@ sleep 15
 # =============================================================================
 # STEP 5: Health check
 # =============================================================================
-log_info "Step 5/5: Running health check..."
+log_info "Step 5/6: Running health check..."
 
 MAX_RETRIES=10
 RETRY_DELAY=3

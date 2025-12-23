@@ -142,6 +142,8 @@ services:
       - NODE_ENV=production
       - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
+      # Integration OAuth encryption (for Google, CRM integrations)
+      - INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY:-leadly-oauth-encrypt-key-2025-secure}
       # P0-3: ROLE controls process behavior
       # - 'full': API + Worker (default, single-instance mode)
       # - 'api': Only HTTP server (for horizontal scaling)
@@ -218,6 +220,7 @@ services:
       - PORT=3001
       - ROLE=worker
       - IMAGE_TAG=${IMAGE_TAG:-local}
+      - INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY:-leadly-oauth-encrypt-key-2025-secure}
       # OpenAI
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}

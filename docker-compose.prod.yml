@@ -140,6 +140,7 @@ services:
       - NODE_ENV=production
       - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
+      - INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}
       - ROLE=${ROLE:-api}
       # Build info (injetado pelo CI/CD)
       - APP_VERSION=${APP_VERSION}
@@ -231,6 +232,7 @@ services:
       - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
       - ROLE=worker
+      - INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}
       - APP_VERSION=${APP_VERSION}
       - GIT_COMMIT=${GIT_COMMIT}
       - GIT_BRANCH=${GIT_BRANCH}

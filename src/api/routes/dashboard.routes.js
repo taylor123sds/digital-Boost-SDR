@@ -110,14 +110,8 @@ async function processSingleTTS(req, res) {
 }
 
 // === DASHBOARD ROUTES ===
-
-/**
- * GET /
- * Página principal do dashboard
- */
-router.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../../public/dashboard-pro.html'));
-});
+// NOTE: Root route "/" removed - now handled by SPA redirect in express.config.js
+// Old dashboard available at /dashboard-pro.html (static file)
 
 /**
  * POST /api/tts/elevenlabs

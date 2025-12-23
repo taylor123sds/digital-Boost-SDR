@@ -182,7 +182,7 @@ export default function IntegrationsPage() {
         return avail;
       });
 
-      setIntegrations(merged);
+      setIntegrations(merged as Integration[]);
     } catch (error) {
       console.error('Erro ao carregar integracoes:', error);
       setIntegrations(availableIntegrations);

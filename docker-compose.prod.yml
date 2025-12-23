@@ -138,6 +138,7 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+      - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
       - ROLE=${ROLE:-api}
       # Build info (injetado pelo CI/CD)
@@ -227,6 +228,7 @@ services:
       - leadly_network
     environment:
       - NODE_ENV=production
+      - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
       - ROLE=worker
       - APP_VERSION=${APP_VERSION}

@@ -140,6 +140,7 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+      - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
       # P0-3: ROLE controls process behavior
       # - 'full': API + Worker (default, single-instance mode)
@@ -213,6 +214,7 @@ services:
       - leadly_network
     environment:
       - NODE_ENV=production
+      - LEGACY_EVOLUTION_ROUTES=false
       - PORT=3001
       - ROLE=worker
       - IMAGE_TAG=${IMAGE_TAG:-local}

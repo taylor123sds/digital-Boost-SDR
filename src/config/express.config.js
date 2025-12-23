@@ -103,9 +103,6 @@ export function configureExpress(app) {
   // Logging e estatísticas
   app.use(loggingMiddleware);
 
-  // Global error handler
-  app.use(globalErrorHandler.expressErrorMiddleware());
-
   // Servir arquivos estáticos com ZERO cache
   app.use(express.static(path.join(__dirname, '../../public'), {
     setHeaders: (res, filePath) => {
@@ -151,10 +148,14 @@ export function configureSPAFallback(app) {
 }
 
 /**
- * Configura 404 handler (deve ser chamado APÓS montar todas as rotas)
+ * Configura error handlers (deve ser chamado APÓS montar todas as rotas)
  * @param {Express} app - Instância do Express
  */
 export function configure404Handler(app) {
+  // Global error handler - DEVE vir depois das rotas para capturar erros delas
+  app.use(globalErrorHandler.expressErrorMiddleware());
+
+  // 404 handler - captura rotas não encontradas
   app.use('*', notFoundHandler);
-  console.log(' 404 handler configurado');
+  console.log(' Error handlers configurados (global + 404)');
 }

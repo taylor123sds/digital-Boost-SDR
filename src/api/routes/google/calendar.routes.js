@@ -5,10 +5,10 @@
  */
 
 import express from 'express';
-import { authenticate } from '../../middleware/auth.middleware.js';
-import { tenantContext } from '../../middleware/tenant.middleware.js';
-import { getGoogleCalendarTokenService } from '../../services/GoogleCalendarTokenService.js';
-import { getIntegrationOAuthService } from '../../services/IntegrationOAuthService.js';
+import { authenticate } from '../../../middleware/auth.middleware.js';
+import { tenantContext } from '../../../middleware/tenant.middleware.js';
+import { getGoogleCalendarTokenService } from '../../../services/GoogleCalendarTokenService.js';
+import { getIntegrationOAuthService } from '../../../services/IntegrationOAuthService.js';
 
 const router = express.Router();
 

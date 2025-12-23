@@ -154,7 +154,7 @@ export class LeadRepository {
     const db = this.getDb();
     const id = data.id || generateLeadId();
     const normalizedPhone = normalizePhone(data.telefone || data.whatsapp);
-    const tenantId = data.tenant_id || data.tenantId;
+    const resolvedTenantId = data.tenant_id || data.tenantId || tenantId;
 
     const leadData = {
       id,
@@ -187,8 +187,8 @@ export class LeadRepository {
       notas: data.notas || null
     };
 
-    const tenantColumn = getTenantColumnOrThrow(db, 'leads', tenantId, 'lead create');
-    leadData[tenantColumn] = tenantId;
+    const tenantColumn = getTenantColumnOrThrow(db, 'leads', resolvedTenantId, 'lead create');
+    leadData[tenantColumn] = resolvedTenantId;
 
     const columns = Object.keys(leadData);
     const placeholders = columns.map(() => '?').join(', ');
@@ -205,7 +205,7 @@ export class LeadRepository {
     this.queueSheetsSync(id, 'create');
 
     console.log(` [LEAD-REPO] Lead created: ${id}`);
-    return this.findById(id, tenantId);
+    return this.findById(id, resolvedTenantId);
   }
 
   /**

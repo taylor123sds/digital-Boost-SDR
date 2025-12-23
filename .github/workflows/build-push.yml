@@ -52,8 +52,7 @@ jobs:
             GIT_COMMIT=${{ steps.meta.outputs.sha }}
             GIT_BRANCH=${{ github.ref_name }}
             BUILD_DATE=${{ steps.meta.outputs.build_date }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true
 
       - name: Print deploy command
         run: |

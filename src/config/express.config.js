@@ -134,8 +134,11 @@ export function configureSPAFallback(app) {
 
   // Servir assets estáticos do SPA em /app
   app.use('/app', express.static(path.join(__dirname, '../../public/app'), {
-    setHeaders: (res) => {
+    setHeaders: (res, filePath) => {
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      // CORS headers for crossorigin assets (CSS/JS with crossorigin attribute)
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET');
     }
   }));
 

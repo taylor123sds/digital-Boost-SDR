@@ -54,6 +54,9 @@ COPY package.json ./
 # Install dependencies (--force ignores optional platform-specific deps like @ffmpeg-installer/darwin-arm64)
 RUN npm install --omit=dev --force && npm cache clean --force
 
+# Force rebuild when commit changes (cache bust)
+LABEL git.commit=${GIT_COMMIT}
+
 # Copy application source
 COPY src/ ./src/
 COPY public/ ./public/

@@ -10,8 +10,8 @@ async function testSheetsIntegration() {
   console.log('\n1️⃣ VERIFICANDO VARIÁVEIS DE AMBIENTE:');
   console.log(`   GOOGLE_LEADS_SHEET_ID: ${process.env.GOOGLE_LEADS_SHEET_ID ? '✅ Configurado' : '❌ NÃO configurado'}`);
   console.log(`   GOOGLE_FUNIL_SHEET_ID: ${process.env.GOOGLE_FUNIL_SHEET_ID ? '✅ Configurado' : '❌ NÃO configurado'}`);
-  console.log(`   GOOGLE_CREDENTIALS_FILE: ${process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json'}`);
-  console.log(`   GOOGLE_TOKEN_PATH: ${process.env.GOOGLE_TOKEN_PATH || './google_token.json'}`);
+  console.log(`   GOOGLE_CREDENTIALS_FILE: ${process.env.GOOGLE_CREDENTIALS_FILE || './secrets/google_credentials.json'}`);
+  console.log(`   GOOGLE_TOKEN_PATH: ${process.env.GOOGLE_TOKEN_PATH || './secrets/google_token.json'}`);
 
   if (!process.env.GOOGLE_LEADS_SHEET_ID && !process.env.GOOGLE_FUNIL_SHEET_ID) {
     console.error('\n❌ ERRO: Nenhum ID de planilha configurado no .env');

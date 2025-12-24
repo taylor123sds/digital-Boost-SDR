@@ -184,36 +184,4 @@ router.get('/health/live', async (req, res) => {
   });
 });
 
-/**
- * GET /api/version
- * Version and build information for deployment tracking
- * Returns version, git commit, build timestamp, environment
- * T0.1: Uses centralized APP_VERSION from server.js
- */
-router.get('/api/version', async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: {
-        version: APP_VERSION,
-        gitCommit: GIT_COMMIT,
-        buildTime: BUILD_TIME,
-        imageTag: process.env.IMAGE_TAG || null,
-        environment: process.env.NODE_ENV || 'development',
-        nodeVersion: process.version,
-        platform: process.platform,
-        uptime: Math.floor(process.uptime()),
-        startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('[VERSION] Failed to get version info:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get version info',
-      details: error.message
-    });
-  }
-});
-
 export default router;

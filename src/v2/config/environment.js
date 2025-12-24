@@ -39,8 +39,8 @@ const envSchema = Joi.object({
   WHATSAPP_MEDIA_TIMEOUT: Joi.number().default(45000),
 
   // Google APIs
-  GOOGLE_CREDENTIALS_FILE: Joi.string().default('./google_credentials.json'),
-  GOOGLE_TOKEN_PATH: Joi.string().default('./google_token.json'),
+  GOOGLE_CREDENTIALS_FILE: Joi.string().default('./secrets/google_credentials.json'),
+  GOOGLE_TOKEN_PATH: Joi.string().default('./secrets/google_token.json'),
   GOOGLE_REDIRECT_URI: Joi.string().uri().default('http://localhost:3001/oauth2callback'),
   GOOGLE_LEADS_SHEET_ID: Joi.string().allow('').optional(),
   GOOGLE_FUNIL_SHEET_ID: Joi.string().allow('').optional(),

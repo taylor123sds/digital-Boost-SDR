@@ -29,6 +29,7 @@ yarn-error.log*
 # Google OAuth credentials (sensíveis)
 google_credentials.json
 google_token.json
+secrets/
 
 # Audio files temporários
 audio/

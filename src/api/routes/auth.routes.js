@@ -9,6 +9,7 @@ import express from 'express';
 import { AuthService } from '../../services/AuthService.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { getEntitlementService } from '../../services/EntitlementService.js';
+import { isDisposableEmail } from '../../utils/disposableEmailDomains.js';
 
 const router = express.Router();
 const authService = new AuthService();
@@ -131,10 +132,8 @@ router.post('/api/auth/register', registrationRateLimit, sanitizeRegistrationInp
       });
     }
 
-    // Block disposable email domains (common ones)
-    const disposableDomains = ['tempmail.com', 'throwaway.com', 'guerrillamail.com', '10minutemail.com', 'mailinator.com', 'yopmail.com'];
-    const emailDomain = email.split('@')[1]?.toLowerCase();
-    if (disposableDomains.includes(emailDomain)) {
+    // Block disposable email domains (comprehensive list - 300+ domains)
+    if (isDisposableEmail(email)) {
       return res.status(400).json({
         success: false,
         error: 'Email temporario nao permitido'

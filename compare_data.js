@@ -8,8 +8,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const DB_PATH = './orbion.db';
-const CREDENTIALS_PATH = './google_credentials.json';
-const TOKEN_PATH = './google_token.json';
+const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_FILE || './secrets/google_credentials.json';
+const TOKEN_PATH = process.env.GOOGLE_TOKEN_PATH || './secrets/google_token.json';
 
 // Normalizar telefone (mesmo padrão do sistema)
 function normalizePhone(phone) {

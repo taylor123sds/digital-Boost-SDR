@@ -10,7 +10,7 @@ import { getIntegrationOAuthService } from '../services/IntegrationOAuthService.
 const isProduction = process.env.NODE_ENV === 'production';
 
 function getLegacyTokenPath() {
-  return process.env.GOOGLE_TOKEN_PATH || './google_token.json';
+  return process.env.GOOGLE_TOKEN_PATH || './secrets/google_token.json';
 }
 
 async function loadTokens(options = {}) {
@@ -723,7 +723,7 @@ async function getEventsFromDatabase() {
  */
 export function getGoogleAuthUrl(options = {}) {
   try {
-    const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
+    const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './secrets/google_credentials.json';
     const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
     const credentials = JSON.parse(credentialsContent);
 
@@ -802,7 +802,7 @@ export async function handleOAuthCallback(req, res, options = {}) {
     }
 
     // Ler credenciais
-    const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
+    const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './secrets/google_credentials.json';
     const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
     const credentials = JSON.parse(credentialsContent);
     const { client_id, client_secret, redirect_uris } = credentials.web;
@@ -1024,7 +1024,7 @@ async function listLocalEvents(params) {
  * Refresh do access token usando refresh token
  */
 async function refreshAccessToken(refreshToken, _options = {}) {
-  const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json';
+  const credentialsPath = process.env.GOOGLE_CREDENTIALS_FILE || './secrets/google_credentials.json';
   const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
   const credentials = JSON.parse(credentialsContent);
   const { client_id, client_secret } = credentials.web;

@@ -58,8 +58,9 @@ x-leadly-common: &leadly-common
     - ./uploads:/app/uploads
     - ./backups:/app/backups
     - ./logs:/app/logs
-    - ./google_credentials.json:/app/google_credentials.json:ro
-    - ./google_token.json:/app/google_token.json
+    # Google credentials from ./secrets (migrated from root)
+    - ./secrets/google_credentials.json:/app/secrets/google_credentials.json:ro
+    - ./secrets/google_token.json:/app/secrets/google_token.json
   networks:
     - leadly_network
 

@@ -34,8 +34,9 @@ services:
       - ./data:/app/data           # Database (read-write)
       - ./uploads:/app/uploads     # Uploads
       - ./logs:/app/logs           # Logs
-      - ./google_credentials.json:/app/google_credentials.json:ro
-      - ./google_token.json:/app/google_token.json
+      # Google credentials from ./secrets (migrated from root)
+      - ./secrets/google_credentials.json:/app/secrets/google_credentials.json:ro
+      - ./secrets/google_token.json:/app/secrets/google_token.json
       - /app/node_modules          # Prevent override of container node_modules
     environment:
       - NODE_ENV=development
@@ -55,8 +56,9 @@ services:
       - ./data:/app/data
       - ./uploads:/app/uploads
       - ./logs:/app/logs
-      - ./google_credentials.json:/app/google_credentials.json:ro
-      - ./google_token.json:/app/google_token.json
+      # Google credentials from ./secrets (migrated from root)
+      - ./secrets/google_credentials.json:/app/secrets/google_credentials.json:ro
+      - ./secrets/google_token.json:/app/secrets/google_token.json
       - /app/node_modules
     environment:
       - NODE_ENV=development

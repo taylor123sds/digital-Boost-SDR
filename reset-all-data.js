@@ -11,8 +11,8 @@ import fs from 'fs';
 import { google } from 'googleapis';
 
 const SPREADSHEET_ID = process.env.GOOGLE_LEADS_SHEET_ID || process.env.SPREADSHEET_ID;
-const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_FILE || "./google_credentials.json";
-const TOKEN_PATH = process.env.GOOGLE_TOKEN_PATH || "./google_token.json";
+const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_FILE || "./secrets/google_credentials.json";
+const TOKEN_PATH = process.env.GOOGLE_TOKEN_PATH || "./secrets/google_token.json";
 
 // Mesma função de autenticação usada pelo google_sheets.js
 function newOAuthClient() {

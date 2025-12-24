@@ -21,8 +21,8 @@ const CORRECT_HEADERS = [
 ];
 
 async function getAuthClient() {
-  const credentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_CREDENTIALS_FILE || './google_credentials.json', 'utf-8'));
-  const token = JSON.parse(fs.readFileSync(process.env.GOOGLE_TOKEN_PATH || './google_token.json', 'utf-8'));
+  const credentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_CREDENTIALS_FILE || './secrets/google_credentials.json', 'utf-8'));
+  const token = JSON.parse(fs.readFileSync(process.env.GOOGLE_TOKEN_PATH || './secrets/google_token.json', 'utf-8'));
 
   const { client_id, client_secret } = credentials.web || credentials.installed || credentials;
   const oAuth2Client = new google.auth.OAuth2(client_id, client_secret);

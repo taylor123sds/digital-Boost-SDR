@@ -7,11 +7,97 @@
  */
 
 import express from 'express';
+import Joi from 'joi';
 import { leadRepository } from '../../repositories/lead.repository.js';
 import { getDatabase } from '../../db/connection.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { requireTenant, tenantContext } from '../../middleware/tenant.middleware.js';
 import { extractTenantId, getTenantColumnForTable } from '../../utils/tenantCompat.js';
 
+// ========================================
+// INPUT VALIDATION SCHEMAS
+// ========================================
+
+const updateStageSchema = Joi.object({
+  leadId: Joi.string().required().min(1).max(100).messages({
+    'string.empty': 'leadId é obrigatório',
+    'any.required': 'leadId é obrigatório'
+  }),
+  stage: Joi.string().required().valid(
+    'need', 'budget', 'authority', 'timing',  // BANT stages
+    'sdr', 'specialist', 'scheduler',          // Agent types
+    'completed'                                 // Special stage
+  ).messages({
+    'any.only': 'Stage inválido. Use: need, budget, authority, timing, sdr, specialist, scheduler, completed',
+    'any.required': 'stage é obrigatório'
+  })
+});
+
+const leadIngestSchema = Joi.object({
+  empresa: Joi.string().max(200).allow('', null),
+  nome: Joi.string().max(200).allow('', null),
+  whatsapp: Joi.string().pattern(/^[\d\s\-\+\(\)]+$/).max(30).allow('', null),
+  telefone: Joi.string().pattern(/^[\d\s\-\+\(\)]+$/).max(30).allow('', null),
+  phone: Joi.string().pattern(/^[\d\s\-\+\(\)]+$/).max(30).allow('', null),
+  email: Joi.string().email({ tlds: false }).max(254).allow('', null),
+  segmento: Joi.string().max(100).allow('', null),
+  cnpj: Joi.string().pattern(/^[\d\.\-\/]+$/).max(20).allow('', null),
+  endereco: Joi.string().max(500).allow('', null),
+  cidade: Joi.string().max(100).allow('', null),
+  estado: Joi.string().max(2).allow('', null),
+  cidadeEstado: Joi.string().max(120).allow('', null),
+  site: Joi.string().uri().max(500).allow('', null),
+  origem: Joi.string().max(50).allow('', null),
+  tema: Joi.string().max(100).allow('', null),
+  campanha: Joi.string().max(100).allow('', null),
+  custom_fields: Joi.object().allow(null),
+  // V2 Lead Scoring fields
+  score: Joi.number().min(0).max(100).allow(null),
+  tier: Joi.string().valid('A+', 'A', 'B', 'C', 'D').allow('', null),
+  cluster: Joi.string().valid('A', 'B', 'C', 'D').allow('', null),
+  clusterName: Joi.string().max(100).allow('', null),
+  ofertasRecomendadas: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).allow(null)
+}).unknown(true); // Allow extra fields for flexibility
+
+const batchIngestSchema = Joi.object({
+  leads: Joi.array().items(leadIngestSchema).max(1000)
+}).unknown(true);
+
+const sheetsSyncSchema = Joi.object({
+  intervalMs: Joi.number().min(10000).max(3600000).default(60000)
+});
+
+/**
+ * Validation middleware factory
+ */
+function validateBody(schema) {
+  return (req, res, next) => {
+    const { error, value } = schema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: false
+    });
+
+    if (error) {
+      const details = error.details.map(d => d.message).join('; ');
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details
+      });
+    }
+
+    req.body = value; // Use validated/sanitized values
+    next();
+  };
+}
+
 const router = express.Router();
+
+// Protect all /api/funil/* routes with auth + tenant context.
+router.use('/api/funil', authenticate, tenantContext, requireTenant);
 
 function getTenantFilters(db, tableName, tenantId, alias) {
   const tenantColumn = getTenantColumnForTable(tableName, db);
@@ -237,16 +323,9 @@ router.get('/api/funil/bant/:contactId', async (req, res) => {
  * POST /api/leads/update-stage
  * Atualizar estágio do lead no funil BANT (usado pelo dashboard kanban drag & drop)
  */
-router.post('/api/leads/update-stage', async (req, res) => {
+router.post('/api/leads/update-stage', authenticate, tenantContext, requireTenant, validateBody(updateStageSchema), async (req, res) => {
   try {
     const { leadId, stage } = req.body;
-
-    if (!leadId || !stage) {
-      return res.status(400).json({
-        success: false,
-        error: 'leadId and stage are required'
-      });
-    }
 
     // Importar dependências
     const { getLeadState, saveLeadState } = await import('../../utils/stateManager.js');
@@ -396,9 +475,9 @@ router.post('/api/funil/cleanup-prospecting', async (req, res) => {
  * POST /api/funil/sheets-sync/enable
  * Habilitar sync automatico em background para Google Sheets
  */
-router.post('/api/funil/sheets-sync/enable', async (req, res) => {
+router.post('/api/funil/sheets-sync/enable', validateBody(sheetsSyncSchema), async (req, res) => {
   try {
-    const { intervalMs = 60000 } = req.body; // Default: 1 minute
+    const { intervalMs } = req.body; // Default: 60000 (validated by schema)
     leadRepository.enableSheetsSync(intervalMs);
 
     res.json({
@@ -667,7 +746,7 @@ router.get('/api/funil/pipeline-unificado', async (req, res) => {
  * Body (batch):
  *   { leads: [{ empresa, whatsapp, ... }, ...] }
  */
-router.post('/api/leads/ingest', async (req, res) => {
+router.post('/api/leads/ingest', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     // Validar API Key
     const apiKey = req.headers['x-api-key'];
@@ -683,7 +762,21 @@ router.post('/api/leads/ingest', async (req, res) => {
       });
     }
 
-    const { leads, ...singleLead } = req.body;
+    // Validate input: batch or single lead
+    const isBatch = Array.isArray(req.body.leads);
+    const schema = isBatch ? batchIngestSchema : leadIngestSchema;
+    const { error, value } = schema.validate(req.body, { abortEarly: false, stripUnknown: false });
+
+    if (error) {
+      const details = error.details.map(d => d.message).join('; ');
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details
+      });
+    }
+
+    const { leads, ...singleLead } = value;
 
     // Determinar se é batch ou single
     const leadsToProcess = leads || [singleLead];
@@ -895,7 +988,7 @@ router.post('/api/leads/ingest', async (req, res) => {
  * GET /api/leads/ingest/stats
  * Estatísticas dos leads recebidos da automação
  */
-router.get('/api/leads/ingest/stats', async (req, res) => {
+router.get('/api/leads/ingest/stats', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     const db = getDatabase();
     const tenantId = extractTenantId(req);

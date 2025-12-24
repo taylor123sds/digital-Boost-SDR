@@ -46,7 +46,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ steps.meta.outputs.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           no-cache: true
           build-args: |
@@ -61,6 +61,6 @@ jobs:
           echo "========================================="
           echo ""
           echo "To deploy on VPS, run:"
-          echo "  ./scripts/deploy.sh ${{ steps.meta.outputs.sha }}"
+          echo "  ./scripts/deploy.sh sha-${{ steps.meta.outputs.sha }}"
           echo ""
           echo "========================================="

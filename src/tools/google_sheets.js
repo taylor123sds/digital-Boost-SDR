@@ -4,8 +4,23 @@ import fs from "fs";
 import { google } from "googleapis";
 
 // --------- Config (.env) ---------
-const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_FILE || "./google_credentials.json";
-const TOKEN_PATH = process.env.GOOGLE_TOKEN_PATH || "./google_token.json";
+const DEFAULT_CREDENTIALS_PATH = "./secrets/google_credentials.json";
+const DEFAULT_TOKEN_PATH = "./secrets/google_token.json";
+const LEGACY_CREDENTIALS_PATH = "./google_credentials.json";
+const LEGACY_TOKEN_PATH = "./google_token.json";
+
+let legacyCredentialsWarningShown = false;
+let legacyTokenWarningShown = false;
+
+const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_FILE
+  || (fs.existsSync(DEFAULT_CREDENTIALS_PATH)
+    ? DEFAULT_CREDENTIALS_PATH
+    : LEGACY_CREDENTIALS_PATH);
+
+const TOKEN_PATH = process.env.GOOGLE_TOKEN_PATH
+  || (fs.existsSync(DEFAULT_TOKEN_PATH)
+    ? DEFAULT_TOKEN_PATH
+    : LEGACY_TOKEN_PATH);
 
 //  TIMEOUT: Timeout aumentado para operações mais estáveis (15 segundos)
 const SHEETS_TIMEOUT = parseInt(process.env.SHEETS_TIMEOUT) || 15000; // 15s
@@ -15,6 +30,7 @@ const SHEETS_TIMEOUT = parseInt(process.env.SHEETS_TIMEOUT) || 15000; // 15s
 // ═══════════════════════════════════════════════════════════════════════════
 
 const pendingOperations = new Map(); // phone -> Promise
+const PHONE_LOCK_TIMEOUT_MS = parseInt(process.env.PHONE_LOCK_TIMEOUT_MS, 10) || 30000;
 
 /**
  * Executa operação com lock por telefone
@@ -25,9 +41,13 @@ const pendingOperations = new Map(); // phone -> Promise
  */
 async function withPhoneLock(phone, operation) {
   const normalizedPhone = phone.replace(/\D/g, '');
+  const lockStart = Date.now();
 
   // Se já tem operação em andamento para este telefone, esperar
   while (pendingOperations.has(normalizedPhone)) {
+    if (Date.now() - lockStart > PHONE_LOCK_TIMEOUT_MS) {
+      throw new Error(`PHONE_LOCK_TIMEOUT: ${normalizedPhone}`);
+    }
     try {
       await pendingOperations.get(normalizedPhone);
     } catch (e) {
@@ -70,11 +90,26 @@ function assertFileExists(p) {
   }
 }
 
+function warnLegacyPath(p, type) {
+  if (p === LEGACY_CREDENTIALS_PATH && !legacyCredentialsWarningShown) {
+    console.warn(` [GOOGLE-SHEETS] ${type} usando caminho legado ${p}.`);
+    console.warn(`   Mova para ${DEFAULT_CREDENTIALS_PATH} ou defina GOOGLE_CREDENTIALS_FILE.`);
+    legacyCredentialsWarningShown = true;
+  }
+  if (p === LEGACY_TOKEN_PATH && !legacyTokenWarningShown) {
+    console.warn(` [GOOGLE-SHEETS] ${type} usando caminho legado ${p}.`);
+    console.warn(`   Mova para ${DEFAULT_TOKEN_PATH} ou defina GOOGLE_TOKEN_PATH.`);
+    legacyTokenWarningShown = true;
+  }
+}
+
 /**
  * Check if Google Sheets is configured and available
  * @returns {boolean} true if Google Sheets is configured
  */
 export function isGoogleSheetsConfigured() {
+  warnLegacyPath(CREDENTIALS_PATH, 'Credenciais');
+  warnLegacyPath(TOKEN_PATH, 'Token');
   return fs.existsSync(CREDENTIALS_PATH) && fs.existsSync(TOKEN_PATH);
 }
 
@@ -2399,4 +2434,3 @@ export async function updateClienteStatus(clienteId, status, spreadsheetId = nul
     };
   }
 }
-

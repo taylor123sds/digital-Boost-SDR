@@ -45,9 +45,13 @@ export function detectAndSanitizePII(text) {
 
     // Detectar e sanitizar cada tipo de PII
     for (const [type, pattern] of Object.entries(PII_PATTERNS)) {
-        if (pattern.test(text)) {
+        const testPattern = new RegExp(pattern.source, pattern.flags.replace('g', ''));
+        if (testPattern.test(text)) {
             detectedTypes.push(type);
-            sanitizedText = sanitizedText.replace(pattern, `[${type.toUpperCase()}_REDACTED]`);
+            const replacePattern = pattern.global
+                ? pattern
+                : new RegExp(pattern.source, `${pattern.flags}g`);
+            sanitizedText = sanitizedText.replace(replacePattern, `[${type.toUpperCase()}_REDACTED]`);
         }
     }
 

@@ -10,6 +10,8 @@ import globalErrorHandler from '../../utils/error_handler.js';
 import { leadRepository } from '../../repositories/lead.repository.js';
 import { triggerCampaign } from '../../tools/campaign_trigger.js';
 import { sendWhatsAppText } from '../../services/whatsappAdapterProvider.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { requireTenant, tenantContext } from '../../middleware/tenant.middleware.js';
 import { extractTenantId } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
@@ -19,7 +21,7 @@ const inMemoryCampaigns = new Map();
  * POST /api/whatsapp/send
  * Enviar mensagem via WhatsApp (Evolution API)
  */
-router.post('/api/whatsapp/send', async (req, res) => {
+router.post('/api/whatsapp/send', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     const { to, message, phone } = req.body;
     const target = to || phone;
@@ -83,7 +85,7 @@ router.post('/api/whatsapp/send', async (req, res) => {
  * GET /api/campaigns
  * List campaigns (in-memory placeholder)
  */
-router.get('/api/campaigns', async (_req, res) => {
+router.get('/api/campaigns', authenticate, tenantContext, requireTenant, async (_req, res) => {
   const campaigns = Array.from(inMemoryCampaigns.values());
   res.json(campaigns);
 });
@@ -92,7 +94,7 @@ router.get('/api/campaigns', async (_req, res) => {
  * GET /api/campaigns/:id
  * Get campaign by id (in-memory placeholder)
  */
-router.get('/api/campaigns/:id', async (req, res) => {
+router.get('/api/campaigns/:id', authenticate, tenantContext, requireTenant, async (req, res) => {
   const campaign = inMemoryCampaigns.get(req.params.id);
   if (!campaign) {
     return res.status(404).json({ error: 'Campaign not found' });
@@ -104,7 +106,7 @@ router.get('/api/campaigns/:id', async (req, res) => {
  * POST /api/campaigns
  * Create campaign (in-memory placeholder)
  */
-router.post('/api/campaigns', async (req, res) => {
+router.post('/api/campaigns', authenticate, tenantContext, requireTenant, async (req, res) => {
   const { name, status = 'draft', type = 'prospecting' } = req.body || {};
   if (!name) {
     return res.status(400).json({ error: 'name is required' });
@@ -131,7 +133,7 @@ router.post('/api/campaigns', async (req, res) => {
  * Trigger simplificado: apenas chama SDR Agent para cada telefone
  * Source: SQLite (primary)
  */
-router.post('/api/campaign/run', async (req, res) => {
+router.post('/api/campaign/run', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     const { maxMessages = 50, source = 'sqlite' } = req.body;
     const tenantId = extractTenantId(req);
@@ -204,7 +206,7 @@ router.post('/api/campaign/run', async (req, res) => {
  * GET /api/whatsapp/campaign-status
  * Returns campaign stats from SQLite
  */
-router.get('/api/whatsapp/campaign-status', async (req, res) => {
+router.get('/api/whatsapp/campaign-status', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     const tenantId = extractTenantId(req);
     const stats = leadRepository.getFunnelStats('pipeline_outbound_solar', tenantId);
@@ -236,7 +238,7 @@ router.get('/api/whatsapp/campaign-status', async (req, res) => {
  * Simplified: now just triggers SDR Agent (backward compatibility)
  * Source: SQLite (primary)
  */
-router.post('/api/whatsapp/intelligent-campaign', async (req, res) => {
+router.post('/api/whatsapp/intelligent-campaign', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     const { limit = 50 } = req.body;
     const tenantId = extractTenantId(req);
@@ -304,7 +306,7 @@ router.post('/api/whatsapp/intelligent-campaign', async (req, res) => {
  * GET /api/leads
  * Get all leads from SQLite (used by dashboard)
  */
-router.get('/api/leads', async (req, res) => {
+router.get('/api/leads', authenticate, tenantContext, requireTenant, async (req, res) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
     const tenantId = extractTenantId(req);
@@ -329,50 +331,6 @@ router.get('/api/leads', async (req, res) => {
       success: false,
       error: error.message,
       leads: []
-    });
-  }
-});
-
-/**
- * POST /api/leads/update-stage
- * Update lead stage (used by dashboard drag & drop)
- */
-router.post('/api/leads/update-stage', async (req, res) => {
-  try {
-    const tenantId = extractTenantId(req);
-    const { leadId, contactId, newStage, stageId } = req.body;
-
-    const id = leadId || contactId;
-    const stage = stageId || newStage;
-
-    if (!id || !stage) {
-      return res.status(400).json({
-        success: false,
-        error: 'leadId/contactId e newStage/stageId sao obrigatorios'
-      });
-    }
-
-    console.log(`[LEADS-API] Updating lead ${id} to stage ${stage}`);
-
-    const result = leadRepository.updateStage(id, stage, null, tenantId);
-
-    if (result) {
-      res.json({
-        success: true,
-        message: `Lead movido para ${stage}`,
-        lead: result
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        error: 'Lead nao encontrado'
-      });
-    }
-  } catch (error) {
-    console.error('[LEADS-API] Erro ao atualizar stage:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
     });
   }
 });

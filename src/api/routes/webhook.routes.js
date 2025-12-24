@@ -454,7 +454,7 @@ async function handleTextMessage(from, text, messageType, metadata, messageId) {
     //  USAR UNIFIED COORDINATOR para processamento
     const result = await processMessageWithAgents(from, { text, messageType, metadata, messageId });
     if (result) {
-      await handleAgentResponse(from, result, messageId, text);
+      await handleAgentResponse(from, result, messageId, text, result.tenantId);
     }
 
   } catch (error) {
@@ -631,6 +631,7 @@ async function processMessageWithAgents(contactId, message, pipelineContext = {}
       success: agentResult.success !== false,
       source: agentResult.source || 'agent',
       timestamp: Date.now(),
+      tenantId,
       sendDigitalBoostAudio: agentResult.sendDigitalBoostAudio || false,
       followUpMessage: agentResult.followUpMessage,
       preHandoffMessage: agentResult.preHandoffMessage,
@@ -683,8 +684,9 @@ async function processMessageWithAgents(contactId, message, pipelineContext = {}
  * @param {string} messageId - Original message ID
  * @param {string} originalText - Original message text
  */
-async function handleAgentResponse(from, agentResult, messageId, originalText) {
+async function handleAgentResponse(from, agentResult, messageId, originalText, tenantId) {
   try {
+    const resolvedTenantId = tenantId || agentResult.tenantId || 'default';
     // 1. Verificar se deve enviar resposta
     if (agentResult.shouldSendResponse === false) {
       console.log(` [WEBHOOK] Resposta suprimida conforme instruções do agente`);
@@ -693,7 +695,7 @@ async function handleAgentResponse(from, agentResult, messageId, originalText) {
 
     // 2. Verificar se deve enviar áudio da Digital Boost
     if (agentResult.sendDigitalBoostAudio === true) {
-      await handleDigitalBoostAudio(from, agentResult.response, messageId, originalText);
+      await handleDigitalBoostAudio(from, agentResult.response, messageId, originalText, resolvedTenantId);
       return;
     }
 
@@ -740,7 +742,7 @@ async function handleAgentResponse(from, agentResult, messageId, originalText) {
         messageType: 'text',
         agentUsed: agentResult.source,
         success: true,
-        tenantId
+        tenantId: resolvedTenantId
       });
 
       // 6.  SAVE CONVERSATION CONTEXT for intelligent follow-up
@@ -763,7 +765,7 @@ async function handleAgentResponse(from, agentResult, messageId, originalText) {
             conversationHistory: updatedHistory,
             lastLeadMessage: originalText,
             lastAgentMessage: completeMessage,
-            tenantId
+            tenantId: resolvedTenantId
           });
 
           console.log(` [CONTEXT] Conversation context saved for ${from} (D${agentResult.cadenceDay || 1})`);
@@ -788,7 +790,7 @@ async function handleAgentResponse(from, agentResult, messageId, originalText) {
  * @param {string} messageId - Message ID
  * @param {string} originalText - Original message text
  */
-async function handleDigitalBoostAudio(from, textResponse, messageId, originalText) {
+async function handleDigitalBoostAudio(from, textResponse, messageId, originalText, tenantId) {
   try {
     console.log(` [DIGITAL-BOOST] Preparando fluxo de áudio para ${from}`);
 

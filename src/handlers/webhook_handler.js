@@ -414,8 +414,7 @@ export class WebhookHandler {
       log.error('Erro no processamento do webhook', error);
       return {
         status: 'error',
-        error: error.message,
-        stack: error.stack
+        error: error.message
       };
     }
   }

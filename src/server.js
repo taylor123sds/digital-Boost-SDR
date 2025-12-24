@@ -72,15 +72,6 @@ const legacyWorkerEntrypoint =
   || process.env.WORKER_ENTRYPOINT === 'worker.js'
   || process.argv.some(arg => arg.endsWith('worker.js'));
 
-if (PROCESS_ROLE === 'worker' && legacyWorkerEntrypoint) {
-  logger.error('═══════════════════════════════════════════════════════════');
-  logger.error(' BOOT FAILED: Legacy worker entrypoint detected');
-  logger.error(' Use: ROLE=worker node src/server.js');
-  logger.error(' Remove any references to src/worker.js in your scripts.');
-  logger.error('═══════════════════════════════════════════════════════════');
-  process.exit(1);
-}
-
 import { getContainer } from './config/di-container.js';
 import { configureExpress, configure404Handler, configureSPAFallback } from './config/express.config.js';
 import { startServer } from './config/server.startup.js';
@@ -104,6 +95,15 @@ import { runMigrations, getMigrationStatus, validateSchemaOrFail, detectSchemaDr
 
 // Create logger for server module
 const logger = defaultLogger.child({ module: 'Server' });
+
+if (PROCESS_ROLE === 'worker' && legacyWorkerEntrypoint) {
+  logger.error('═══════════════════════════════════════════════════════════');
+  logger.error(' BOOT FAILED: Legacy worker entrypoint detected');
+  logger.error(' Use: ROLE=worker node src/server.js');
+  logger.error(' Remove any references to src/worker.js in your scripts.');
+  logger.error('═══════════════════════════════════════════════════════════');
+  process.exit(1);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  FIX: Global Error Handlers - Prevents silent failures and crash loops

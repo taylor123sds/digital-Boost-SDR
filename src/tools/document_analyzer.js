@@ -39,6 +39,21 @@ async function loadSharp() {
     return sharp;
 }
 
+function parseRational(value) {
+    if (!value || typeof value !== 'string') {
+        return null;
+    }
+
+    const [num, den] = value.split('/').map(Number);
+    if (!Number.isFinite(num)) {
+        return null;
+    }
+    if (!Number.isFinite(den) || den === 0) {
+        return num;
+    }
+    return num / den;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -433,7 +448,7 @@ class DocumentAnalyzer {
                             codec: videoStream.codec_name,
                             width: videoStream.width,
                             height: videoStream.height,
-                            fps: eval(videoStream.r_frame_rate)
+                            fps: parseRational(videoStream.r_frame_rate)
                         } : null,
                         audio: audioStream ? {
                             codec: audioStream.codec_name,

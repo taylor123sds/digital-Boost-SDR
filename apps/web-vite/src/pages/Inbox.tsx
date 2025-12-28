@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
+import { api } from '../lib/api';
 
 // Types
 interface Conversation {
@@ -32,69 +33,8 @@ interface Message {
   status?: 'sent' | 'delivered' | 'read';
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1',
-    phone: '5584999887766',
-    name: 'Maria Silva',
-    company: 'Tech Solutions',
-    lastMessage: 'Gostaria de agendar uma demonstracao',
-    lastMessageTime: new Date(Date.now() - 300000).toISOString(),
-    unreadCount: 2,
-    status: 'active',
-    agentId: 'agent-1',
-    agentName: 'ORBION SDR',
-    stage: 'Qualificacao'
-  },
-  {
-    id: '2',
-    phone: '5584988776655',
-    name: 'Joao Santos',
-    company: 'Startup XYZ',
-    lastMessage: 'Qual o preco do plano enterprise?',
-    lastMessageTime: new Date(Date.now() - 1800000).toISOString(),
-    unreadCount: 0,
-    status: 'waiting',
-    agentId: 'agent-1',
-    agentName: 'ORBION SDR',
-    stage: 'Discovery'
-  },
-  {
-    id: '3',
-    phone: '5584977665544',
-    name: 'Ana Costa',
-    company: 'Consultoria ABC',
-    lastMessage: 'Preciso falar com um humano',
-    lastMessageTime: new Date(Date.now() - 3600000).toISOString(),
-    unreadCount: 1,
-    status: 'handoff',
-    agentId: 'agent-1',
-    agentName: 'ORBION SDR',
-    stage: 'Handoff'
-  },
-];
-
-const mockMessages: Record<string, Message[]> = {
-  '1': [
-    { id: 'm1', content: 'Ola! Vi que voces trabalham com solucoes de IA', from: 'user', timestamp: new Date(Date.now() - 600000).toISOString() },
-    { id: 'm2', content: 'Ola Maria! Sim, somos especializados em agentes de IA para vendas. Como posso ajudar?', from: 'agent', timestamp: new Date(Date.now() - 550000).toISOString(), status: 'read' },
-    { id: 'm3', content: 'Estou interessada em automatizar nosso processo de qualificacao de leads', from: 'user', timestamp: new Date(Date.now() - 400000).toISOString() },
-    { id: 'm4', content: 'Excelente! Nosso agente SDR pode qualificar leads 24/7 usando BANT e SPIN Selling. Quantos leads voces recebem por mes?', from: 'agent', timestamp: new Date(Date.now() - 350000).toISOString(), status: 'read' },
-    { id: 'm5', content: 'Gostaria de agendar uma demonstracao', from: 'user', timestamp: new Date(Date.now() - 300000).toISOString() },
-  ],
-  '2': [
-    { id: 'm1', content: 'Boa tarde!', from: 'user', timestamp: new Date(Date.now() - 2000000).toISOString() },
-    { id: 'm2', content: 'Boa tarde Joao! Tudo bem? Sou o assistente da LEADLY, como posso ajudar?', from: 'agent', timestamp: new Date(Date.now() - 1950000).toISOString(), status: 'read' },
-    { id: 'm3', content: 'Qual o preco do plano enterprise?', from: 'user', timestamp: new Date(Date.now() - 1800000).toISOString() },
-  ],
-  '3': [
-    { id: 'm1', content: 'Ola, preciso de informacoes sobre o servico', from: 'user', timestamp: new Date(Date.now() - 4000000).toISOString() },
-    { id: 'm2', content: 'Ola Ana! Claro, posso ajudar com informacoes. O que gostaria de saber?', from: 'agent', timestamp: new Date(Date.now() - 3950000).toISOString(), status: 'read' },
-    { id: 'm3', content: 'Preciso falar com um humano', from: 'user', timestamp: new Date(Date.now() - 3600000).toISOString() },
-  ],
-};
-
 export default function InboxPage() {
+  const PAGE_SIZE = 50;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -102,12 +42,14 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [totalConversations, setTotalConversations] = useState(0);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadConversations();
-
     // Check mobile view
     const checkMobile = () => setIsMobileView(window.innerWidth < 768);
     checkMobile();
@@ -116,22 +58,58 @@ export default function InboxPage() {
   }, []);
 
   useEffect(() => {
+    loadConversations(true);
+    setSelectedConversation(null);
+    setMessages([]);
+  }, [filterStatus]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const loadConversations = async () => {
+  const loadConversations = async (reset = false) => {
+    if (!reset && (loadingMore || !hasMore)) {
+      return;
+    }
+
+    if (reset) {
+      setLoading(true);
+      setPage(0);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
-      setConversations(mockConversations);
+      const offset = reset ? 0 : page * PAGE_SIZE;
+      const reduceStatus = filterStatus === 'all' ? undefined : filterStatus;
+      const result = await api.getConversations(PAGE_SIZE, offset, reduceStatus);
+
+      setConversations(prev => {
+        const merged = reset ? result.data : [...prev, ...result.data];
+        setHasMore(merged.length < result.total);
+        return merged;
+      });
+      setTotalConversations(result.total);
+      setPage(prevPage => (reset ? 1 : prevPage + 1));
     } finally {
-      setLoading(false);
+      if (reset) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   };
 
   const loadMessages = async (conversationId: string) => {
     try {
-      setMessages(mockMessages[conversationId] || []);
+      const data = await api.getConversationMessages(conversationId);
+      setMessages(data);
+      setConversations(prev => prev.map(conv => (
+        conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
+      )));
     } catch {
-      setMessages(mockMessages[conversationId] || []);
+      setMessages([]);
     }
   };
 
@@ -155,18 +133,7 @@ export default function InboxPage() {
     setNewMessage('');
 
     try {
-      const token = localStorage.getItem('token');
-      await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          phone: selectedConversation.phone,
-          message: newMessage
-        })
-      });
+      await api.sendMessage(selectedConversation.phone, newMessage);
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
     }
@@ -287,6 +254,23 @@ export default function InboxPage() {
               </div>
             </button>
           ))
+        )}
+        {!loading && hasMore && (
+          <div className="p-4">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => loadConversations(false)}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Carregando...' : 'Carregar mais'}
+            </Button>
+            {totalConversations > 0 && (
+              <p className="mt-2 text-xs text-gray-500 text-center">
+                {conversations.length} de {totalConversations} conversas
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>

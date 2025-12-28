@@ -334,22 +334,17 @@ class ApiClient {
     return this.request<Campaign>('/campaigns', { method: 'POST', body: data });
   }
 
-  // Analytics - uses real forecasting endpoints
+  // Analytics - overview metrics
   async getAnalytics(_period: '7d' | '30d' | '90d') {
     try {
-      const [velocity, monthly] = await Promise.all([
-        this.request<{ success: boolean; velocity: any }>('/forecasting/velocity').catch(() => ({ success: false, velocity: {} })),
-        this.request<{ success: boolean; forecast: any }>('/forecasting/monthly').catch(() => ({ success: false, forecast: {} }))
-      ]);
-
-      const v = velocity.velocity || {};
-      const f = monthly.forecast || {};
+      const overview = await this.request<{ success: boolean; overview: any }>('/analytics/overview');
+      const data = overview.overview || {};
 
       return {
         metrics: {
-          totalConversations: v.total_conversations || 0,
-          avgResponseTime: v.avg_response_time_seconds || 0,
-          conversionRate: f.current_conversion_rate || 0,
+          totalConversations: data.totalConversations || 0,
+          avgResponseTime: data.averageMessagesPerConversation || 0,
+          conversionRate: data.successRate || 0,
           satisfactionScore: 0
         },
         chartData: {
@@ -366,25 +361,114 @@ class ApiClient {
     }
   }
 
-  // Messages - uses activity-feed for conversation data
-  async getMessages(phone: string): Promise<{ messages: Message[] }> {
+  // Conversations
+  async getConversations(limit = 50, offset = 0, status?: string): Promise<{ data: ConversationSummary[]; total: number }> {
     try {
-      const result = await this.request<{ success: boolean; activities: any[] }>('/command-center/activity-feed');
-      const activities = result.activities || [];
-
-      // Filter messages for this phone
-      const messages: Message[] = activities
-        .filter((a: any) => a.type === 'message' && (a.phone === phone || a.contact_phone === phone))
-        .map((a: any) => ({
-          id: a.id || String(Date.now()),
-          content: a.text || a.message || '',
-          from: (a.from_me ? 'agent' : 'user') as 'agent' | 'user',
-          timestamp: a.timestamp || a.created_at
-        }));
-
-      return { messages };
+      const statusParam = status ? `&status=${encodeURIComponent(status)}` : '';
+      const result = await this.request<{ success: boolean; data: ConversationSummary[]; meta?: { total?: number } }>(
+        `/conversations?limit=${limit}&offset=${offset}${statusParam}`
+      );
+      return {
+        data: result.data || [],
+        total: result.meta?.total ?? (result.data ? result.data.length : 0)
+      };
     } catch {
-      return { messages: [] };
+      return { data: [], total: 0 };
+    }
+  }
+
+  async getConversationMessages(phone: string, limit = 50, offset = 0): Promise<Message[]> {
+    try {
+      const result = await this.request<{ success: boolean; data: Message[] }>(
+        `/conversations/${encodeURIComponent(phone)}/messages?limit=${limit}&offset=${offset}`
+      );
+      return result.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getAuditLogs(params: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+    category?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+  } = {}): Promise<{ data: AuditEntry[]; total: number }> {
+    try {
+      const {
+        limit = 50,
+        offset = 0,
+        status,
+        category,
+        q,
+        from,
+        to
+      } = params;
+
+      const searchParams = new URLSearchParams();
+      searchParams.set('limit', String(limit));
+      searchParams.set('offset', String(offset));
+      if (status) searchParams.set('status', status);
+      if (category) searchParams.set('category', category);
+      if (q) searchParams.set('q', q);
+      if (from) searchParams.set('from', from);
+      if (to) searchParams.set('to', to);
+
+      const result = await this.request<{ success: boolean; data: AuditEntry[]; meta?: { total?: number } }>(
+        `/audit-logs?${searchParams.toString()}`
+      );
+
+      return {
+        data: result.data || [],
+        total: result.meta?.total ?? (result.data ? result.data.length : 0)
+      };
+    } catch {
+      return { data: [], total: 0 };
+    }
+  }
+
+  async getAuditLogs(params: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+    category?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+  } = {}): Promise<{ data: AuditEntry[]; total: number }> {
+    try {
+      const {
+        limit = 50,
+        offset = 0,
+        status,
+        category,
+        q,
+        from,
+        to
+      } = params;
+
+      const searchParams = new URLSearchParams();
+      searchParams.set('limit', String(limit));
+      searchParams.set('offset', String(offset));
+      if (status) searchParams.set('status', status);
+      if (category) searchParams.set('category', category);
+      if (q) searchParams.set('q', q);
+      if (from) searchParams.set('from', from);
+      if (to) searchParams.set('to', to);
+
+      const result = await this.request<{ success: boolean; data: AuditEntry[]; meta?: { total?: number } }>(
+        `/audit-logs?${searchParams.toString()}`
+      );
+
+      return {
+        data: result.data || [],
+        total: result.meta?.total ?? (result.data ? result.data.length : 0)
+      };
+    } catch {
+      return { data: [], total: 0 };
     }
   }
 
@@ -405,6 +489,15 @@ class ApiClient {
     return this.request<{ data: any[] }>('/funil');
   }
 
+  async getPipelineStages() {
+    try {
+      const result = await this.request<{ success: boolean; data: PipelineStage[] }>('/pipeline/stages');
+      return result.data || [];
+    } catch {
+      return [];
+    }
+  }
+
   // Cadences
   async getCadences() {
     return this.request<{ data: any[] }>('/cadences');
@@ -412,6 +505,91 @@ class ApiClient {
 
   async getCadenceStats() {
     return this.request<{ active: number; pending: number; completed: number }>('/cadences/stats');
+  }
+
+  async getIntegrationsCatalog(): Promise<{ categories: IntegrationCategory[]; integrations: IntegrationCatalogItem[] }> {
+    try {
+      const result = await this.request<{ success: boolean; data: { categories: IntegrationCategory[]; integrations: IntegrationCatalogItem[] } }>(
+        '/integrations/catalog'
+      );
+      return result.data || { categories: [], integrations: [] };
+    } catch {
+      return { categories: [], integrations: [] };
+    }
+  }
+
+  async getBillingPlans(): Promise<BillingPlan[]> {
+    try {
+      const result = await this.request<{ success: boolean; data: BillingPlan[] }>('/billing/plans');
+      return result.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getChannelBreakdown(): Promise<ChannelBreakdownItem[]> {
+    try {
+      const result = await this.request<{ success: boolean; data: ChannelBreakdownItem[] }>('/analytics/channel-breakdown');
+      return result.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getTopAgents(): Promise<TopAgentItem[]> {
+    try {
+      const result = await this.request<{ success: boolean; data: TopAgentItem[] }>('/analytics/top-agents');
+      return result.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  // Settings
+  async getSettings(): Promise<UserSettings | null> {
+    try {
+      const result = await this.request<{ success: boolean; data: UserSettings }>('/settings');
+      return result.data;
+    } catch {
+      return null;
+    }
+  }
+
+  async updateSettings(payload: Partial<UserSettings>): Promise<UserSettings | null> {
+    try {
+      const result = await this.request<{ success: boolean; data: UserSettings }>(
+        '/settings',
+        { method: 'PUT', body: payload }
+      );
+      return result.data;
+    } catch {
+      return null;
+    }
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request<{ success: boolean; error?: string }>(
+      '/auth/password',
+      { method: 'PUT', body: { currentPassword, newPassword } }
+    );
+  }
+
+  async getAgentPresets(): Promise<AgentPresets> {
+    try {
+      const result = await this.request<{ success: boolean; data: AgentPresets }>('/config/agent-presets');
+      return result.data;
+    } catch {
+      return {
+        agentTypes: [],
+        sectors: [],
+        ctaTypes: [],
+        qualificationFrameworks: [],
+        bantFieldsConfig: [],
+        weekDays: [],
+        steps: [],
+        toneLabels: []
+      };
+    }
   }
 
   // Prospecting
@@ -435,6 +613,17 @@ class ApiClient {
   async getIntegrations() {
     const result = await this.request<{ success: boolean; data?: any[]; integrations?: any[] }>('/integrations');
     return result.data || result.integrations || [];
+  }
+
+  async getAgentIntegrations(agentId: string): Promise<AgentIntegrationBinding[]> {
+    try {
+      const result = await this.request<{ success: boolean; data: AgentIntegrationBinding[] }>(
+        `/agents/${agentId}/integrations`
+      );
+      return result.data || [];
+    } catch {
+      return [];
+    }
   }
 
   async getEvolutionStatus(agentId: string) {
@@ -551,6 +740,133 @@ export interface Activity {
   timestamp: string;
 }
 
+export interface AuditEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  category: 'auth' | 'agent' | 'lead' | 'message' | 'config' | 'billing' | 'system';
+  actor: {
+    type: 'user' | 'agent' | 'system';
+    id: string;
+    name: string;
+  };
+  target?: {
+    type: string;
+    id: string;
+    name?: string;
+  } | null;
+  details?: Record<string, unknown>;
+  ip?: string | null;
+  status: 'success' | 'failure' | 'warning';
+}
+
+export interface PipelineStage {
+  id: string;
+  name: string;
+  slug?: string;
+  color?: string;
+  position?: number;
+  probability?: number;
+}
+
+export interface IntegrationCategory {
+  id: string;
+  name: string;
+  icon?: string;
+}
+
+export interface IntegrationCatalogItem {
+  id: string;
+  name: string;
+  type: string;
+  provider: string;
+  status: string;
+  icon: string;
+  description: string;
+}
+
+export interface AgentIntegrationBinding {
+  id: string;
+  tenant_id?: string;
+  agent_id?: string;
+  integration_id?: string;
+  is_primary?: number;
+  provider?: string;
+  instance_name?: string | null;
+  phone_number?: string | null;
+  integration_status?: string;
+  config_json?: string | null;
+  last_sync?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface UserSettings {
+  profile: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    company: string;
+    sector: string;
+    avatarUrl?: string;
+  };
+  preferences: {
+    phone?: string;
+    title?: string;
+    website?: string;
+    cnpj?: string;
+    notifications?: {
+      leads?: boolean;
+      messages?: boolean;
+      campaigns?: boolean;
+      reports?: boolean;
+    };
+    appearance?: {
+      theme?: 'dark' | 'light' | 'system';
+    };
+    apiKeys?: Array<{ id: string; label: string; key: string; createdAt?: string }>;
+  };
+}
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  price: number;
+  billingPeriod: 'monthly' | 'yearly';
+  features: string[];
+  limits: {
+    agents: number;
+    messages: number;
+    leads: number;
+  };
+  recommended?: boolean;
+}
+
+export interface ChannelBreakdownItem {
+  channel: string;
+  count: number;
+  percentage: string;
+}
+
+export interface TopAgentItem {
+  id: string;
+  name: string;
+  conversations: number;
+  conversionRate: number;
+}
+
+export interface AgentPresets {
+  agentTypes: Array<{ id: string; name: string; description: string; icon: string; color: string }>;
+  sectors: Array<{ id: string; name: string; icon: string }>;
+  ctaTypes: Array<{ id: string; name: string; description: string }>;
+  qualificationFrameworks: Array<{ id: string; name: string; description: string }>;
+  bantFieldsConfig: Array<{ key: string; label: string; description: string }>;
+  weekDays: string[];
+  steps: Array<{ id: number; title: string; subtitle: string; icon: string }>;
+  toneLabels: string[];
+}
+
 export interface AnalyticsData {
   metrics: {
     totalConversations: number;
@@ -570,6 +886,21 @@ export interface Message {
   content: string;
   from: 'agent' | 'user';
   timestamp: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  phone: string;
+  name: string;
+  company?: string | null;
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
+  status: 'active' | 'waiting' | 'closed' | 'handoff';
+  agentId?: string | null;
+  agentName?: string | null;
+  stage?: string | null;
+  totalMessages?: number;
 }
 
 export const api = new ApiClient(API_BASE);

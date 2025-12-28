@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plug, MessageSquare, Calendar, Database, Webhook,
   CheckCircle, XCircle, Settings, RefreshCw, ExternalLink,
@@ -9,7 +10,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
-import { api, type ApiError } from '../lib/api';
+import { api, type ApiError, type AgentIntegrationBinding } from '../lib/api';
 
 // Types
 interface Integration {
@@ -27,80 +28,15 @@ interface Integration {
   config?: Record<string, unknown>;
 }
 
-const integrationCategories = [
-  { id: 'messaging', name: 'Mensageria', icon: MessageSquare },
-  { id: 'calendar', name: 'Calendario', icon: Calendar },
-  { id: 'crm', name: 'CRM', icon: Database },
-  { id: 'webhooks', name: 'Webhooks', icon: Webhook },
-];
-
-const availableIntegrations: Integration[] = [
-  {
-    id: 'evolution-api',
-    name: 'Evolution API',
-    type: 'whatsapp',
-    provider: 'evolution',
-    status: 'disconnected',
-    icon: '📱',
-    description: 'WhatsApp via Evolution API - Multi-device, QR Code'
-  },
-  {
-    id: 'meta-whatsapp',
-    name: 'WhatsApp Cloud API',
-    type: 'whatsapp',
-    provider: 'meta',
-    status: 'disconnected',
-    icon: '☁️',
-    description: 'WhatsApp oficial via Meta Business Platform'
-  },
-  {
-    id: 'google-calendar',
-    name: 'Google Calendar',
-    type: 'calendar',
-    provider: 'google',
-    status: 'disconnected',
-    icon: '📅',
-    description: 'Sincronize agendamentos com Google Calendar'
-  },
-  {
-    id: 'kommo',
-    name: 'Kommo CRM',
-    type: 'crm',
-    provider: 'kommo',
-    status: 'disconnected',
-    icon: '🟠',
-    description: 'Sincronize leads e negocios com Kommo (amoCRM)'
-  },
-  {
-    id: 'hubspot',
-    name: 'HubSpot',
-    type: 'crm',
-    provider: 'hubspot',
-    status: 'disconnected',
-    icon: '🔶',
-    description: 'Sincronize leads e deals com HubSpot CRM'
-  },
-  {
-    id: 'pipedrive',
-    name: 'Pipedrive',
-    type: 'crm',
-    provider: 'pipedrive',
-    status: 'disconnected',
-    icon: '🔷',
-    description: 'Sincronize pipeline com Pipedrive'
-  },
-  {
-    id: 'custom-webhook',
-    name: 'Webhook Customizado',
-    type: 'webhook',
-    provider: 'custom',
-    status: 'disconnected',
-    icon: '🔗',
-    description: 'Envie eventos para seu endpoint'
-  },
-];
+const categoryIconMap: Record<string, typeof MessageSquare> = {
+  MessageSquare,
+  Calendar,
+  Database,
+  Webhook
+};
 
 export default function IntegrationsPage() {
+  const [searchParams] = useSearchParams();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -108,8 +44,17 @@ export default function IntegrationsPage() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [showConfigModal, setShowConfigModal] = useState<string | null>(null);
-  // P0-4: Store user's default agentId
-  const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [catalogCategories, setCatalogCategories] = useState<Array<{ id: string; name: string; icon: typeof MessageSquare }>>([]);
+  const [catalogIntegrations, setCatalogIntegrations] = useState<Integration[]>([]);
+
+  const categoryTypeMap: Record<string, string[]> = {
+    messaging: ['whatsapp'],
+    calendar: ['calendar'],
+    crm: ['crm'],
+    webhooks: ['webhook']
+  };
 
   const parseConfig = (config: unknown) => {
     if (!config) return null;
@@ -128,18 +73,37 @@ export default function IntegrationsPage() {
     loadIntegrations();
   }, []);
 
-  const loadIntegrations = async () => {
+  const loadIntegrations = async (overrideAgentId?: string | null) => {
     try {
-      // Fetch integrations from backend
-      const backendIntegrations = await api.getIntegrations().catch(() => []);
+      const catalog = await api.getIntegrationsCatalog();
+      const categories = (catalog.categories || []).map(category => ({
+        id: category.id,
+        name: category.name,
+        icon: categoryIconMap[category.icon || 'MessageSquare'] || MessageSquare
+      }));
+      setCatalogCategories(categories);
 
-      // P0-4: Get user's agents to find default agentId
+      const catalogItems = (catalog.integrations || []).map(item => ({
+        ...item,
+        status: item.status as Integration['status']
+      }));
+      setCatalogIntegrations(catalogItems as Integration[]);
+
+      const agentsList = await api.getAgents().catch(() => []);
+      setAgents(agentsList);
+
+      const requestedAgentId = overrideAgentId ?? searchParams.get('agentId');
       let agentId: string | null = null;
-      const agents = await api.getAgents();
-      if (agents.length > 0) {
-        agentId = agents[0].id;
-        setDefaultAgentId(agentId);
+      if (requestedAgentId && agentsList.some(agent => agent.id === requestedAgentId)) {
+        agentId = requestedAgentId;
+      } else if (agentsList.length > 0) {
+        agentId = agentsList[0].id;
       }
+      setSelectedAgentId(agentId);
+
+      const bindings: AgentIntegrationBinding[] = agentId
+        ? await api.getAgentIntegrations(agentId).catch(() => [])
+        : [];
 
       // Check Evolution status using correct endpoint with agentId
       let evolutionStatus: Integration['status'] = 'disconnected';
@@ -154,28 +118,30 @@ export default function IntegrationsPage() {
         }
       }
 
-      // Merge with available integrations
-      const merged = availableIntegrations.map(avail => {
-        // Check backend integrations
-        const existing = backendIntegrations.find((i: any) =>
-          i.provider === avail.provider || i.id === avail.id
-        );
+      const bindingByProvider = new Map<string, AgentIntegrationBinding>();
+      bindings.forEach(binding => {
+        if (binding.provider) {
+          bindingByProvider.set(binding.provider, binding);
+        }
+      });
 
-        if (existing) {
-          const config = parseConfig(existing.config || existing.config_json);
+      const merged = catalogItems.map(avail => {
+        const binding = bindingByProvider.get(avail.provider);
+
+        if (binding) {
+          const config = parseConfig(binding.config_json);
           return {
             ...avail,
-            integrationId: existing.id,
-            tenantId: existing.tenant_id || existing.tenantId,
-            instanceName: existing.instance_name || config?.instance_name || config?.instanceName,
-            status: existing.status as Integration['status'],
-            lastSync: (existing as any).last_sync || existing.lastSync,
+            integrationId: binding.integration_id,
+            tenantId: binding.tenant_id,
+            instanceName: binding.instance_name || config?.instance_name || config?.instanceName,
+            status: (binding.integration_status || avail.status) as Integration['status'],
+            lastSync: binding.last_sync || undefined,
             config
           };
         }
 
-        // Special case for Evolution
-        if (avail.provider === 'evolution') {
+        if (avail.provider === 'evolution' && agentId) {
           return { ...avail, status: evolutionStatus };
         }
 
@@ -185,7 +151,9 @@ export default function IntegrationsPage() {
       setIntegrations(merged as Integration[]);
     } catch (error) {
       console.error('Erro ao carregar integracoes:', error);
-      setIntegrations(availableIntegrations);
+      setIntegrations([]);
+      setCatalogCategories([]);
+      setCatalogIntegrations([]);
     } finally {
       setLoading(false);
     }
@@ -195,15 +163,14 @@ export default function IntegrationsPage() {
     setConnectingId(integration.id);
 
     if (integration.provider === 'evolution') {
-      // P0-4: Handle Evolution API - use correct agentId
-      if (!defaultAgentId) {
+      if (!selectedAgentId) {
         alert('Nenhum agente encontrado. Crie um agente primeiro.');
         setConnectingId(null);
         return;
       }
 
       try {
-        const data = await api.connectEvolution(defaultAgentId, { instanceName: 'leadly_main' });
+        const data = await api.connectEvolution(selectedAgentId, { instanceName: 'leadly_main' });
         if (data?.qrcode?.base64) {
           setQrCode(data.qrcode.base64);
           setShowQRModal(true);
@@ -244,11 +211,11 @@ export default function IntegrationsPage() {
   const disconnectIntegration = async (integration: Integration) => {
     try {
       if (integration.provider === 'evolution') {
-        if (!defaultAgentId) {
+        if (!selectedAgentId) {
           alert('Nenhum agente encontrado. Crie um agente primeiro.');
           return;
         }
-        await api.disconnectEvolution(defaultAgentId);
+        await api.disconnectEvolution(selectedAgentId);
       } else {
         if (!integration.integrationId) {
           alert('Integracao nao encontrada no backend.');
@@ -268,11 +235,11 @@ export default function IntegrationsPage() {
   const testIntegration = async (integration: Integration) => {
     try {
       if (integration.provider === 'evolution') {
-        if (!defaultAgentId) {
+        if (!selectedAgentId) {
           alert('Nenhum agente encontrado. Crie um agente primeiro.');
           return;
         }
-        const status = await api.getEvolutionStatus(defaultAgentId);
+        const status = await api.getEvolutionStatus(selectedAgentId);
         if (status?.connected) {
           alert('Conexao OK!');
         } else {
@@ -300,12 +267,15 @@ export default function IntegrationsPage() {
   const filteredIntegrations = activeCategory === 'all'
     ? integrations
     : integrations.filter(i => {
-        if (activeCategory === 'messaging') return i.type === 'whatsapp';
-        if (activeCategory === 'calendar') return i.type === 'calendar';
-        if (activeCategory === 'crm') return i.type === 'crm';
-        if (activeCategory === 'webhooks') return i.type === 'webhook';
-        return true;
+        const allowed = categoryTypeMap[activeCategory] || [];
+        return allowed.includes(i.type);
       });
+
+  const handleAgentChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextAgentId = event.target.value || null;
+    setSelectedAgentId(nextAgentId);
+    loadIntegrations(nextAgentId);
+  };
 
   const getStatusBadge = (status: Integration['status']) => {
     const config = {
@@ -334,6 +304,32 @@ export default function IntegrationsPage() {
           <p className="text-gray-400 mt-1">Conecte seus servicos e ferramentas</p>
         </div>
 
+        {/* Agent Selector */}
+        <Card className="p-4 mb-6">
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-gray-400">Agente selecionado</span>
+            <select
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+              value={selectedAgentId || ''}
+              onChange={handleAgentChange}
+            >
+              {agents.length === 0 && (
+                <option value="">Nenhum agente encontrado</option>
+              )}
+              {agents.map(agent => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+            {!selectedAgentId && (
+              <span className="text-xs text-yellow-400">
+                Crie um agente para conectar integracoes.
+              </span>
+            )}
+          </div>
+        </Card>
+
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
@@ -356,7 +352,7 @@ export default function IntegrationsPage() {
           </Card>
           <Card className="p-4">
             <div className="text-2xl font-bold text-gray-400">
-              {availableIntegrations.length}
+              {catalogIntegrations.length}
             </div>
             <div className="text-sm text-gray-400">Disponiveis</div>
           </Card>
@@ -375,7 +371,7 @@ export default function IntegrationsPage() {
           >
             Todas
           </button>
-          {integrationCategories.map(cat => {
+          {catalogCategories.map(cat => {
             const Icon = cat.icon;
             return (
               <button

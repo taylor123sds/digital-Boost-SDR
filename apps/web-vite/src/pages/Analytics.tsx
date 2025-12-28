@@ -4,10 +4,12 @@ import { Card, StatCard } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
 import { api } from '../lib/api';
-import type { AnalyticsData } from '../lib/api';
+import type { AnalyticsData, ChannelBreakdownItem, TopAgentItem } from '../lib/api';
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [channels, setChannels] = useState<ChannelBreakdownItem[]>([]);
+  const [topAgents, setTopAgents] = useState<TopAgentItem[]>([]);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const [loading, setLoading] = useState(true);
 
@@ -18,24 +20,31 @@ export default function AnalyticsPage() {
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      const result = await api.getAnalytics(period);
+      const [result, channelData, agentData] = await Promise.all([
+        api.getAnalytics(period),
+        api.getChannelBreakdown(),
+        api.getTopAgents()
+      ]);
       setData(result);
+      setChannels(channelData);
+      setTopAgents(agentData);
     } catch (error) {
       console.error('Erro ao carregar analytics:', error);
-      // Mock data
       setData({
         metrics: {
-          totalConversations: 4523,
-          avgResponseTime: 2.3,
-          conversionRate: 12.5,
-          satisfactionScore: 4.7,
+          totalConversations: 0,
+          avgResponseTime: 0,
+          conversionRate: 0,
+          satisfactionScore: 0,
         },
         chartData: {
-          labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'],
-          conversations: [120, 145, 132, 167, 189, 95, 78],
-          conversions: [12, 18, 15, 22, 28, 10, 8],
+          labels: [],
+          conversations: [],
+          conversions: [],
         },
       });
+      setChannels([]);
+      setTopAgents([]);
     } finally {
       setLoading(false);
     }
@@ -126,35 +135,37 @@ export default function AnalyticsPage() {
               <Card>
                 <h3 className="text-lg font-semibold mb-4">Performance por Canal</h3>
                 <div className="space-y-4">
-                  {[
-                    { channel: 'WhatsApp', value: 65, color: 'bg-green-500' },
-                    { channel: 'Email', value: 25, color: 'bg-blue-500' },
-                    { channel: 'Chat Web', value: 10, color: 'bg-violet' },
-                  ].map((item) => (
+                  {channels.map((item) => {
+                    const value = Number(item.percentage) || 0;
+                    const color = item.channel === 'whatsapp'
+                      ? 'bg-green-500'
+                      : item.channel === 'email'
+                        ? 'bg-blue-500'
+                        : 'bg-violet';
+                    return (
                     <div key={item.channel} className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-300">{item.channel}</span>
-                        <span className="font-medium">{item.value}%</span>
+                        <span className="font-medium">{value}%</span>
                       </div>
                       <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                         <div
-                          className={`h-full ${item.color} transition-all duration-500`}
-                          style={{ width: `${item.value}%` }}
+                          className={`h-full ${color} transition-all duration-500`}
+                          style={{ width: `${value}%` }}
                         />
                       </div>
                     </div>
-                  ))}
+                  );})}
+                  {channels.length === 0 && (
+                    <p className="text-sm text-gray-400">Sem dados de canais.</p>
+                  )}
                 </div>
               </Card>
 
               <Card>
                 <h3 className="text-lg font-semibold mb-4">Top Agentes</h3>
                 <div className="space-y-3">
-                  {[
-                    { name: 'ORBION SDR', conversations: 1234, conversion: 15.2 },
-                    { name: 'Support Bot', conversations: 892, conversion: 8.5 },
-                    { name: 'Sales Assistant', conversations: 567, conversion: 12.1 },
-                  ].map((agent, index) => (
+                  {topAgents.map((agent, index) => (
                     <div key={agent.name} className="flex items-center gap-3 p-3 rounded-lg bg-white/5">
                       <span className="w-6 h-6 rounded-full bg-gradient-to-r from-cyan to-violet flex items-center justify-center text-xs font-bold text-dark-bg">
                         {index + 1}
@@ -163,9 +174,12 @@ export default function AnalyticsPage() {
                         <p className="font-medium">{agent.name}</p>
                         <p className="text-xs text-gray-400">{agent.conversations} conversas</p>
                       </div>
-                      <span className="text-sm text-green-400">{agent.conversion}%</span>
+                      <span className="text-sm text-green-400">{agent.conversionRate}%</span>
                     </div>
                   ))}
+                  {topAgents.length === 0 && (
+                    <p className="text-sm text-gray-400">Sem dados de agentes.</p>
+                  )}
                 </div>
               </Card>
             </div>

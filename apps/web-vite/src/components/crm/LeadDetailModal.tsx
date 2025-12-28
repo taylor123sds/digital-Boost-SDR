@@ -14,17 +14,10 @@ interface LeadDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate?: (lead: Lead) => void;
+  stages?: Array<{ id: string; label: string; color: 'default' | 'success' | 'warning' | 'danger' | 'info' }>;
 }
 
-const stages = [
-  { id: 'novo', label: 'Novo', color: 'info' },
-  { id: 'qualificado', label: 'Qualificado', color: 'success' },
-  { id: 'proposta', label: 'Proposta', color: 'warning' },
-  { id: 'negociacao', label: 'Negociacao', color: 'default' },
-  { id: 'fechado', label: 'Fechado', color: 'success' },
-] as const;
-
-export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }: LeadDetailModalProps) {
+export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate, stages = [] }: LeadDetailModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -47,17 +40,11 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }: Lea
     if (!lead) return;
     setLoading(true);
     try {
-      const data = await api.getMessages(lead.phone);
-      setMessages(data.messages || []);
+      const data = await api.getConversationMessages(lead.phone);
+      setMessages(data || []);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
-      // Mock messages for development
-      setMessages([
-        { id: '1', content: 'Ola! Vi que voce se interessou pelo Digital Boost. Como posso ajudar?', from: 'agent' as const, timestamp: new Date(Date.now() - 3600000).toISOString() },
-        { id: '2', content: 'Oi! Quero saber mais sobre o servico', from: 'user' as const, timestamp: new Date(Date.now() - 3500000).toISOString() },
-        { id: '3', content: 'Claro! O Digital Boost e uma solucao completa de marketing digital. Qual e o principal desafio da sua empresa hoje?', from: 'agent' as const, timestamp: new Date(Date.now() - 3400000).toISOString() },
-        { id: '4', content: 'Preciso gerar mais leads qualificados', from: 'user' as const, timestamp: new Date(Date.now() - 3300000).toISOString() },
-      ]);
+      setMessages([]);
     } finally {
       setLoading(false);
     }

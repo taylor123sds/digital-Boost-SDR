@@ -49,6 +49,10 @@ import websiteRoutes from './website.routes.js';
 import emailOptInRoutes from './email-optin.routes.js';
 import agentsRoutes from './agents.routes.js';
 import channelsRoutes from './channels.routes.js';
+import conversationsRoutes from './conversations.routes.js';
+import auditRoutes from './audit.routes.js';
+import billingRoutes from './billing.routes.js';
+import settingsRoutes from './settings.routes.js';
 import webhooksInboundRoutes from './webhooks-inbound.routes.js';
 import crmIntegrationRoutes from './crm-integration.routes.js';
 import versionRoutes from './version.routes.js';
@@ -100,6 +104,10 @@ router.use(websiteRoutes);           // /api/website/* (Landing Page Forms)
 router.use(emailOptInRoutes);        // /api/email-optin/* (Email Opt-In before WhatsApp)
 router.use(agentsRoutes);            // /api/admin/agents/*, /api/agents/*, /api/config/* (Multi-Agent + Config)
 router.use(channelsRoutes);          // /api/agents/:agentId/channels/*, /api/integrations/* (Evolution One-Click)
+router.use(conversationsRoutes);     // /api/conversations, /api/conversations/:phone/messages
+router.use(auditRoutes);             // /api/audit-logs
+router.use(billingRoutes);           // /api/billing/plans
+router.use(settingsRoutes);          // /api/settings
 router.use(webhooksInboundRoutes);   // /api/webhooks/inbound/:publicId (Multi-tenant webhook receiver)
 router.use(crmIntegrationRoutes);    // /api/integrations/crm/:provider/* (Kommo, HubSpot, Pipedrive OAuth)
 router.use(versionRoutes);           // /api/version, /api/version/short, /health/version (P0-1)

@@ -14,6 +14,79 @@ import { getEntitlementService } from '../../services/EntitlementService.js';
 
 const router = express.Router();
 
+const INTEGRATION_CATEGORIES = [
+  { id: 'messaging', name: 'Mensageria', icon: 'MessageSquare' },
+  { id: 'calendar', name: 'Calendario', icon: 'Calendar' },
+  { id: 'crm', name: 'CRM', icon: 'Database' },
+  { id: 'webhooks', name: 'Webhooks', icon: 'Webhook' }
+];
+
+const INTEGRATION_CATALOG = [
+  {
+    id: 'evolution-api',
+    name: 'Evolution API',
+    type: 'whatsapp',
+    provider: 'evolution',
+    status: 'disconnected',
+    icon: '📱',
+    description: 'WhatsApp via Evolution API - Multi-device, QR Code'
+  },
+  {
+    id: 'meta-whatsapp',
+    name: 'WhatsApp Cloud API',
+    type: 'whatsapp',
+    provider: 'meta',
+    status: 'disconnected',
+    icon: '☁️',
+    description: 'WhatsApp oficial via Meta Business Platform'
+  },
+  {
+    id: 'google-calendar',
+    name: 'Google Calendar',
+    type: 'calendar',
+    provider: 'google',
+    status: 'disconnected',
+    icon: '📅',
+    description: 'Sincronize agendamentos com Google Calendar'
+  },
+  {
+    id: 'kommo',
+    name: 'Kommo CRM',
+    type: 'crm',
+    provider: 'kommo',
+    status: 'disconnected',
+    icon: '🟠',
+    description: 'Sincronize leads e negocios com Kommo (amoCRM)'
+  },
+  {
+    id: 'hubspot',
+    name: 'HubSpot',
+    type: 'crm',
+    provider: 'hubspot',
+    status: 'disconnected',
+    icon: '🔶',
+    description: 'Sincronize leads e deals com HubSpot CRM'
+  },
+  {
+    id: 'pipedrive',
+    name: 'Pipedrive',
+    type: 'crm',
+    provider: 'pipedrive',
+    status: 'disconnected',
+    icon: '🔷',
+    description: 'Sincronize pipeline com Pipedrive'
+  },
+  {
+    id: 'custom-webhook',
+    name: 'Webhook Customizado',
+    type: 'webhook',
+    provider: 'custom',
+    status: 'disconnected',
+    icon: '🔗',
+    description: 'Envie eventos para seu endpoint'
+  }
+];
+
 /**
  * POST /api/agents/:agentId/channels/evolution/connect
  * One-click Evolution API connect
@@ -70,6 +143,20 @@ router.post('/api/agents/:agentId/channels/evolution/connect',
 );
 
 /**
+ * GET /api/integrations/catalog
+ * Returns integration catalog for UI
+ */
+router.get('/api/integrations/catalog', authenticate, tenantContext, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      categories: INTEGRATION_CATEGORIES,
+      integrations: INTEGRATION_CATALOG
+    }
+  });
+});
+
+/**
  * GET /api/agents/:agentId/channels/evolution/status
  * Get Evolution connection status
  */
@@ -117,6 +204,36 @@ router.get('/api/agents/:agentId/channels/evolution/status',
       res.status(500).json({
         success: false,
         error: 'Erro ao verificar status',
+        details: error.message
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/agents/:agentId/integrations
+ * List integrations bound to a specific agent
+ */
+router.get('/api/agents/:agentId/integrations',
+  authenticate,
+  tenantContext,
+  async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const tenantId = req.tenantId;
+
+      const integrationService = getIntegrationService();
+      const bindings = integrationService.listBindingsForAgent(tenantId, agentId);
+
+      res.json({
+        success: true,
+        data: bindings
+      });
+    } catch (error) {
+      console.error('[CHANNELS] Agent integrations error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao listar integracoes do agente',
         details: error.message
       });
     }

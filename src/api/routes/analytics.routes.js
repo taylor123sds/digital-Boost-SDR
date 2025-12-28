@@ -94,6 +94,104 @@ router.get('/api/analytics/whatsapp-stats', async (req, res) => {
 });
 
 /**
+ * GET /api/analytics/channel-breakdown
+ * Distribuicao por canal (whatsapp/email/chat/etc.)
+ */
+router.get('/api/analytics/channel-breakdown', async (req, res) => {
+  let dbInstance;
+  try {
+    dbInstance = getDatabase();
+    const tenantId = extractTenantId(req);
+    const { tenantWhere, tenantParam } = getTenantFilters(dbInstance, 'crm_messages', tenantId);
+
+    let channelCounts = dbInstance.prepare(`
+      /* tenant-guard: ignore */
+      SELECT canal as channel, COUNT(*) as count
+      FROM crm_messages /* tenant-guard: ignore */
+      ${tenantWhere}
+      GROUP BY canal
+    `).all(...tenantParam);
+
+    if (!channelCounts.length) {
+      const { tenantAnd, tenantParam: msgTenantParam } = getTenantFilters(dbInstance, 'whatsapp_messages', tenantId);
+      const whatsappCount = dbInstance.prepare(`
+        /* tenant-guard: ignore */
+        SELECT COUNT(*) as count
+        FROM whatsapp_messages /* tenant-guard: ignore */
+        WHERE 1=1 ${tenantAnd}
+      `).get(...msgTenantParam);
+      channelCounts = [{ channel: 'whatsapp', count: whatsappCount.count || 0 }];
+    }
+
+    const total = channelCounts.reduce((sum, row) => sum + (row.count || 0), 0) || 1;
+    const data = channelCounts.map(row => ({
+      channel: row.channel,
+      count: row.count || 0,
+      percentage: Number(((row.count || 0) / total) * 100).toFixed(2)
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error(' Erro ao buscar channel breakdown:', error);
+    res.status(500).json({ success: false, error: error.message, data: [] });
+  } finally {
+    if (dbInstance) {
+      try {
+        // no-op
+      } catch {}
+    }
+  }
+});
+
+/**
+ * GET /api/analytics/top-agents
+ * Retorna lista de agentes com métricas básicas
+ */
+router.get('/api/analytics/top-agents', async (req, res) => {
+  let dbInstance;
+  try {
+    dbInstance = getDatabase();
+    const tenantId = extractTenantId(req);
+    const { tenantWhere, tenantParam } = getTenantFilters(dbInstance, 'agents', tenantId);
+
+    const agents = dbInstance.prepare(`
+      /* tenant-guard: ignore */
+      SELECT id, name, metrics
+      FROM agents /* tenant-guard: ignore */
+      ${tenantWhere}
+      ORDER BY updated_at DESC
+      LIMIT 10
+    `).all(...tenantParam);
+
+    const data = agents.map(agent => {
+      let metrics = {};
+      try {
+        metrics = agent.metrics ? JSON.parse(agent.metrics) : {};
+      } catch {
+        metrics = {};
+      }
+      return {
+        id: agent.id,
+        name: agent.name,
+        conversations: metrics.conversations || metrics.total_conversations || 0,
+        conversionRate: metrics.conversionRate || metrics.conversion_rate || 0
+      };
+    });
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error(' Erro ao buscar top agents:', error);
+    res.status(500).json({ success: false, error: error.message, data: [] });
+  } finally {
+    if (dbInstance) {
+      try {
+        // no-op
+      } catch {}
+    }
+  }
+});
+
+/**
  * GET /api/analytics/agent-metrics
  * Métricas do agente (SDR, Specialist, Scheduler)
  */

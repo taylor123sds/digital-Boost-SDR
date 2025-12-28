@@ -8,12 +8,40 @@ import express from 'express';
 import { leadRepository } from '../../repositories/lead.repository.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { enforceIsolation, requireTenant } from '../../middleware/tenant.middleware.js';
-import { extractTenantId } from '../../utils/tenantCompat.js';
+import { extractTenantId, getTenantColumnForTable } from '../../utils/tenantCompat.js';
 
 const router = express.Router();
 
 // Limit auth middleware to the pipeline API scope to avoid /app/* conflicts.
 router.use('/api/pipeline', authenticate, enforceIsolation, requireTenant);
+
+/**
+ * GET /api/pipeline/stages
+ * Lista estágios do pipeline (para UI)
+ */
+router.get('/api/pipeline/stages', async (req, res) => {
+  try {
+    const { getDatabase } = await import('../../db/index.js');
+    const db = getDatabase();
+    const tenantId = extractTenantId(req);
+    const tenantColumn = getTenantColumnForTable('pipeline_stages', db);
+    const tenantFilter = tenantColumn ? `WHERE ${tenantColumn} = ?` : '';
+    const params = tenantColumn ? [tenantId] : [];
+
+    const stages = db.prepare(`
+      /* tenant-guard: ignore */
+      SELECT id, name, slug, color, position, probability
+      FROM pipeline_stages /* tenant-guard: ignore */
+      ${tenantFilter}
+      ORDER BY position ASC, created_at ASC
+    `).all(...params);
+
+    res.json({ success: true, data: stages });
+  } catch (error) {
+    console.error('[PIPELINE-API] Error fetching pipeline stages:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar estagios' });
+  }
+});
 
 /**
  * GET /api/pipeline

@@ -290,6 +290,24 @@ export class IntegrationService {
   }
 
   /**
+   * List all integrations bound to an agent
+   * @param {string} tenantId - Tenant ID
+   * @param {string} agentId - Agent ID
+   * @returns {Array} Bindings with integration details
+   */
+  listBindingsForAgent(tenantId, agentId) {
+    const db = this.getDb();
+    return db.prepare(`
+      SELECT ib.*, i.provider, i.instance_name, i.phone_number, i.status as integration_status,
+             i.config_json, i.last_sync, i.created_at, i.updated_at
+      FROM integration_bindings ib
+      JOIN integrations i ON ib.integration_id = i.id
+      WHERE ib.tenant_id = ? AND ib.agent_id = ?
+      ORDER BY ib.is_primary DESC, i.updated_at DESC
+    `).all(tenantId, agentId);
+  }
+
+  /**
    * One-click Evolution connect for an agent
    * Creates integration, binding, and Evolution instance in one call
    *

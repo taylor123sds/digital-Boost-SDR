@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Phone, HeadphonesIcon, ArrowLeft, Save,
   CheckSquare, ToggleLeft, Calendar, Brain, User, Building,
   Package, Users, Shield, Flag, MessageSquare, Plug, BookOpen,
-  Eye, Plus, Trash2, AlertTriangle
+  Eye, Plus, Trash2, AlertTriangle, type LucideIcon
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
+import { api, type AgentPresets } from '../lib/api';
 
 // Types
 type AgentType = 'sdr' | 'specialist' | 'scheduler' | 'support';
@@ -110,74 +111,45 @@ interface AgentForm {
   isActive: boolean;
 }
 
-// Data
-const agentTypes = [
-  { id: 'sdr', name: 'SDR Agent', description: 'Qualificacao com SPIN Selling e BANT', icon: Phone, color: 'cyan' },
-  { id: 'specialist', name: 'Specialist Agent', description: 'Consultor tecnico para duvidas complexas', icon: Brain, color: 'violet' },
-  { id: 'scheduler', name: 'Scheduler Agent', description: 'Agendamento inteligente de reunioes', icon: Calendar, color: 'green' },
-  { id: 'support', name: 'Support Agent', description: 'Suporte ao cliente com base de conhecimento', icon: HeadphonesIcon, color: 'yellow' },
-] as const;
-
-const sectors = [
-  { id: 'energia_solar', name: 'Energia Solar', icon: '☀️' },
-  { id: 'saas', name: 'SaaS', icon: '☁️' },
-  { id: 'consultoria', name: 'Consultoria', icon: '💼' },
-  { id: 'ecommerce', name: 'E-commerce', icon: '🛒' },
-  { id: 'varejo', name: 'Varejo', icon: '🏪' },
-  { id: 'educacao', name: 'Educacao', icon: '🎓' },
-  { id: 'imobiliario', name: 'Imobiliario', icon: '🏠' },
-  { id: 'financeiro', name: 'Financeiro', icon: '💰' },
-  { id: 'saude', name: 'Saude', icon: '🏥' },
-  { id: 'outro', name: 'Outro', icon: '📦' },
-] as const;
-
-const ctaTypes = [
-  { id: 'reuniao', name: 'Agendar Reuniao', description: 'Call de qualificacao ou discovery' },
-  { id: 'demonstracao', name: 'Demonstracao', description: 'Apresentacao do produto/servico' },
-  { id: 'orcamento', name: 'Enviar Orcamento', description: 'Proposta comercial personalizada' },
-  { id: 'visita', name: 'Agendar Visita', description: 'Visita tecnica ou presencial' },
-  { id: 'teste_gratis', name: 'Teste Gratuito', description: 'Trial ou POC do produto' },
-] as const;
-
-const qualificationFrameworks = [
-  { id: 'bant', name: 'BANT', description: 'Budget, Authority, Need, Timeline' },
-  { id: 'spin', name: 'SPIN Selling', description: 'Situation, Problem, Implication, Need-payoff' },
-  { id: 'meddic', name: 'MEDDIC', description: 'Metrics, Economic Buyer, Decision Criteria, etc.' },
-  { id: 'custom', name: 'Personalizado', description: 'Configure seus proprios criterios' },
-] as const;
-
-const bantFieldsConfig = [
-  { key: 'budget', label: 'Budget (Orcamento)', description: 'Verifica disponibilidade de investimento' },
-  { key: 'authority', label: 'Authority (Autoridade)', description: 'Identifica decisor ou influenciador' },
-  { key: 'need', label: 'Need (Necessidade)', description: 'Mapeia dores e objetivos' },
-  { key: 'timeline', label: 'Timeline (Prazo)', description: 'Urgencia para implementacao' },
-  { key: 'companySize', label: 'Tamanho da Empresa', description: 'Numero de funcionarios/faturamento' },
-  { key: 'decisionProcess', label: 'Processo Decisorio', description: 'Como tomam decisoes de compra' },
-  { key: 'painPoints', label: 'Pontos de Dor', description: 'Principais desafios atuais' },
-  { key: 'currentSolution', label: 'Solucao Atual', description: 'O que usam hoje para resolver' },
-] as const;
-
-const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
-
-const steps = [
-  { id: 0, title: 'Identidade', subtitle: 'Persona do agente', icon: User },
-  { id: 1, title: 'Empresa', subtitle: 'Contexto do negocio', icon: Building },
-  { id: 2, title: 'Oferta', subtitle: 'Servicos e produtos', icon: Package },
-  { id: 3, title: 'ICP', subtitle: 'Perfil do cliente ideal', icon: Users },
-  { id: 4, title: 'Politicas', subtitle: 'Regras e limites', icon: Shield },
-  { id: 5, title: 'Objetivos', subtitle: 'CTA e KPIs', icon: Flag },
-  { id: 6, title: 'Canais', subtitle: 'Horarios e canais', icon: MessageSquare },
-  { id: 7, title: 'Integracoes', subtitle: 'Conectar servicos', icon: Plug },
-  { id: 8, title: 'Playbooks', subtitle: 'Objecoes e handoff', icon: BookOpen },
-  { id: 9, title: 'Preview', subtitle: 'Revisar e ativar', icon: Eye },
-];
-
-const toneLabels = ['Muito Formal', 'Formal', 'Equilibrado', 'Casual', 'Muito Casual'];
+const iconMap: Record<string, LucideIcon> = {
+  Phone,
+  HeadphonesIcon,
+  Calendar,
+  Brain,
+  User,
+  Building,
+  Package,
+  Users,
+  Shield,
+  Flag,
+  MessageSquare,
+  Plug,
+  BookOpen,
+  Eye
+};
 
 export default function AgentNewPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [presets, setPresets] = useState<AgentPresets | null>(null);
+
+  const agentTypes = presets?.agentTypes || [];
+  const sectors = presets?.sectors || [];
+  const ctaTypes = presets?.ctaTypes || [];
+  const qualificationFrameworks = presets?.qualificationFrameworks || [];
+  const bantFieldsConfig = presets?.bantFieldsConfig || [];
+  const weekDays = presets?.weekDays || [];
+  const steps = presets?.steps || [];
+  const toneLabels = presets?.toneLabels || [];
+
+  useEffect(() => {
+    const loadPresets = async () => {
+      const data = await api.getAgentPresets();
+      setPresets(data);
+    };
+    loadPresets();
+  }, []);
 
   const [form, setForm] = useState<AgentForm>({
     // Step 0
@@ -420,7 +392,13 @@ export default function AgentNewPage() {
       });
 
       if (response.ok) {
-        navigate('/agents');
+        const payload = await response.json().catch(() => null);
+        const createdAgentId = payload?.data?.id || payload?.id || null;
+        if (createdAgentId) {
+          navigate(`/integrations?agentId=${createdAgentId}`);
+        } else {
+          navigate('/agents');
+        }
       } else {
         navigate('/agents');
       }
@@ -506,7 +484,7 @@ export default function AgentNewPage() {
                 <label className="block text-sm text-gray-400 mb-2">Tipo de Agente</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {agentTypes.map((type) => {
-                    const Icon = type.icon;
+                    const Icon = iconMap[type.icon] || Plug;
                     return (
                       <button
                         key={type.id}
@@ -1396,7 +1374,7 @@ export default function AgentNewPage() {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold">Criar Novo Agente</h1>
+                    <h1 className="text-2xl font-semibold">Criar Novo Agente</h1>
             <p className="text-gray-400 mt-1">Configure seu agente de IA em 10 passos</p>
           </div>
         </div>
@@ -1405,7 +1383,7 @@ export default function AgentNewPage() {
         <div className="mb-8 overflow-x-auto pb-2">
           <div className="flex items-center gap-1 min-w-max bg-dark-card p-2 rounded-xl border border-white/10">
             {steps.map((s, idx) => {
-              const Icon = s.icon;
+              const Icon = iconMap[s.icon] || Plug;
               const isActive = step === s.id;
               const isCompleted = step > s.id;
 

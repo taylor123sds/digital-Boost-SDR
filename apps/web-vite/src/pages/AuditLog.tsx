@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
+import { api } from '../lib/api';
 
 // Types
 interface AuditEntry {
@@ -41,86 +42,6 @@ const categoryConfig = {
   system: { label: 'Sistema', icon: AlertTriangle, color: 'text-red-500' },
 };
 
-const mockAuditLogs: AuditEntry[] = [
-  {
-    id: '1',
-    timestamp: new Date(Date.now() - 60000).toISOString(),
-    action: 'agent.message.sent',
-    category: 'message',
-    actor: { type: 'agent', id: 'agent-1', name: 'ORBION SDR' },
-    target: { type: 'lead', id: 'lead-123', name: 'Maria Silva' },
-    details: { messageType: 'whatsapp', template: 'follow_up' },
-    status: 'success'
-  },
-  {
-    id: '2',
-    timestamp: new Date(Date.now() - 300000).toISOString(),
-    action: 'user.login',
-    category: 'auth',
-    actor: { type: 'user', id: 'user-1', name: 'Taylor Lapenda' },
-    ip: '186.235.xxx.xxx',
-    status: 'success'
-  },
-  {
-    id: '3',
-    timestamp: new Date(Date.now() - 600000).toISOString(),
-    action: 'lead.stage.updated',
-    category: 'lead',
-    actor: { type: 'agent', id: 'agent-1', name: 'ORBION SDR' },
-    target: { type: 'lead', id: 'lead-456', name: 'Joao Santos' },
-    details: { fromStage: 'discovery', toStage: 'qualification' },
-    status: 'success'
-  },
-  {
-    id: '4',
-    timestamp: new Date(Date.now() - 900000).toISOString(),
-    action: 'agent.config.updated',
-    category: 'config',
-    actor: { type: 'user', id: 'user-1', name: 'Taylor Lapenda' },
-    target: { type: 'agent', id: 'agent-1', name: 'ORBION SDR' },
-    details: { field: 'persona.tone', oldValue: 'formal', newValue: 'consultivo' },
-    status: 'success'
-  },
-  {
-    id: '5',
-    timestamp: new Date(Date.now() - 1800000).toISOString(),
-    action: 'system.whatsapp.reconnect',
-    category: 'system',
-    actor: { type: 'system', id: 'system', name: 'Sistema' },
-    details: { reason: 'connection_lost', attempts: 3 },
-    status: 'warning'
-  },
-  {
-    id: '6',
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    action: 'billing.subscription.renewed',
-    category: 'billing',
-    actor: { type: 'system', id: 'system', name: 'Sistema' },
-    details: { plan: 'professional', amount: 297 },
-    status: 'success'
-  },
-  {
-    id: '7',
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
-    action: 'user.login.failed',
-    category: 'auth',
-    actor: { type: 'user', id: 'unknown', name: 'Desconhecido' },
-    ip: '45.xxx.xxx.xxx',
-    details: { reason: 'invalid_password', attempts: 3 },
-    status: 'failure'
-  },
-  {
-    id: '8',
-    timestamp: new Date(Date.now() - 10800000).toISOString(),
-    action: 'agent.handoff.triggered',
-    category: 'agent',
-    actor: { type: 'agent', id: 'agent-1', name: 'ORBION SDR' },
-    target: { type: 'lead', id: 'lead-789', name: 'Ana Costa' },
-    details: { reason: 'user_request', escalatedTo: 'sales_team' },
-    status: 'success'
-  },
-];
-
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,16 +51,28 @@ export default function AuditLogPage() {
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [totalLogs, setTotalLogs] = useState(0);
   const pageSize = 20;
 
   useEffect(() => {
     loadLogs();
-  }, [filterCategory, filterStatus, dateRange, page]);
+  }, [filterCategory, filterStatus, dateRange, page, searchQuery]);
 
   const loadLogs = async () => {
     setLoading(true);
     try {
-      setLogs(mockAuditLogs);
+      const offset = (page - 1) * pageSize;
+      const result = await api.getAuditLogs({
+        limit: pageSize,
+        offset,
+        category: filterCategory === 'all' ? undefined : filterCategory,
+        status: filterStatus === 'all' ? undefined : filterStatus,
+        q: searchQuery || undefined,
+        from: dateRange.from || undefined,
+        to: dateRange.to || undefined,
+      });
+      setLogs(result.data);
+      setTotalLogs(result.total);
     } finally {
       setLoading(false);
     }
@@ -147,7 +80,7 @@ export default function AuditLogPage() {
 
   const exportLogs = async () => {
     try {
-      const rows = (logs.length > 0 ? logs : mockAuditLogs).map(log => ({
+      const rows = (logs.length > 0 ? logs : []).map(log => ({
         id: log.id,
         timestamp: log.timestamp,
         action: log.action,
@@ -190,11 +123,7 @@ export default function AuditLogPage() {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
-  const filteredLogs = logs.filter(log =>
-    log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.actor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.target?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredLogs = logs;
 
   const getStatusIcon = (status: AuditEntry['status']) => {
     if (status === 'success') return <CheckCircle size={16} className="text-green-500" />;
@@ -437,7 +366,7 @@ export default function AuditLogPage() {
           {filteredLogs.length > 0 && (
             <div className="flex items-center justify-between p-4 border-t border-white/10">
               <span className="text-sm text-gray-400">
-                Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, filteredLogs.length)} de {filteredLogs.length}
+                Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, totalLogs)} de {totalLogs}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -452,7 +381,7 @@ export default function AuditLogPage() {
                   variant="secondary"
                   size="sm"
                   onClick={() => setPage(p => p + 1)}
-                  disabled={page * pageSize >= filteredLogs.length}
+                  disabled={page * pageSize >= totalLogs}
                 >
                   Proximo
                 </Button>

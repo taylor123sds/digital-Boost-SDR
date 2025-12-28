@@ -21,6 +21,64 @@ import channelsRouter from './channels.routes.js';
 import metrics from '../../utils/metrics.js';
 
 const router = express.Router();
+
+const AGENT_PRESETS = {
+  agentTypes: [
+    { id: 'sdr', name: 'SDR Agent', description: 'Qualificacao com SPIN Selling e BANT', icon: 'Phone', color: 'cyan' },
+    { id: 'specialist', name: 'Specialist Agent', description: 'Consultor tecnico para duvidas complexas', icon: 'Brain', color: 'violet' },
+    { id: 'scheduler', name: 'Scheduler Agent', description: 'Agendamento inteligente de reunioes', icon: 'Calendar', color: 'green' },
+    { id: 'support', name: 'Support Agent', description: 'Suporte ao cliente com base de conhecimento', icon: 'HeadphonesIcon', color: 'yellow' }
+  ],
+  sectors: [
+    { id: 'energia_solar', name: 'Energia Solar', icon: '☀️' },
+    { id: 'saas', name: 'SaaS', icon: '☁️' },
+    { id: 'consultoria', name: 'Consultoria', icon: '💼' },
+    { id: 'ecommerce', name: 'E-commerce', icon: '🛒' },
+    { id: 'varejo', name: 'Varejo', icon: '🏪' },
+    { id: 'educacao', name: 'Educacao', icon: '🎓' },
+    { id: 'imobiliario', name: 'Imobiliario', icon: '🏠' },
+    { id: 'financeiro', name: 'Financeiro', icon: '💰' },
+    { id: 'saude', name: 'Saude', icon: '🏥' },
+    { id: 'outro', name: 'Outro', icon: '📦' }
+  ],
+  ctaTypes: [
+    { id: 'reuniao', name: 'Agendar Reuniao', description: 'Call de qualificacao ou discovery' },
+    { id: 'demonstracao', name: 'Demonstracao', description: 'Apresentacao do produto/servico' },
+    { id: 'orcamento', name: 'Enviar Orcamento', description: 'Proposta comercial personalizada' },
+    { id: 'visita', name: 'Agendar Visita', description: 'Visita tecnica ou presencial' },
+    { id: 'teste_gratis', name: 'Teste Gratuito', description: 'Trial ou POC do produto' }
+  ],
+  qualificationFrameworks: [
+    { id: 'bant', name: 'BANT', description: 'Budget, Authority, Need, Timeline' },
+    { id: 'spin', name: 'SPIN Selling', description: 'Situation, Problem, Implication, Need-payoff' },
+    { id: 'meddic', name: 'MEDDIC', description: 'Metrics, Economic Buyer, Decision Criteria, etc.' },
+    { id: 'custom', name: 'Personalizado', description: 'Configure seus proprios criterios' }
+  ],
+  bantFieldsConfig: [
+    { key: 'budget', label: 'Budget (Orcamento)', description: 'Verifica disponibilidade de investimento' },
+    { key: 'authority', label: 'Authority (Autoridade)', description: 'Identifica decisor ou influenciador' },
+    { key: 'need', label: 'Need (Necessidade)', description: 'Mapeia dores e objetivos' },
+    { key: 'timeline', label: 'Timeline (Prazo)', description: 'Urgencia para implementacao' },
+    { key: 'companySize', label: 'Tamanho da Empresa', description: 'Numero de funcionarios/faturamento' },
+    { key: 'decisionProcess', label: 'Processo Decisorio', description: 'Como tomam decisoes de compra' },
+    { key: 'painPoints', label: 'Pontos de Dor', description: 'Principais desafios atuais' },
+    { key: 'currentSolution', label: 'Solucao Atual', description: 'O que usam hoje para resolver' }
+  ],
+  weekDays: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'],
+  steps: [
+    { id: 0, title: 'Identidade', subtitle: 'Persona do agente', icon: 'User' },
+    { id: 1, title: 'Empresa', subtitle: 'Contexto do negocio', icon: 'Building' },
+    { id: 2, title: 'Oferta', subtitle: 'Servicos e produtos', icon: 'Package' },
+    { id: 3, title: 'ICP', subtitle: 'Perfil do cliente ideal', icon: 'Users' },
+    { id: 4, title: 'Politicas', subtitle: 'Regras e limites', icon: 'Shield' },
+    { id: 5, title: 'Objetivos', subtitle: 'CTA e KPIs', icon: 'Flag' },
+    { id: 6, title: 'Canais', subtitle: 'Horarios e canais', icon: 'MessageSquare' },
+    { id: 7, title: 'Integracoes', subtitle: 'Conectar servicos', icon: 'Plug' },
+    { id: 8, title: 'Playbooks', subtitle: 'Objecoes e handoff', icon: 'BookOpen' },
+    { id: 9, title: 'Preview', subtitle: 'Revisar e ativar', icon: 'Eye' }
+  ],
+  toneLabels: ['Muito Formal', 'Formal', 'Equilibrado', 'Casual', 'Muito Casual']
+};
 const allowLegacyEvolutionRoutes = process.env.LEGACY_EVOLUTION_ROUTES !== 'false';
 const isProduction = process.env.NODE_ENV === 'production';
 const legacyEvolutionCutoffRaw = process.env.LEGACY_EVOLUTION_CUTOFF_AT;
@@ -288,6 +346,14 @@ router.use('/api/evolution', blockLegacyEvolutionRoutes);
 // ═══════════════════════════════════════════════════════════════════════════
 // AGENT CRUD ROUTES - Using AgentRepository (orbion.db canonical source)
 // ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/config/agent-presets
+ * UI presets for agent creation
+ */
+router.get('/api/config/agent-presets', (req, res) => {
+  res.json({ success: true, data: AGENT_PRESETS });
+});
 
 /**
  * GET /api/agents - List all agents for current tenant

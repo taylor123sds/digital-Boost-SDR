@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
+import { api } from '../lib/api';
 
 // Types
 interface Plan {
@@ -45,73 +46,6 @@ interface Invoice {
   pdfUrl?: string;
 }
 
-const plans: Plan[] = [
-  {
-    id: 'trial',
-    name: 'Trial',
-    price: 0,
-    billingPeriod: 'monthly',
-    features: [
-      '1 Agente SDR',
-      '100 mensagens',
-      '10 leads ativos',
-      'Qualificacao BANT',
-      'Dashboard basico',
-      '7 dias de teste'
-    ],
-    limits: { agents: 1, messages: 100, leads: 10 }
-  },
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 97,
-    billingPeriod: 'monthly',
-    features: [
-      '1 Agente SDR',
-      '1.000 mensagens/mes',
-      '100 leads ativos',
-      'Qualificacao BANT',
-      'Dashboard basico',
-      'Suporte por email'
-    ],
-    limits: { agents: 1, messages: 1000, leads: 100 }
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    price: 297,
-    billingPeriod: 'monthly',
-    features: [
-      '3 Agentes (SDR, Specialist, Support)',
-      '10.000 mensagens/mes',
-      '1.000 leads ativos',
-      'BANT + SPIN Selling',
-      'Analytics avancado',
-      'Integracoes CRM',
-      'Suporte prioritario'
-    ],
-    limits: { agents: 3, messages: 10000, leads: 1000 },
-    recommended: true
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 997,
-    billingPeriod: 'monthly',
-    features: [
-      'Agentes ilimitados',
-      'Mensagens ilimitadas',
-      'Leads ilimitados',
-      'Multi-tenant',
-      'API completa',
-      'White-label',
-      'SLA garantido',
-      'Gerente de conta dedicado'
-    ],
-    limits: { agents: -1, messages: -1, leads: -1 }
-  }
-];
-
 // Invoices are loaded from backend
 
 export default function BillingPage() {
@@ -119,6 +53,7 @@ export default function BillingPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -135,7 +70,11 @@ export default function BillingPage() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const entitlementRes = await fetch('/api/auth/entitlements', { headers }).catch(() => null);
+      const [entitlementRes, plansData] = await Promise.all([
+        fetch('/api/auth/entitlements', { headers }).catch(() => null),
+        api.getBillingPlans()
+      ]);
+      setPlans(plansData);
 
       // Check entitlements first (trial/billing status)
       if (entitlementRes?.ok) {
@@ -176,6 +115,7 @@ export default function BillingPage() {
 
       setInvoices([]);
     } catch {
+      setPlans([]);
       // Use trial data on error
       setSubscription({
         planId: 'trial',

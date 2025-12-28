@@ -28,24 +28,13 @@ export default function DashboardPage() {
       setStats(data);
     } catch (error) {
       console.error('Erro ao carregar stats:', error);
-      // Mock data for development
       setStats({
-        totalLeads: 1247,
-        activeAgents: 3,
-        messagesTotal: 45892,
-        conversionRate: 12.5,
-        leadsByStage: [
-          { stage: 'Novo', count: 342 },
-          { stage: 'Qualificado', count: 189 },
-          { stage: 'Proposta', count: 87 },
-          { stage: 'Negociacao', count: 45 },
-          { stage: 'Fechado', count: 156 },
-        ],
-        recentActivity: [
-          { id: '1', type: 'message', description: 'Nova mensagem de Joao Silva', timestamp: new Date().toISOString() },
-          { id: '2', type: 'lead', description: 'Lead Maria Santos qualificado', timestamp: new Date(Date.now() - 300000).toISOString() },
-          { id: '3', type: 'campaign', description: 'Campanha "Black Friday" iniciada', timestamp: new Date(Date.now() - 600000).toISOString() },
-        ]
+        totalLeads: 0,
+        activeAgents: 0,
+        messagesTotal: 0,
+        conversionRate: 0,
+        leadsByStage: [],
+        recentActivity: []
       });
     } finally {
       setLoading(false);

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, Bell, Shield, Palette, Key, Building } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
+import { api, type UserSettings } from '../lib/api';
 
 const tabs = [
   { id: 'profile', label: 'Perfil', icon: User },
@@ -18,12 +19,96 @@ const tabs = [
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [passwordForm, setPasswordForm] = useState({
+    current: '',
+    next: '',
+    confirm: ''
+  });
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const data = await api.getSettings();
+      setSettings(data);
+    };
+    loadSettings();
+  }, []);
 
   const handleSave = async () => {
     setLoading(true);
-    // Simulate save
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLoading(false);
+    try {
+      if (!settings) return;
+      const updated = await api.updateSettings(settings);
+      if (updated) {
+        setSettings(updated);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (passwordForm.next !== passwordForm.confirm) {
+      alert('As senhas nao conferem.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.changePassword(passwordForm.current, passwordForm.next);
+      setPasswordForm({ current: '', next: '', confirm: '' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = (field: keyof UserSettings['profile'], value: string) => {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      profile: {
+        ...settings.profile,
+        [field]: value
+      }
+    });
+  };
+
+  const updatePreferences = (field: keyof UserSettings['preferences'], value: string) => {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      preferences: {
+        ...settings.preferences,
+        [field]: value
+      }
+    });
+  };
+
+  const updateNotification = (field: 'leads' | 'messages' | 'campaigns' | 'reports', value: boolean) => {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      preferences: {
+        ...settings.preferences,
+        notifications: {
+          ...settings.preferences.notifications,
+          [field]: value
+        }
+      }
+    });
+  };
+
+  const updateTheme = (theme: 'dark' | 'light' | 'system') => {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      preferences: {
+        ...settings.preferences,
+        appearance: {
+          ...settings.preferences.appearance,
+          theme
+        }
+      }
+    });
   };
 
   return (
@@ -31,6 +116,11 @@ export default function SettingsPage() {
       <TopBar title="Configuracoes" />
 
       <div className="p-6">
+        {!settings ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
         <div className="flex gap-6">
           {/* Sidebar */}
           <div className="w-64 flex-shrink-0">
@@ -79,10 +169,27 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <Input label="Nome" defaultValue="Admin User" />
-                    <Input label="Email" type="email" defaultValue="admin@leadly.ai" />
-                    <Input label="Telefone" defaultValue="+55 11 99999-9999" />
-                    <Input label="Cargo" defaultValue="Administrador" />
+                    <Input
+                      label="Nome"
+                      value={settings?.profile.name || ''}
+                      onChange={(e) => updateProfile('name', e.target.value)}
+                    />
+                    <Input
+                      label="Email"
+                      type="email"
+                      value={settings?.profile.email || ''}
+                      onChange={(e) => updateProfile('email', e.target.value)}
+                    />
+                    <Input
+                      label="Telefone"
+                      value={settings?.preferences.phone || ''}
+                      onChange={(e) => updatePreferences('phone', e.target.value)}
+                    />
+                    <Input
+                      label="Cargo"
+                      value={settings?.preferences.title || ''}
+                      onChange={(e) => updatePreferences('title', e.target.value)}
+                    />
                   </div>
 
                   <div className="flex justify-end gap-3">
@@ -100,10 +207,26 @@ export default function SettingsPage() {
                 <h2 className="text-xl font-semibold mb-6">Dados da Empresa</h2>
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <Input label="Nome da empresa" defaultValue="Minha Empresa" />
-                    <Input label="CNPJ" defaultValue="00.000.000/0001-00" />
-                    <Input label="Website" defaultValue="https://minhaempresa.com" />
-                    <Input label="Setor" defaultValue="Tecnologia" />
+                    <Input
+                      label="Nome da empresa"
+                      value={settings?.profile.company || ''}
+                      onChange={(e) => updateProfile('company', e.target.value)}
+                    />
+                    <Input
+                      label="CNPJ"
+                      value={settings?.preferences.cnpj || ''}
+                      onChange={(e) => updatePreferences('cnpj', e.target.value)}
+                    />
+                    <Input
+                      label="Website"
+                      value={settings?.preferences.website || ''}
+                      onChange={(e) => updatePreferences('website', e.target.value)}
+                    />
+                    <Input
+                      label="Setor"
+                      value={settings?.profile.sector || ''}
+                      onChange={(e) => updateProfile('sector', e.target.value)}
+                    />
                   </div>
                   <div className="flex justify-end gap-3">
                     <Button variant="secondary">Cancelar</Button>
@@ -120,10 +243,10 @@ export default function SettingsPage() {
                 <h2 className="text-xl font-semibold mb-6">Preferencias de Notificacoes</h2>
                 <div className="space-y-4">
                   {[
-                    { title: 'Novos leads', description: 'Receber alerta quando um novo lead entrar' },
-                    { title: 'Mensagens', description: 'Notificar sobre novas mensagens' },
-                    { title: 'Campanhas', description: 'Atualizacoes sobre campanhas ativas' },
-                    { title: 'Relatorios', description: 'Relatorios semanais por email' },
+                    { title: 'Novos leads', description: 'Receber alerta quando um novo lead entrar', key: 'leads' },
+                    { title: 'Mensagens', description: 'Notificar sobre novas mensagens', key: 'messages' },
+                    { title: 'Campanhas', description: 'Atualizacoes sobre campanhas ativas', key: 'campaigns' },
+                    { title: 'Relatorios', description: 'Relatorios semanais por email', key: 'reports' },
                   ].map((item) => (
                     <div key={item.title} className="flex items-center justify-between p-4 rounded-lg bg-white/5">
                       <div>
@@ -131,7 +254,12 @@ export default function SettingsPage() {
                         <p className="text-sm text-gray-400">{item.description}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" defaultChecked className="sr-only peer" />
+                        <input
+                          type="checkbox"
+                          checked={settings?.preferences.notifications?.[item.key as keyof NonNullable<UserSettings['preferences']['notifications']>] ?? false}
+                          onChange={(e) => updateNotification(item.key as 'leads' | 'messages' | 'campaigns' | 'reports', e.target.checked)}
+                          className="sr-only peer"
+                        />
                         <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan"></div>
                       </label>
                     </div>
@@ -145,11 +273,26 @@ export default function SettingsPage() {
                 <h2 className="text-xl font-semibold mb-6">Seguranca</h2>
                 <div className="space-y-6">
                   <div className="space-y-4">
-                    <Input label="Senha atual" type="password" placeholder="********" />
-                    <Input label="Nova senha" type="password" placeholder="********" />
-                    <Input label="Confirmar nova senha" type="password" placeholder="********" />
+                    <Input
+                      label="Senha atual"
+                      type="password"
+                      value={passwordForm.current}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                    />
+                    <Input
+                      label="Nova senha"
+                      type="password"
+                      value={passwordForm.next}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, next: e.target.value })}
+                    />
+                    <Input
+                      label="Confirmar nova senha"
+                      type="password"
+                      value={passwordForm.confirm}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                    />
                   </div>
-                  <Button loading={loading} onClick={handleSave}>
+                  <Button loading={loading} onClick={handlePasswordChange}>
                     Alterar senha
                   </Button>
                 </div>
@@ -160,20 +303,22 @@ export default function SettingsPage() {
               <Card>
                 <h2 className="text-xl font-semibold mb-6">Chaves de API</h2>
                 <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-white/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">API Key Principal</span>
-                      <Button variant="secondary" size="sm">
-                        Regenerar
-                      </Button>
+                  {(settings?.preferences.apiKeys || []).length === 0 ? (
+                    <div className="p-4 rounded-lg bg-white/5 text-sm text-gray-400">
+                      Nenhuma API key configurada.
                     </div>
-                    <code className="text-sm text-cyan bg-dark-bg2 px-3 py-2 rounded-lg block">
-                      sk-leadly-xxxxxxxxxxxxxxxxxxxx
-                    </code>
-                  </div>
-                  <Button variant="secondary">
-                    Criar nova API Key
-                  </Button>
+                  ) : (
+                    (settings?.preferences.apiKeys || []).map((key) => (
+                      <div key={key.id} className="p-4 rounded-lg bg-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{key.label || 'API Key'}</span>
+                        </div>
+                        <code className="text-sm text-cyan bg-dark-bg2 px-3 py-2 rounded-lg block">
+                          {key.key}
+                        </code>
+                      </div>
+                    ))
+                  )}
                 </div>
               </Card>
             )}
@@ -186,15 +331,16 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-gray-300 mb-3">Tema</label>
                     <div className="flex gap-3">
                       {[
-                        { id: 'dark', label: 'Escuro', active: true },
-                        { id: 'light', label: 'Claro', active: false },
-                        { id: 'system', label: 'Sistema', active: false },
+                        { id: 'dark', label: 'Escuro' },
+                        { id: 'light', label: 'Claro' },
+                        { id: 'system', label: 'Sistema' },
                       ].map((theme) => (
                         <button
                           key={theme.id}
+                          onClick={() => updateTheme(theme.id as 'dark' | 'light' | 'system')}
                           className={cn(
                             'px-6 py-3 rounded-lg border transition-all',
-                            theme.active
+                            settings?.preferences.appearance?.theme === theme.id
                               ? 'border-cyan bg-cyan/10 text-cyan'
                               : 'border-glass-border text-gray-400 hover:border-gray-500'
                           )}
@@ -209,6 +355,7 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

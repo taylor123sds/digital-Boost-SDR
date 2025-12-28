@@ -62,13 +62,6 @@ const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'settings', label: 'Config', icon: <Settings size={18} /> },
 ];
 
-const pipelineStages = [
-  { id: 'stage_lead_novo', label: 'Lead Novo', color: 'cyan' },
-  { id: 'stage_qualificando', label: 'Qualificando', color: 'violet' },
-  { id: 'stage_qualificado', label: 'Qualificado', color: 'success' },
-  { id: 'stage_reuniao_agendada', label: 'Reuniao Agendada', color: 'warning' },
-];
-
 export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -80,6 +73,7 @@ export default function AgentDetailPage() {
   const [metrics, setMetrics] = useState<AgentMetrics | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pipelineLeads, setPipelineLeads] = useState<Record<string, Lead[]>>({});
+  const [pipelineStages, setPipelineStages] = useState<Array<{ id: string; label: string; color: string }>>([]);
   const [cadenceItems, setCadenceItems] = useState<CadenceItem[]>([]);
   const [cadenceStats, setCadenceStats] = useState({ active: 0, pending: 0, completed: 0 });
   const [prospects, setProspects] = useState<ProspectItem[]>([]);
@@ -135,6 +129,10 @@ export default function AgentDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    loadPipelineStages();
+  }, []);
+
+  useEffect(() => {
     // Load tab-specific data when tab changes
     if (activeTab === 'leads') loadLeads();
     if (activeTab === 'pipeline') loadPipeline();
@@ -163,26 +161,16 @@ export default function AgentDetailPage() {
       });
     } catch (error) {
       console.error('Erro ao carregar agente:', error);
-      // Mock data
-      setAgent({
-        id: id || '1',
-        name: 'ORBION SDR',
-        type: 'sdr',
-        status: 'active',
-        channel: 'whatsapp',
-        messagesProcessed: 15432,
-        avgResponseTime: 2.3,
-        createdAt: new Date().toISOString(),
-      });
+      setAgent(null);
       setMetrics({
-        totalLeads: 156,
-        responseRate: 78,
-        meetings: 12,
-        conversionRate: 24,
-        leadsChange: 12,
-        responseChange: 5,
-        meetingsChange: 3,
-        conversionChange: 2.5,
+        totalLeads: 0,
+        responseRate: 0,
+        meetings: 0,
+        conversionRate: 0,
+        leadsChange: 0,
+        responseChange: 0,
+        meetingsChange: 0,
+        conversionChange: 0,
       });
     } finally {
       setLoading(false);
@@ -195,12 +183,15 @@ export default function AgentDetailPage() {
       setLeads(data.leads || []);
     } catch (error) {
       console.error('Erro ao carregar leads:', error);
-      setLeads(mockLeads);
+      setLeads([]);
     }
   };
 
   const loadPipeline = async () => {
     try {
+      if (!pipelineStages.length) {
+        await loadPipelineStages();
+      }
       const data = await api.getFunnel();
       const grouped: Record<string, Lead[]> = {};
       pipelineStages.forEach(stage => { grouped[stage.id] = []; });
@@ -214,13 +205,8 @@ export default function AgentDetailPage() {
       setPipelineLeads(grouped);
     } catch (error) {
       console.error('Erro ao carregar pipeline:', error);
-      // Mock grouped data
       const grouped: Record<string, Lead[]> = {};
       pipelineStages.forEach(stage => { grouped[stage.id] = []; });
-      mockLeads.forEach((lead, i) => {
-        const stageId = pipelineStages[i % pipelineStages.length].id;
-        grouped[stageId].push(lead);
-      });
       setPipelineLeads(grouped);
     }
   };
@@ -244,8 +230,8 @@ export default function AgentDetailPage() {
       });
     } catch (error) {
       console.error('Erro ao carregar cadencias:', error);
-      setCadenceItems(mockCadenceItems);
-      setCadenceStats({ active: 5, pending: 12, completed: 34 });
+      setCadenceItems([]);
+      setCadenceStats({ active: 0, pending: 0, completed: 0 });
     }
   };
 
@@ -263,8 +249,8 @@ export default function AgentDetailPage() {
       setProspects(prospectsData.data || []);
     } catch (error) {
       console.error('Erro ao carregar prospecting:', error);
-      setProspectingStats({ pending: 45, sentToday: 23, replies: 8, isRunning: false });
-      setProspects(mockProspects);
+      setProspectingStats({ pending: 0, sentToday: 0, replies: 0, isRunning: false });
+      setProspects([]);
     }
   };
 
@@ -1196,23 +1182,26 @@ function StatCard({
     </Card>
   );
 }
+  const mapStageColor = (color?: string) => {
+    if (!color) return 'cyan';
+    if (color.includes('green')) return 'success';
+    if (color.includes('yellow')) return 'warning';
+    if (color.includes('red')) return 'danger';
+    if (color.includes('cyan') || color.includes('blue')) return 'cyan';
+    if (color.includes('violet') || color.includes('purple')) return 'violet';
+    return 'cyan';
+  };
 
-// Mock Data
-const mockLeads: Lead[] = [
-  { id: '1', name: 'Joao Silva', phone: '11999999999', email: 'joao@email.com', company: 'Tech Corp', stage: 'stage_lead_novo', score: 85, createdAt: new Date().toISOString() },
-  { id: '2', name: 'Maria Santos', phone: '11888888888', email: 'maria@email.com', company: 'Digital SA', stage: 'stage_qualificando', score: 72, createdAt: new Date().toISOString() },
-  { id: '3', name: 'Pedro Costa', phone: '11777777777', email: 'pedro@email.com', company: 'Startup XYZ', stage: 'stage_qualificado', score: 90, createdAt: new Date().toISOString() },
-  { id: '4', name: 'Ana Lima', phone: '11666666666', email: 'ana@email.com', company: 'Solutions Ltda', stage: 'stage_reuniao_agendada', score: 65, createdAt: new Date().toISOString() },
-];
-
-const mockCadenceItems: CadenceItem[] = [
-  { id: '1', leadName: 'Joao Silva', phone: '11999999999', currentDay: 2, nextActionAt: new Date().toISOString(), status: 'in_progress' },
-  { id: '2', leadName: 'Maria Santos', phone: '11888888888', currentDay: 5, nextActionAt: new Date().toISOString(), status: 'pending' },
-  { id: '3', leadName: 'Pedro Costa', phone: '11777777777', currentDay: 7, nextActionAt: new Date().toISOString(), status: 'completed' },
-];
-
-const mockProspects: ProspectItem[] = [
-  { id: '1', nome: 'Carlos Oliveira', telefone: '11555555555', empresa: 'Innovation Inc', status: 'pendente', createdAt: new Date().toISOString() },
-  { id: '2', nome: 'Fernanda Rocha', telefone: '11444444444', empresa: 'Startup ABC', status: 'enviado', createdAt: new Date().toISOString() },
-  { id: '3', nome: 'Lucas Mendes', telefone: '11333333333', empresa: 'Tech Solutions', status: 'respondeu', createdAt: new Date().toISOString() },
-];
+  const loadPipelineStages = async () => {
+    try {
+      const stages = await api.getPipelineStages();
+      const mapped = stages.map(stage => ({
+        id: stage.id,
+        label: stage.name || stage.slug || stage.id,
+        color: mapStageColor(stage.color)
+      }));
+      setPipelineStages(mapped);
+    } catch {
+      setPipelineStages([]);
+    }
+  };

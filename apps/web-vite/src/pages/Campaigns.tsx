@@ -11,6 +11,12 @@ import { formatNumber } from '../lib/utils';
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newCampaign, setNewCampaign] = useState({
+    name: '',
+    type: 'prospecting' as Campaign['type']
+  });
 
   useEffect(() => {
     loadCampaigns();
@@ -22,15 +28,28 @@ export default function CampaignsPage() {
       setCampaigns(data);
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error);
-      // Mock data
-      setCampaigns([
-        { id: '1', name: 'Black Friday 2024', status: 'active', type: 'prospecting', totalLeads: 1500, sentCount: 890, responseRate: 12.5, createdAt: new Date().toISOString() },
-        { id: '2', name: 'Natal Promocional', status: 'draft', type: 'nurture', totalLeads: 800, sentCount: 0, responseRate: 0, createdAt: new Date().toISOString() },
-        { id: '3', name: 'Reativacao Q4', status: 'paused', type: 'reactivation', totalLeads: 450, sentCount: 320, responseRate: 8.2, createdAt: new Date().toISOString() },
-        { id: '4', name: 'Lancamento Produto', status: 'completed', type: 'prospecting', totalLeads: 2000, sentCount: 2000, responseRate: 15.3, createdAt: new Date().toISOString() },
-      ]);
+      setCampaigns([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateCampaign = async () => {
+    if (!newCampaign.name.trim()) {
+      alert('Nome da campanha é obrigatório.');
+      return;
+    }
+    setCreating(true);
+    try {
+      await api.createCampaign({
+        name: newCampaign.name.trim(),
+        type: newCampaign.type
+      });
+      setShowCreateModal(false);
+      setNewCampaign({ name: '', type: 'prospecting' });
+      loadCampaigns();
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -65,7 +84,9 @@ export default function CampaignsPage() {
             <h1 className="text-2xl font-semibold">Campanhas</h1>
             <p className="text-gray-400 mt-1">Gerencie suas campanhas de outreach</p>
           </div>
-          <Button icon={<Plus size={18} />}>Nova Campanha</Button>
+          <Button icon={<Plus size={18} />} onClick={() => setShowCreateModal(true)}>
+            Nova Campanha
+          </Button>
         </div>
 
         {/* Campaigns Grid */}
@@ -75,8 +96,13 @@ export default function CampaignsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {campaigns.map((campaign) => (
-              <Card key={campaign.id}>
+            {campaigns.map((campaign) => {
+              const progress = campaign.totalLeads > 0
+                ? (campaign.sentCount / campaign.totalLeads) * 100
+                : 0;
+
+              return (
+                <Card key={campaign.id}>
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-semibold text-lg">{campaign.name}</h3>
@@ -105,11 +131,11 @@ export default function CampaignsPage() {
                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-cyan to-violet transition-all"
-                      style={{ width: `${(campaign.sentCount / campaign.totalLeads) * 100}%` }}
+                      style={{ width: `${progress}%` }}
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {Math.round((campaign.sentCount / campaign.totalLeads) * 100)}% concluido
+                    {Math.round(progress)}% concluido
                   </p>
                 </div>
 
@@ -128,10 +154,49 @@ export default function CampaignsPage() {
                   </Button>
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-4">Nova Campanha</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Nome</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10"
+                  value={newCampaign.name}
+                  onChange={(e) => setNewCampaign(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Tipo</label>
+                <select
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10"
+                  value={newCampaign.type}
+                  onChange={(e) => setNewCampaign(prev => ({ ...prev, type: e.target.value as Campaign['type'] }))}
+                >
+                  <option value="prospecting">Prospeccao</option>
+                  <option value="nurture">Nurture</option>
+                  <option value="reactivation">Reativacao</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+                  Cancelar
+                </Button>
+                <Button loading={creating} onClick={handleCreateCampaign}>
+                  Criar
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

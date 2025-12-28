@@ -54,11 +54,11 @@ services:
       retries: 5
 
   # ==========================================================================
-  # Evolution API - WhatsApp Integration (TAG FIXA!)
+  # Evolution API - WhatsApp Integration (TAG FIXA)
   # ==========================================================================
   evolution-api:
     container_name: evolution_api
-    image: atendai/evolution-api:latest
+    image: atendai/evolution-api:v2.3.6
     restart: always
     depends_on:
       postgres:

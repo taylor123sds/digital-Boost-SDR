@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
 import LeadDetailModal from '../components/crm/LeadDetailModal';
+import LeadCreateModal from '../components/crm/LeadCreateModal';
 import { api } from '../lib/api';
 import type { Lead } from '../lib/api';
 
@@ -16,6 +17,7 @@ export default function CRMPage() {
   const [search, setSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
     loadLeads();
@@ -61,6 +63,10 @@ export default function CRMPage() {
   const handleLeadUpdate = (updatedLead: Lead) => {
     setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
     setSelectedLead(updatedLead);
+  };
+
+  const handleLeadCreate = (newLead: Lead) => {
+    setLeads(prev => [newLead, ...prev]);
   };
 
   const getLeadsByStage = (stageId: string) => {
@@ -129,7 +135,7 @@ export default function CRMPage() {
             <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
               <Filter size={20} className="text-gray-400" />
             </button>
-            <Button icon={<Plus size={18} />}>
+            <Button icon={<Plus size={18} />} onClick={() => setCreateModalOpen(true)}>
               Novo Lead
             </Button>
           </div>
@@ -231,6 +237,13 @@ export default function CRMPage() {
         onClose={() => setModalOpen(false)}
         onUpdate={handleLeadUpdate}
         stages={stages}
+      />
+
+      {/* Lead Create Modal */}
+      <LeadCreateModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreate={handleLeadCreate}
       />
     </div>
   );

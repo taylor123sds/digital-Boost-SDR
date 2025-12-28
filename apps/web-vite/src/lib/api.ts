@@ -321,6 +321,34 @@ class ApiClient {
     return { id, ...data } as Lead;
   }
 
+  async createLead(data: { name: string; phone: string; email?: string; company?: string; stage?: string; score?: number }) {
+    const result = await this.request<{ success: boolean; data: any }>('/crm/leads', {
+      method: 'POST',
+      body: {
+        nome: data.name,
+        telefone: data.phone,
+        email: data.email || null,
+        empresa: data.company || null,
+        status: 'novo'
+      }
+    });
+    const l = result.data || {};
+    return {
+      id: l.id,
+      name: l.nome || data.name,
+      phone: l.telefone || data.phone,
+      email: l.email || data.email || '',
+      company: l.empresa || data.company || '',
+      stage: l.status || 'need',
+      score: 0,
+      createdAt: l.created_at || new Date().toISOString()
+    } as Lead;
+  }
+
+  async deleteLead(id: string) {
+    await this.request<{ success: boolean }>(`/crm/leads/${id}`, { method: 'DELETE' });
+  }
+
   // Campaigns
   async getCampaigns() {
     return this.request<Campaign[]>('/campaigns');

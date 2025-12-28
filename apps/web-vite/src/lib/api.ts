@@ -823,6 +823,9 @@ export interface AgentPresets {
   weekDays: string[];
   steps: Array<{ id: number; title: string; subtitle: string; icon: string }>;
   toneLabels: string[];
+  // Document Handler specific
+  documentTypes?: Array<{ id: string; name: string; icon: string; requiredFields: string[]; autoApprove: boolean }>;
+  routingDestinations?: Array<{ id: string; name: string; description: string }>;
 }
 
 export interface AnalyticsData {

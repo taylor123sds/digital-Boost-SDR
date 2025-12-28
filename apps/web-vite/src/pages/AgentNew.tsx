@@ -4,7 +4,7 @@ import {
   Phone, HeadphonesIcon, ArrowLeft, Save,
   CheckSquare, ToggleLeft, Calendar, Brain, User, Building,
   Package, Users, Shield, Flag, MessageSquare, Plug, BookOpen,
-  Eye, Plus, Trash2, AlertTriangle, CheckCircle, Database, type LucideIcon
+  Eye, Plus, Trash2, AlertTriangle, CheckCircle, Database, FileText, type LucideIcon
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -13,9 +13,20 @@ import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
 import { api, type AgentPresets } from '../lib/api';
 import { WhatsAppConnector, CRMConnector, CalendarConnector } from '../components/integrations';
+import { DocumentRoutingConfig } from '../components/document';
 
 // Types
-type AgentType = 'sdr' | 'specialist' | 'scheduler' | 'support';
+type AgentType = 'sdr' | 'specialist' | 'scheduler' | 'support' | 'document_handler';
+
+interface DocumentRoute {
+  id: string;
+  documentType: string;
+  destination: string;
+  emailTo: string[];
+  whatsappTo: string[];
+  autoApprove: boolean;
+  sendDocument: boolean;
+}
 type Sector = 'energia_solar' | 'saas' | 'consultoria' | 'ecommerce' | 'varejo' | 'educacao' | 'imobiliario' | 'financeiro' | 'saude' | 'outro';
 type CTAType = 'reuniao' | 'demonstracao' | 'orcamento' | 'visita' | 'teste_gratis';
 type AudienceType = 'b2b' | 'b2c' | 'both';
@@ -111,6 +122,9 @@ interface AgentForm {
     currentSolution: boolean;
   };
   isActive: boolean;
+
+  // Document Handler specific
+  documentRoutes: DocumentRoute[];
 }
 
 const iconMap: Record<string, LucideIcon> = {
@@ -127,7 +141,8 @@ const iconMap: Record<string, LucideIcon> = {
   MessageSquare,
   Plug,
   BookOpen,
-  Eye
+  Eye,
+  FileText
 };
 
 export default function AgentNewPage() {
@@ -231,6 +246,9 @@ export default function AgentNewPage() {
       currentSolution: false,
     },
     isActive: true,
+
+    // Document Handler specific
+    documentRoutes: [],
   });
 
   const updateForm = (key: string, value: unknown) => {
@@ -1198,6 +1216,30 @@ export default function AgentNewPage() {
         );
 
       case 8:
+        // Document Handler agent shows Document Routing, others show Playbooks
+        if (form.type === 'document_handler') {
+          return (
+            <Card>
+              <div className="p-4 border-b border-white/10">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText className="text-blue-500" size={20} />
+                  Roteamento de Documentos
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">Configure para onde cada tipo de documento sera enviado</p>
+              </div>
+              <div className="p-6">
+                <DocumentRoutingConfig
+                  documentTypes={presets?.documentTypes || []}
+                  routingDestinations={presets?.routingDestinations || []}
+                  routes={form.documentRoutes}
+                  onRoutesChange={(routes) => updateForm('documentRoutes', routes)}
+                />
+              </div>
+            </Card>
+          );
+        }
+
+        // Default: Playbooks for SDR, Support, etc.
         return (
           <Card>
             <div className="p-4 border-b border-white/10">

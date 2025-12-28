@@ -1,0 +1,1 @@
+export { DocumentRoutingConfig } from './DocumentRoutingConfig';

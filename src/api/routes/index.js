@@ -56,6 +56,7 @@ import settingsRoutes from './settings.routes.js';
 import webhooksInboundRoutes from './webhooks-inbound.routes.js';
 import crmIntegrationRoutes from './crm-integration.routes.js';
 import versionRoutes from './version.routes.js';
+import documentReviewRoutes from './document-review.routes.js';
 
 const router = express.Router();
 
@@ -111,6 +112,7 @@ router.use(settingsRoutes);          // /api/settings
 router.use(webhooksInboundRoutes);   // /api/webhooks/inbound/:publicId (Multi-tenant webhook receiver)
 router.use(crmIntegrationRoutes);    // /api/integrations/crm/:provider/* (Kommo, HubSpot, Pipedrive OAuth)
 router.use(versionRoutes);           // /api/version, /api/version/short, /health/version (P0-1)
+router.use(documentReviewRoutes);    // /api/document-review (PDF review + notify)
 
 console.log(' Todas as rotas montadas com sucesso');
 console.log(' Rotas ativas:');

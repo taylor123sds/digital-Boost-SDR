@@ -61,9 +61,10 @@ function initTransporter() {
  * @param {string} options.subject - Assunto
  * @param {string} options.text - Corpo do email (texto)
  * @param {string} options.html - Corpo do email (HTML, opcional)
+ * @param {Array} options.attachments - Lista de anexos (opcional)
  * @returns {Promise<Object>} Resultado do envio
  */
-export async function sendEmail({ to, subject, text, html }) {
+export async function sendEmail({ to, subject, text, html, attachments = [] }) {
   try {
     const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
     const emailFromName = process.env.EMAIL_FROM_NAME || 'Digital Boost';
@@ -90,7 +91,8 @@ export async function sendEmail({ to, subject, text, html }) {
       to,
       subject,
       text,
-      html: html || text.replace(/\n/g, '<br>')
+      html: html || text.replace(/\n/g, '<br>'),
+      attachments: attachments.length ? attachments : undefined
     };
 
     const result = await transport.sendMail(mailOptions);

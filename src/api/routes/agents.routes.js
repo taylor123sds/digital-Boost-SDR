@@ -28,7 +28,26 @@ const AGENT_PRESETS = {
     { id: 'sdr', name: 'SDR Agent', description: 'Qualificacao com SPIN Selling e BANT', icon: 'Phone', color: 'cyan' },
     { id: 'specialist', name: 'Specialist Agent', description: 'Consultor tecnico para duvidas complexas', icon: 'Brain', color: 'violet' },
     { id: 'scheduler', name: 'Scheduler Agent', description: 'Agendamento inteligente de reunioes', icon: 'Calendar', color: 'green' },
-    { id: 'support', name: 'Support Agent', description: 'Suporte ao cliente com base de conhecimento', icon: 'HeadphonesIcon', color: 'yellow' }
+    { id: 'support', name: 'Support Agent', description: 'Suporte ao cliente com base de conhecimento', icon: 'HeadphonesIcon', color: 'yellow' },
+    { id: 'document_handler', name: 'Document Handler', description: 'Analisa documentos e envia para destinatarios via Email/WhatsApp', icon: 'FileText', color: 'blue' }
+  ],
+  // Document types for Document Handler agent
+  documentTypes: [
+    { id: 'atestado', name: 'Atestado Medico', icon: '🏥', requiredFields: ['data', 'crm_ou_cid'], autoApprove: false },
+    { id: 'ferias', name: 'Solicitacao de Ferias', icon: '🏖️', requiredFields: ['periodo_completo', 'assinatura'], autoApprove: false },
+    { id: 'contrato', name: 'Contrato', icon: '📝', requiredFields: ['assinatura', 'data'], autoApprove: false },
+    { id: 'nota_fiscal', name: 'Nota Fiscal', icon: '🧾', requiredFields: ['cnpj', 'valor'], autoApprove: true },
+    { id: 'comprovante', name: 'Comprovante', icon: '📋', requiredFields: ['data', 'valor'], autoApprove: true },
+    { id: 'outro', name: 'Outro Documento', icon: '📄', requiredFields: [], autoApprove: false }
+  ],
+  // Document routing destinations
+  routingDestinations: [
+    { id: 'rh', name: 'RH / Recursos Humanos', description: 'Atestados, ferias, documentos pessoais' },
+    { id: 'financeiro', name: 'Financeiro', description: 'Notas fiscais, comprovantes, pagamentos' },
+    { id: 'juridico', name: 'Juridico', description: 'Contratos, termos, documentos legais' },
+    { id: 'diretoria', name: 'Diretoria', description: 'Documentos estrategicos e aprovacoes' },
+    { id: 'operacional', name: 'Operacional', description: 'Documentos do dia-a-dia' },
+    { id: 'custom', name: 'Personalizado', description: 'Destinatario customizado' }
   ],
   sectors: [
     { id: 'energia_solar', name: 'Energia Solar', icon: '☀️' },

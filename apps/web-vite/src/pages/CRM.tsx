@@ -9,6 +9,7 @@ import LeadDetailModal from '../components/crm/LeadDetailModal';
 import LeadCreateModal from '../components/crm/LeadCreateModal';
 import { api } from '../lib/api';
 import type { Lead } from '../lib/api';
+import { useActiveAgentId, useAgent } from '../contexts/AgentContext';
 
 export default function CRMPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -19,14 +20,21 @@ export default function CRMPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
+  // Agent context for data isolation
+  const agentId = useActiveAgentId();
+  const { activeAgent, loading: agentLoading } = useAgent();
+
+  // Reload leads when active agent changes
   useEffect(() => {
-    loadLeads();
-  }, []);
+    if (!agentLoading) {
+      loadLeads();
+    }
+  }, [agentId, agentLoading]);
 
   const loadLeads = async () => {
     setLoading(true);
     try {
-      const data = await api.getLeads();
+      const data = await api.getLeads({ agentId });
       setLeads(data.leads || []);
     } catch (error) {
       console.error('Erro ao carregar leads:', error);
@@ -111,7 +119,14 @@ export default function CRMPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold">Pipeline de Leads</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold">Pipeline de Leads</h1>
+              {activeAgent && (
+                <span className="px-2 py-1 text-xs bg-cyan/10 text-cyan border border-cyan/20 rounded-full">
+                  {activeAgent.name}
+                </span>
+              )}
+            </div>
             <p className="text-gray-400 mt-1">
               {getTotalLeads()} leads {search && `encontrados de ${leads.length}`}
             </p>
@@ -244,6 +259,7 @@ export default function CRMPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onCreate={handleLeadCreate}
+        agentId={agentId}
       />
     </div>
   );

@@ -258,41 +258,39 @@ class ApiClient {
     await this.request<{ success: boolean }>(`/agents/${id}`, { method: 'DELETE' });
   }
 
-  // CRM / Leads - uses real /api/funil endpoints
-  async getLeads(params?: { stage?: string; search?: string; page?: number }) {
+  // CRM / Leads - uses real /api/crm/leads endpoints with agent isolation
+  async getLeads(params?: { stage?: string; search?: string; page?: number; agentId?: string | null }) {
     try {
-      const result = await this.request<{ success: boolean; leads: any[] }>('/funil/bant');
-      let leads = result.leads || [];
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.set('page', String(params.page));
+      if (params?.search) queryParams.set('search', params.search);
+      if (params?.stage) queryParams.set('status', params.stage);
 
-      // Filter by stage if provided
-      if (params?.stage) {
-        leads = leads.filter((l: any) => l.currentStage === params.stage || l.pipeline_stage === params.stage);
+      const headers: Record<string, string> = {};
+      if (params?.agentId) {
+        headers['X-Agent-Id'] = params.agentId;
       }
 
-      // Filter by search if provided
-      if (params?.search) {
-        const search = params.search.toLowerCase();
-        leads = leads.filter((l: any) =>
-          (l.nome || '').toLowerCase().includes(search) ||
-          (l.empresa || '').toLowerCase().includes(search) ||
-          (l.contactId || '').includes(search)
-        );
-      }
+      const queryString = queryParams.toString();
+      const endpoint = `/crm/leads${queryString ? `?${queryString}` : ''}`;
+
+      const result = await this.request<{ success: boolean; data: any[]; pagination?: any }>(endpoint, { headers });
+      const leads = result.data || [];
 
       return {
         leads: leads.map((l: any) => ({
-          id: l.contactId || l.id,
-          name: l.nome || l.contactName || 'Sem nome',
-          phone: l.contactId || '',
-          email: '',
-          company: l.empresa || '',
-          stage: l.currentStage || l.pipeline_stage || 'need',
-          score: l.score || 0,
-          assignedAgent: l.currentAgent,
-          lastContact: l.lastUpdate,
-          createdAt: l.lastUpdate
+          id: l.id,
+          name: l.nome || l.name || 'Sem nome',
+          phone: l.telefone || l.phone || l.whatsapp || '',
+          email: l.email || '',
+          company: l.empresa || l.company || '',
+          stage: l.status || l.stage_id || 'novo',
+          score: l.score || l.bant_score || 0,
+          assignedAgent: l.agent_id,
+          lastContact: l.ultimo_contato || l.updated_at,
+          createdAt: l.created_at
         })) as Lead[],
-        total: leads.length
+        total: result.pagination?.total || leads.length
       };
     } catch {
       return { leads: [], total: 0 };
@@ -321,9 +319,15 @@ class ApiClient {
     return { id, ...data } as Lead;
   }
 
-  async createLead(data: { name: string; phone: string; email?: string; company?: string; stage?: string; score?: number }) {
+  async createLead(data: { name: string; phone: string; email?: string; company?: string; stage?: string; score?: number; agentId?: string | null }) {
+    const headers: Record<string, string> = {};
+    if (data.agentId) {
+      headers['X-Agent-Id'] = data.agentId;
+    }
+
     const result = await this.request<{ success: boolean; data: any }>('/crm/leads', {
       method: 'POST',
+      headers,
       body: {
         nome: data.name,
         telefone: data.phone,
@@ -339,8 +343,9 @@ class ApiClient {
       phone: l.telefone || data.phone,
       email: l.email || data.email || '',
       company: l.empresa || data.company || '',
-      stage: l.status || 'need',
+      stage: l.status || 'novo',
       score: 0,
+      assignedAgent: l.agent_id || data.agentId,
       createdAt: l.created_at || new Date().toISOString()
     } as Lead;
   }

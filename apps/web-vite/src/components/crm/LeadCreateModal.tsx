@@ -9,9 +9,10 @@ interface LeadCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate?: (lead: Lead) => void;
+  agentId?: string | null;
 }
 
-export default function LeadCreateModal({ isOpen, onClose, onCreate }: LeadCreateModalProps) {
+export default function LeadCreateModal({ isOpen, onClose, onCreate, agentId }: LeadCreateModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -41,7 +42,8 @@ export default function LeadCreateModal({ isOpen, onClose, onCreate }: LeadCreat
         name: formData.name.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
-        company: formData.company.trim() || undefined
+        company: formData.company.trim() || undefined,
+        agentId
       });
 
       onCreate?.(lead);

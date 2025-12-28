@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Sidebar from './components/layout/Sidebar';
+import { AgentProvider } from './contexts/AgentContext';
 
 // Pages
 import LoginPage from './pages/Login';
@@ -43,12 +44,14 @@ function ProtectedRoute() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg">
-      <Sidebar />
-      <main className="ml-64 min-h-screen transition-all duration-300">
-        <Outlet />
-      </main>
-    </div>
+    <AgentProvider>
+      <div className="min-h-screen bg-dark-bg">
+        <Sidebar />
+        <main className="ml-64 min-h-screen transition-all duration-300">
+          <Outlet />
+        </main>
+      </div>
+    </AgentProvider>
   );
 }
 

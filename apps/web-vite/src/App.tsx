@@ -12,7 +12,6 @@ import AgentNewPage from './pages/AgentNew';
 import AgentDetailPage from './pages/AgentDetail';
 import CRMPage from './pages/CRM';
 import CampaignsPage from './pages/Campaigns';
-import IntegrationsPage from './pages/Integrations';
 import AnalyticsPage from './pages/Analytics';
 import BillingPage from './pages/Billing';
 import AuditLogPage from './pages/AuditLog';
@@ -97,7 +96,7 @@ function App() {
           <Route path="/agents/:id" element={<AgentDetailPage />} />
           <Route path="/crm" element={<CRMPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
-          <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route path="/integrations" element={<Navigate to="/agents" replace />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/audit" element={<AuditLogPage />} />

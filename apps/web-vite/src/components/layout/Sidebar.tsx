@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  Plug,
   CreditCard,
   ClipboardList
 } from 'lucide-react';
@@ -23,7 +22,6 @@ const menuItems = [
   { href: '/agents', label: 'Agentes', icon: Bot },
   { href: '/crm', label: 'CRM', icon: Users },
   { href: '/campaigns', label: 'Campanhas', icon: Megaphone },
-  { href: '/integrations', label: 'Integracoes', icon: Plug },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/audit', label: 'Audit Log', icon: ClipboardList },

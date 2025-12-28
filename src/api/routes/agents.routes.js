@@ -19,6 +19,7 @@ import { authenticate, requireRole, requireManager } from '../../middleware/auth
 import { tenantContext, optionalTenantContext } from '../../middleware/tenant.middleware.js';
 import channelsRouter from './channels.routes.js';
 import metrics from '../../utils/metrics.js';
+import { getIntegrationService } from '../../services/IntegrationService.js';
 
 const router = express.Router();
 
@@ -421,6 +422,7 @@ router.get('/api/agents/:agentId', validateAgentId, async (req, res) => {
 
 /**
  * POST /api/agents - Create new agent
+ * Also creates integration bindings if integrations are specified in config
  */
 router.post('/api/agents', requireManager, async (req, res) => {
   try {
@@ -440,9 +442,94 @@ router.post('/api/agents', requireManager, async (req, res) => {
       req.user.id
     );
 
+    // Create integration bindings if integrations are specified
+    const integrationService = getIntegrationService();
+    const integrations = config?.integrations || {};
+    const createdBindings = [];
+
+    // WhatsApp integration binding
+    if (integrations.whatsapp?.instance) {
+      try {
+        const existingIntegration = integrationService.getByInstanceName(
+          req.tenantId,
+          integrations.whatsapp.instance
+        );
+
+        if (existingIntegration) {
+          // Bind existing integration to agent
+          const binding = integrationService.createBinding(
+            req.tenantId,
+            agent.id,
+            existingIntegration.id,
+            true // isPrimary
+          );
+          createdBindings.push({ type: 'whatsapp', ...binding });
+        } else {
+          // Create new integration and bind
+          const newIntegration = integrationService.create(req.tenantId, {
+            provider: 'evolution',
+            instanceName: integrations.whatsapp.instance,
+            status: 'disconnected'
+          });
+          const binding = integrationService.createBinding(
+            req.tenantId,
+            agent.id,
+            newIntegration.id,
+            true
+          );
+          createdBindings.push({ type: 'whatsapp', ...binding });
+        }
+      } catch (bindError) {
+        console.warn('[AGENTS-API] Failed to create WhatsApp binding:', bindError.message);
+      }
+    }
+
+    // CRM integration binding
+    if (integrations.crm) {
+      try {
+        const crmIntegration = integrationService.create(req.tenantId, {
+          provider: integrations.crm,
+          status: 'disconnected',
+          config: { crmType: integrations.crm }
+        });
+        const binding = integrationService.createBinding(
+          req.tenantId,
+          agent.id,
+          crmIntegration.id,
+          false // not primary (WhatsApp is primary)
+        );
+        createdBindings.push({ type: 'crm', provider: integrations.crm, ...binding });
+      } catch (bindError) {
+        console.warn('[AGENTS-API] Failed to create CRM binding:', bindError.message);
+      }
+    }
+
+    // Calendar integration binding
+    if (integrations.calendar?.type) {
+      try {
+        const calendarIntegration = integrationService.create(req.tenantId, {
+          provider: 'google_calendar',
+          status: 'disconnected',
+          config: { calendarType: integrations.calendar.type }
+        });
+        const binding = integrationService.createBinding(
+          req.tenantId,
+          agent.id,
+          calendarIntegration.id,
+          false
+        );
+        createdBindings.push({ type: 'calendar', ...binding });
+      } catch (bindError) {
+        console.warn('[AGENTS-API] Failed to create Calendar binding:', bindError.message);
+      }
+    }
+
     res.status(201).json({
       success: true,
-      data: agent,
+      data: {
+        ...agent,
+        integrationBindings: createdBindings
+      },
       message: 'Agente criado com sucesso'
     });
   } catch (error) {

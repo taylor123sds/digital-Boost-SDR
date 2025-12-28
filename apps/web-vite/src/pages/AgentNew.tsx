@@ -4,13 +4,15 @@ import {
   Phone, HeadphonesIcon, ArrowLeft, Save,
   CheckSquare, ToggleLeft, Calendar, Brain, User, Building,
   Package, Users, Shield, Flag, MessageSquare, Plug, BookOpen,
-  Eye, Plus, Trash2, AlertTriangle, type LucideIcon
+  Eye, Plus, Trash2, AlertTriangle, CheckCircle, Database, type LucideIcon
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
 import { api, type AgentPresets } from '../lib/api';
+import { WhatsAppConnector, CRMConnector, CalendarConnector } from '../components/integrations';
 
 // Types
 type AgentType = 'sdr' | 'specialist' | 'scheduler' | 'support';
@@ -133,6 +135,7 @@ export default function AgentNewPage() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [presets, setPresets] = useState<AgentPresets | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
 
   const agentTypes = presets?.agentTypes || [];
   const sectors = presets?.sectors || [];
@@ -395,7 +398,10 @@ export default function AgentNewPage() {
         const payload = await response.json().catch(() => null);
         const createdAgentId = payload?.data?.id || payload?.id || null;
         if (createdAgentId) {
-          navigate(`/integrations?agentId=${createdAgentId}`);
+          // Set agentId for integrations that need it
+          setAgentId(createdAgentId);
+          // Navigate to agent detail page (integrations are now configured in the wizard)
+          navigate(`/agents/${createdAgentId}`);
         } else {
           navigate('/agents');
         }
@@ -1095,70 +1101,98 @@ export default function AgentNewPage() {
                 <Plug className="text-cyan" size={20} />
                 Integracoes
               </h2>
-              <p className="text-sm text-gray-400 mt-1">Conecte servicos externos</p>
+              <p className="text-sm text-gray-400 mt-1">Conecte servicos externos ao seu agente</p>
             </div>
             <div className="p-6 space-y-6">
-              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <Calendar size={20} className="text-green-500" />
-                    <div>
-                      <div className="font-medium">Google Calendar</div>
-                      <div className="text-sm text-gray-400">Sincronizar agendamentos</div>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={form.calendarIntegration}
-                    onChange={(e) => updateForm('calendarIntegration', e.target.checked)}
-                    className="w-5 h-5 accent-green-500 rounded"
-                  />
-                </label>
+              {/* WhatsApp Integration */}
+              <WhatsAppConnector
+                agentId={agentId || undefined}
+                instanceName={form.whatsappInstance || `agent_${form.name.toLowerCase().replace(/\s+/g, '_')}`}
+                onConnectionChange={(connected, instanceName) => {
+                  updateForm('whatsappIntegration', connected);
+                  if (instanceName) {
+                    updateForm('whatsappInstance', instanceName);
+                  }
+                }}
+              />
+
+              {/* Google Calendar Integration */}
+              <CalendarConnector
+                isConnected={form.calendarIntegration}
+                onConnectionChange={(connected) => {
+                  updateForm('calendarIntegration', connected);
+                }}
+              />
+
+              {/* CRM Integration */}
+              <div className="p-4 border border-white/10 rounded-xl bg-white/5">
+                <CRMConnector
+                  selectedProvider={form.crmIntegration || undefined}
+                  isConnected={!!form.crmIntegration}
+                  onConnectionChange={(provider, connected) => {
+                    updateForm('crmIntegration', connected ? provider || '' : '');
+                  }}
+                />
               </div>
 
-              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <MessageSquare size={20} className="text-green-500" />
-                    <div>
-                      <div className="font-medium">WhatsApp (Evolution API)</div>
-                      <div className="text-sm text-gray-400">Enviar e receber mensagens</div>
-                    </div>
+              {/* Integration Summary */}
+              <div className="p-4 bg-white/5 rounded-lg border border-dashed border-white/20">
+                <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                  <CheckCircle size={16} className="text-cyan" />
+                  Resumo das Integracoes
+                </h4>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className={cn(
+                    "p-3 rounded-lg border",
+                    form.whatsappIntegration
+                      ? "border-green-500/30 bg-green-500/10"
+                      : "border-white/10 bg-white/5"
+                  )}>
+                    <MessageSquare size={20} className={form.whatsappIntegration ? "text-green-500 mx-auto mb-1" : "text-gray-500 mx-auto mb-1"} />
+                    <div className="text-xs text-gray-400">WhatsApp</div>
+                    <Badge variant={form.whatsappIntegration ? "success" : "default"} className="mt-1">
+                      {form.whatsappIntegration ? "Conectado" : "Pendente"}
+                    </Badge>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={form.whatsappIntegration}
-                    onChange={(e) => updateForm('whatsappIntegration', e.target.checked)}
-                    className="w-5 h-5 accent-green-500 rounded"
-                  />
-                </label>
-                {form.whatsappIntegration && (
-                  <div className="mt-4">
-                    <input
-                      type="text"
-                      value={form.whatsappInstance}
-                      onChange={(e) => updateForm('whatsappInstance', e.target.value)}
-                      placeholder="Nome da instancia Evolution"
-                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan/50"
-                    />
+                  <div className={cn(
+                    "p-3 rounded-lg border",
+                    form.calendarIntegration
+                      ? "border-blue-500/30 bg-blue-500/10"
+                      : "border-white/10 bg-white/5"
+                  )}>
+                    <Calendar size={20} className={form.calendarIntegration ? "text-blue-500 mx-auto mb-1" : "text-gray-500 mx-auto mb-1"} />
+                    <div className="text-xs text-gray-400">Calendar</div>
+                    <Badge variant={form.calendarIntegration ? "success" : "default"} className="mt-1">
+                      {form.calendarIntegration ? "Conectado" : "Pendente"}
+                    </Badge>
                   </div>
-                )}
+                  <div className={cn(
+                    "p-3 rounded-lg border",
+                    form.crmIntegration
+                      ? "border-violet/30 bg-violet/10"
+                      : "border-white/10 bg-white/5"
+                  )}>
+                    <Database size={20} className={form.crmIntegration ? "text-violet mx-auto mb-1" : "text-gray-500 mx-auto mb-1"} />
+                    <div className="text-xs text-gray-400">CRM</div>
+                    <Badge variant={form.crmIntegration ? "success" : "default"} className="mt-1">
+                      {form.crmIntegration ? form.crmIntegration.charAt(0).toUpperCase() + form.crmIntegration.slice(1) : "Pendente"}
+                    </Badge>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Integracao CRM</label>
-                <select
-                  value={form.crmIntegration}
-                  onChange={(e) => updateForm('crmIntegration', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan/50"
-                >
-                  <option value="">Nenhum</option>
-                  <option value="hubspot">HubSpot</option>
-                  <option value="pipedrive">Pipedrive</option>
-                  <option value="salesforce">Salesforce</option>
-                  <option value="internal">CRM Interno</option>
-                </select>
-              </div>
+              {/* Note about agent requirement */}
+              {!agentId && (
+                <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-amber-200">
+                      Para conectar o WhatsApp, o agente precisa ser salvo primeiro.
+                      Complete o wizard e salve o agente para ativar as integracoes.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         );

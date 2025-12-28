@@ -1009,43 +1009,80 @@ export default function AgentNewPage() {
         );
 
       case 6:
+        const channelOptions = [
+          { id: 'whatsapp', name: 'WhatsApp', icon: '💬', desc: 'Mensagens via WhatsApp Business', selectedClass: 'border-green-500/50 bg-green-500/10' },
+          { id: 'email', name: 'Email', icon: '📧', desc: 'Comunicacao por email', selectedClass: 'border-cyan/50 bg-cyan/10' },
+          { id: 'webchat', name: 'Webchat', icon: '🌐', desc: 'Chat no site/landing page', selectedClass: 'border-violet/50 bg-violet/10' },
+          { id: 'instagram', name: 'Instagram', icon: '📸', desc: 'DMs do Instagram', selectedClass: 'border-pink-500/50 bg-pink-500/10' },
+          { id: 'telegram', name: 'Telegram', icon: '✈️', desc: 'Mensagens via Telegram', selectedClass: 'border-blue-500/50 bg-blue-500/10' },
+          { id: 'sms', name: 'SMS', icon: '📱', desc: 'Mensagens de texto SMS', selectedClass: 'border-yellow-500/50 bg-yellow-500/10' },
+          { id: 'voice', name: 'Ligacao', icon: '📞', desc: 'Chamadas telefonicas', selectedClass: 'border-emerald-500/50 bg-emerald-500/10' },
+        ];
+
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <MessageSquare className="text-violet" size={20} />
-                Canais e Horarios
+                Canais de Comunicacao
               </h2>
-              <p className="text-sm text-gray-400 mt-1">Onde e quando o agente atende</p>
+              <p className="text-sm text-gray-400 mt-1">Defina por onde o agente vai se comunicar com os contatos</p>
             </div>
             <div className="p-6 space-y-6">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Canais Ativos</label>
-                <div className="flex flex-wrap gap-3">
-                  {['whatsapp', 'webchat', 'email', 'instagram'].map((channel) => (
-                    <label
-                      key={channel}
-                      className={cn(
-                        "px-4 py-2 rounded-lg border cursor-pointer flex items-center gap-2",
-                        form.channels.includes(channel) ? "border-violet bg-violet/10" : "border-white/10"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.channels.includes(channel)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            updateForm('channels', [...form.channels, channel]);
-                          } else {
-                            updateForm('channels', form.channels.filter(c => c !== channel));
-                          }
-                        }}
-                        className="hidden"
-                      />
-                      <span className="capitalize">{channel}</span>
-                    </label>
-                  ))}
+                <label className="block text-sm text-gray-400 mb-3">Canais Ativos (selecione um ou mais)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {channelOptions.map((channel) => {
+                    const isSelected = form.channels.includes(channel.id);
+                    return (
+                      <label
+                        key={channel.id}
+                        className={cn(
+                          "p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3",
+                          isSelected
+                            ? channel.selectedClass
+                            : "border-white/10 hover:border-white/20 bg-white/5"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              updateForm('channels', [...form.channels, channel.id]);
+                            } else {
+                              updateForm('channels', form.channels.filter(c => c !== channel.id));
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <span className="text-2xl">{channel.icon}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{channel.name}</span>
+                            {isSelected && (
+                              <CheckCircle size={14} className="text-green-500" />
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">{channel.desc}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
+
+                {/* Selected channels summary */}
+                {form.channels.length > 0 && (
+                  <div className="mt-4 p-3 bg-violet/10 border border-violet/20 rounded-lg">
+                    <p className="text-sm text-violet flex items-center gap-2">
+                      <CheckCircle size={14} />
+                      {form.channels.length} canal(is) selecionado(s): {form.channels.map(c => {
+                        const ch = channelOptions.find(opt => opt.id === c);
+                        return ch ? `${ch.icon} ${ch.name}` : c;
+                      }).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>

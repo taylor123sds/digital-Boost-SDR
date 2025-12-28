@@ -9,28 +9,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
-import { api } from '../lib/api';
-
-// Types
-interface AuditEntry {
-  id: string;
-  timestamp: string;
-  action: string;
-  category: 'auth' | 'agent' | 'lead' | 'message' | 'config' | 'billing' | 'system';
-  actor: {
-    type: 'user' | 'agent' | 'system';
-    id: string;
-    name: string;
-  };
-  target?: {
-    type: string;
-    id: string;
-    name?: string;
-  };
-  details?: Record<string, unknown>;
-  ip?: string;
-  status: 'success' | 'failure' | 'warning';
-}
+import { api, type AuditEntry } from '../lib/api';
 
 const categoryConfig = {
   auth: { label: 'Autenticacao', icon: User, color: 'text-blue-500' },

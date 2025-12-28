@@ -124,6 +124,30 @@ export default function AgentDetailPage() {
     },
   });
 
+  const mapStageColor = (color?: string) => {
+    if (!color) return 'cyan';
+    if (color.includes('green')) return 'success';
+    if (color.includes('yellow')) return 'warning';
+    if (color.includes('red')) return 'danger';
+    if (color.includes('cyan') || color.includes('blue')) return 'cyan';
+    if (color.includes('violet') || color.includes('purple')) return 'violet';
+    return 'cyan';
+  };
+
+  const loadPipelineStages = async () => {
+    try {
+      const stages = await api.getPipelineStages();
+      const mapped = stages.map(stage => ({
+        id: stage.id,
+        label: stage.name || stage.slug || stage.id,
+        color: mapStageColor(stage.color)
+      }));
+      setPipelineStages(mapped);
+    } catch {
+      setPipelineStages([]);
+    }
+  };
+
   useEffect(() => {
     loadAgentData();
   }, [id]);
@@ -1182,26 +1206,3 @@ function StatCard({
     </Card>
   );
 }
-  const mapStageColor = (color?: string) => {
-    if (!color) return 'cyan';
-    if (color.includes('green')) return 'success';
-    if (color.includes('yellow')) return 'warning';
-    if (color.includes('red')) return 'danger';
-    if (color.includes('cyan') || color.includes('blue')) return 'cyan';
-    if (color.includes('violet') || color.includes('purple')) return 'violet';
-    return 'cyan';
-  };
-
-  const loadPipelineStages = async () => {
-    try {
-      const stages = await api.getPipelineStages();
-      const mapped = stages.map(stage => ({
-        id: stage.id,
-        label: stage.name || stage.slug || stage.id,
-        color: mapStageColor(stage.color)
-      }));
-      setPipelineStages(mapped);
-    } catch {
-      setPipelineStages([]);
-    }
-  };

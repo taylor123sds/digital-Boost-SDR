@@ -506,7 +506,7 @@ export default function IntegrationsPage() {
                 </Button>
                 <Button
                   className="flex-1"
-                  onClick={loadIntegrations}
+                  onClick={() => loadIntegrations()}
                   icon={<RefreshCw size={16} />}
                 >
                   Verificar Status

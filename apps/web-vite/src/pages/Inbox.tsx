@@ -10,19 +10,20 @@ import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
 import { api } from '../lib/api';
 
-// Types
+// Types - matches ConversationSummary from api.ts
 interface Conversation {
   id: string;
   phone: string;
   name: string;
-  company?: string;
+  company?: string | null;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
   status: 'active' | 'waiting' | 'closed' | 'handoff';
-  agentId: string;
-  agentName: string;
-  stage: string;
+  agentId?: string | null;
+  agentName?: string | null;
+  stage?: string | null;
+  totalMessages?: number;
 }
 
 interface Message {
@@ -243,7 +244,7 @@ export default function InboxPage() {
                   <p className="text-sm text-gray-300 truncate">{conv.lastMessage}</p>
                   <div className="flex items-center gap-2 mt-2">
                     {getStatusBadge(conv.status)}
-                    <span className="text-xs text-gray-500">{conv.stage}</span>
+                    {conv.stage && <span className="text-xs text-gray-500">{conv.stage}</span>}
                     {conv.unreadCount > 0 && (
                       <span className="ml-auto w-5 h-5 bg-cyan text-dark-bg text-xs rounded-full flex items-center justify-center font-medium">
                         {conv.unreadCount}

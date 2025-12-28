@@ -430,48 +430,6 @@ class ApiClient {
     }
   }
 
-  async getAuditLogs(params: {
-    limit?: number;
-    offset?: number;
-    status?: string;
-    category?: string;
-    q?: string;
-    from?: string;
-    to?: string;
-  } = {}): Promise<{ data: AuditEntry[]; total: number }> {
-    try {
-      const {
-        limit = 50,
-        offset = 0,
-        status,
-        category,
-        q,
-        from,
-        to
-      } = params;
-
-      const searchParams = new URLSearchParams();
-      searchParams.set('limit', String(limit));
-      searchParams.set('offset', String(offset));
-      if (status) searchParams.set('status', status);
-      if (category) searchParams.set('category', category);
-      if (q) searchParams.set('q', q);
-      if (from) searchParams.set('from', from);
-      if (to) searchParams.set('to', to);
-
-      const result = await this.request<{ success: boolean; data: AuditEntry[]; meta?: { total?: number } }>(
-        `/audit-logs?${searchParams.toString()}`
-      );
-
-      return {
-        data: result.data || [],
-        total: result.meta?.total ?? (result.data ? result.data.length : 0)
-      };
-    } catch {
-      return { data: [], total: 0 };
-    }
-  }
-
   async sendMessage(phone: string, content: string) {
     try {
       await this.request<{ success: boolean }>('/whatsapp/send', {

@@ -168,11 +168,10 @@ export default function CRMPage() {
               <p className="text-gray-400">Carregando leads...</p>
             </div>
           </div>
+        ) : stages.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">Nenhum lead encontrado</div>
         ) : (
-          {stages.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">Nenhum lead encontrado</div>
-          ) : (
-            <div className="flex gap-4 overflow-x-auto pb-4">
+          <div className="flex gap-4 overflow-x-auto pb-4">
               {stages.map((stage) => {
                 const stageLeads = getLeadsByStage(stage.id);
                 return (
@@ -222,7 +221,6 @@ export default function CRMPage() {
                 );
               })}
             </div>
-          )}
         )}
       </div>
 

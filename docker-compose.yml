@@ -176,6 +176,9 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
       - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://yourdomain.com}
+      # Public URLs (for webhook endpoints)
+      - BASE_URL=${BASE_URL:-https://api.orbion.tech}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://api.orbion.tech}
       # ElevenLabs (optional)
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       # Prospecting
@@ -248,6 +251,9 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
       - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://yourdomain.com}
+      # Public URLs (for webhook endpoints)
+      - BASE_URL=${BASE_URL:-https://api.orbion.tech}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://api.orbion.tech}
       # ElevenLabs (optional)
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       # Prospecting

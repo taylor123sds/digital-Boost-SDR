@@ -11,7 +11,8 @@ import {
   ChevronRight,
   MessageSquare,
   CreditCard,
-  ClipboardList
+  ClipboardList,
+  FileText
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
@@ -21,6 +22,7 @@ const menuItems = [
   { href: '/inbox', label: 'Inbox', icon: MessageSquare },
   { href: '/agents', label: 'Agentes', icon: Bot },
   { href: '/crm', label: 'CRM', icon: Users },
+  { href: '/documents', label: 'Documentos', icon: FileText },
   { href: '/campaigns', label: 'Campanhas', icon: Megaphone },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/billing', label: 'Billing', icon: CreditCard },

@@ -5,7 +5,8 @@ import { AgentHub } from './agent_hub.js';
 import { SDRAgent } from './sdr_agent.js';
 import { SpecialistAgent } from './specialist_agent.js';
 import { SchedulerAgent } from './scheduler_agent.js';
-import { AtendimentoAgent } from './atendimento_agent.js'; //  NOVO
+import { AtendimentoAgent } from './atendimento_agent.js';
+import { DocumentHandlerAgent } from './document_handler_agent.js';
 
 let hubInstance = null;
 
@@ -29,22 +30,25 @@ export function getAgentHub() {
     // Criar hub
     hubInstance = new AgentHub();
 
-    // Criar e registrar os 4 agentes
+    // Criar e registrar os 5 agentes
     const sdrAgent = new SDRAgent();
     const specialistAgent = new SpecialistAgent();
     const schedulerAgent = new SchedulerAgent();
-    const atendimentoAgent = new AtendimentoAgent(); //  NOVO
+    const atendimentoAgent = new AtendimentoAgent();
+    const documentHandlerAgent = new DocumentHandlerAgent();
 
     hubInstance.registerAgent('sdr', sdrAgent);
     hubInstance.registerAgent('specialist', specialistAgent);
     hubInstance.registerAgent('scheduler', schedulerAgent);
-    hubInstance.registerAgent('atendimento', atendimentoAgent); //  NOVO
+    hubInstance.registerAgent('atendimento', atendimentoAgent);
+    hubInstance.registerAgent('document_handler', documentHandlerAgent);
 
     console.log(' [HUB-INIT] AgentHub inicializado com sucesso');
     console.log('    SDR Agent - Coleta inicial de dados');
-    console.log('    Specialist Agent - Qualificação BANT consultiva');
-    console.log('    Atendimento Agent - FAQ, preços, objeções'); //  NOVO
-    console.log('    Scheduler Agent - Agendamento de reunião');
+    console.log('    Specialist Agent - Qualificacao BANT consultiva');
+    console.log('    Atendimento Agent - FAQ, precos, objecoes');
+    console.log('    Scheduler Agent - Agendamento de reuniao');
+    console.log('    Document Handler Agent - Processamento de documentos');
     console.log('    IntentRouter - Roteamento inteligente ativado');
   }
 

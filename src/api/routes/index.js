@@ -57,6 +57,7 @@ import webhooksInboundRoutes from './webhooks-inbound.routes.js';
 import crmIntegrationRoutes from './crm-integration.routes.js';
 import versionRoutes from './version.routes.js';
 import documentReviewRoutes from './document-review.routes.js';
+import documentHandlerRoutes from './document-handler.routes.js';
 import tenantProfileRoutes from './tenant-profile.routes.js';
 
 const router = express.Router();
@@ -114,6 +115,7 @@ router.use(webhooksInboundRoutes);   // /api/webhooks/inbound/:publicId (Multi-t
 router.use(crmIntegrationRoutes);    // /api/integrations/crm/:provider/* (Kommo, HubSpot, Pipedrive OAuth)
 router.use(versionRoutes);           // /api/version, /api/version/short, /health/version (P0-1)
 router.use(documentReviewRoutes);    // /api/document-review (PDF review + notify)
+router.use(documentHandlerRoutes);   // /api/documents/*, /api/packages/*, /api/extractions/*, /api/reports/*
 router.use(tenantProfileRoutes);     // /api/tenant-profile, /api/tenant-profile/diagnose
 
 console.log(' Todas as rotas montadas com sucesso');
@@ -156,6 +158,7 @@ console.log('   - Agent Management (30 rotas) - CRUD agentes');
 console.log('   - Agent Config (18 rotas) - SPIN, BANT, Objecoes');
 console.log('   - Channels/Integrations (6 rotas) - Evolution One-Click');
 console.log('   - CRM Integration OAuth (8 rotas) - Kommo, HubSpot, Pipedrive');
-console.log('   Total: 299 rotas montadas');
+console.log('   - Document Handler (15 rotas) - Documents, Packages, Extractions, Reports');
+console.log('   Total: 314 rotas montadas');
 
 export default router;

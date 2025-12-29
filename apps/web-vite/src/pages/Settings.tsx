@@ -19,6 +19,8 @@ const tabs = [
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [passwordForm, setPasswordForm] = useState({
     current: '',
@@ -28,8 +30,45 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadSettings = async () => {
-      const data = await api.getSettings();
-      setSettings(data);
+      setInitialLoading(true);
+      setError(null);
+      try {
+        const data = await api.getSettings();
+        if (data) {
+          setSettings(data);
+        } else {
+          // Create default settings if none returned
+          setSettings({
+            profile: { name: '', email: '', company: '', sector: '' },
+            preferences: {
+              phone: '',
+              title: '',
+              website: '',
+              cnpj: '',
+              notifications: { leads: true, messages: true, campaigns: false, reports: false },
+              appearance: { theme: 'dark' },
+              apiKeys: []
+            }
+          });
+        }
+      } catch (err) {
+        setError('Erro ao carregar configuracoes');
+        // Set default settings so page can render
+        setSettings({
+          profile: { name: '', email: '', company: '', sector: '' },
+          preferences: {
+            phone: '',
+            title: '',
+            website: '',
+            cnpj: '',
+            notifications: { leads: true, messages: true, campaigns: false, reports: false },
+            appearance: { theme: 'dark' },
+            apiKeys: []
+          }
+        });
+      } finally {
+        setInitialLoading(false);
+      }
     };
     loadSettings();
   }, []);
@@ -116,11 +155,16 @@ export default function SettingsPage() {
       <TopBar title="Configuracoes" />
 
       <div className="p-6">
-        {!settings ? (
+        {error && (
+          <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
+            {error}
+          </div>
+        )}
+        {initialLoading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : (
+        ) : settings ? (
         <div className="flex gap-6">
           {/* Sidebar */}
           <div className="w-64 flex-shrink-0">
@@ -355,6 +399,10 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+        ) : (
+          <div className="text-center py-12 text-gray-400">
+            Nao foi possivel carregar as configuracoes.
+          </div>
         )}
       </div>
     </div>

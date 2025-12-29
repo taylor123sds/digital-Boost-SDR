@@ -1,59 +1,34 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FileText,
   Upload,
   Search,
-  Filter,
   RefreshCw,
   FolderOpen,
   Package,
   Eye,
   Trash2,
-  Download,
   ChevronRight,
   CheckCircle,
   AlertCircle,
-  Clock,
-  FileCheck
+  Clock
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
-import { api } from '../lib/api';
+import { api, type DocumentItem, type DocumentPackageItem } from '../lib/api';
 import { useActiveAgentId, useAgent } from '../contexts/AgentContext';
-
-interface Document {
-  id: string;
-  name: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  origin: string;
-  agent_id?: string;
-  created_at: string;
-  metadata?: any;
-}
-
-interface DocumentPackage {
-  id: string;
-  name: string;
-  process_number?: string;
-  organization?: string;
-  package_type: string;
-  status: string;
-  created_at: string;
-  documents?: any[];
-}
 
 type ViewMode = 'documents' | 'packages';
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [packages, setPackages] = useState<DocumentPackage[]>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [packages, setPackages] = useState<DocumentPackageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('documents');
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const agentId = useActiveAgentId();
@@ -70,15 +45,11 @@ export default function DocumentsPage() {
     setLoading(true);
     try {
       if (viewMode === 'documents') {
-        const response = await api.get('/api/documents', {
-          params: { agentId, limit: 50 }
-        });
-        setDocuments(response.documents || []);
+        const docs = await api.getDocuments({ agentId, limit: 50 });
+        setDocuments(docs);
       } else {
-        const response = await api.get('/api/packages', {
-          params: { agentId, limit: 50 }
-        });
-        setPackages(response.packages || []);
+        const pkgs = await api.getDocumentPackages({ agentId, limit: 50 });
+        setPackages(pkgs);
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -97,9 +68,8 @@ export default function DocumentsPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      if (agentId) formData.append('agentId', agentId);
 
-      const response = await api.upload('/api/documents/upload', formData);
+      const response = await api.uploadDocument(formData, agentId);
 
       if (response.success) {
         loadData();
@@ -116,7 +86,7 @@ export default function DocumentsPage() {
     if (!confirm('Tem certeza que deseja excluir este documento?')) return;
 
     try {
-      await api.delete(`/api/documents/${docId}`);
+      await api.deleteDocument(docId);
       setDocuments(prev => prev.filter(d => d.id !== docId));
     } catch (error) {
       console.error('Erro ao excluir documento:', error);

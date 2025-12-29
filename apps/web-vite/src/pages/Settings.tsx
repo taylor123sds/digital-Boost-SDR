@@ -39,7 +39,7 @@ export default function SettingsPage() {
         } else {
           // Create default settings if none returned
           setSettings({
-            profile: { name: '', email: '', company: '', sector: '' },
+            profile: { id: '', name: '', email: '', role: 'user', company: '', sector: '' },
             preferences: {
               phone: '',
               title: '',
@@ -55,7 +55,7 @@ export default function SettingsPage() {
         setError('Erro ao carregar configuracoes');
         // Set default settings so page can render
         setSettings({
-          profile: { name: '', email: '', company: '', sector: '' },
+          profile: { id: '', name: '', email: '', role: 'user', company: '', sector: '' },
           preferences: {
             phone: '',
             title: '',

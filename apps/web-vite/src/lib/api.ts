@@ -655,6 +655,77 @@ class ApiClient {
       `/integrations/crm/${provider}/oauth/start`
     );
   }
+
+  // Documents
+  async getDocuments(params?: { agentId?: string | null; limit?: number; status?: string }) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.limit) queryParams.set('limit', String(params.limit));
+      if (params?.status) queryParams.set('status', params.status);
+
+      const headers: Record<string, string> = {};
+      if (params?.agentId) {
+        headers['X-Agent-Id'] = params.agentId;
+      }
+
+      const queryString = queryParams.toString();
+      const endpoint = `/documents${queryString ? `?${queryString}` : ''}`;
+
+      const result = await this.request<{ success: boolean; documents: DocumentItem[] }>(endpoint, { headers });
+      return result.documents || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async getDocumentPackages(params?: { agentId?: string | null; limit?: number; type?: string }) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.limit) queryParams.set('limit', String(params.limit));
+      if (params?.type) queryParams.set('type', params.type);
+
+      const headers: Record<string, string> = {};
+      if (params?.agentId) {
+        headers['X-Agent-Id'] = params.agentId;
+      }
+
+      const queryString = queryParams.toString();
+      const endpoint = `/packages${queryString ? `?${queryString}` : ''}`;
+
+      const result = await this.request<{ success: boolean; packages: DocumentPackageItem[] }>(endpoint, { headers });
+      return result.packages || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async uploadDocument(formData: FormData, agentId?: string | null) {
+    try {
+      const token = this.getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (agentId) headers['X-Agent-Id'] = agentId;
+
+      const response = await fetch(`${this.baseUrl}/documents/upload`, {
+        method: 'POST',
+        headers,
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+  }
+
+  async deleteDocument(docId: string) {
+    return this.request<{ success: boolean }>(`/documents/${docId}`, { method: 'DELETE' });
+  }
 }
 
 // Types
@@ -895,6 +966,27 @@ export interface ConversationSummary {
   agentName?: string | null;
   stage?: string | null;
   totalMessages?: number;
+}
+
+export interface DocumentItem {
+  id: string;
+  name: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  origin: string;
+  agent_id?: string;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentPackageItem {
+  id: string;
+  name: string;
+  process_number?: string;
+  organization?: string;
+  package_type: string;
+  status: string;
+  created_at: string;
+  documents?: DocumentItem[];
 }
 
 export const api = new ApiClient(API_BASE);

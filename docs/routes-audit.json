@@ -1,0 +1,255 @@
+{
+  "audit_metadata": {
+    "generated_at": "2025-12-23T00:00:00Z",
+    "total_route_files": 42,
+    "total_routes": 346,
+    "command_used": "rg -n 'router\\.(get|post|put|delete|patch)' src/api/routes/"
+  },
+  "route_files": [
+    {
+      "file": "channels.routes.js",
+      "routes_count": 8,
+      "base_middleware": [],
+      "routes": [
+        {"line": 23, "method": "POST", "path": "/api/agents/:agentId/channels/evolution/connect", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 76, "method": "GET", "path": "/api/agents/:agentId/channels/evolution/status", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 130, "method": "GET", "path": "/api/agents/:agentId/channels/evolution/qrcode", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 191, "method": "POST", "path": "/api/agents/:agentId/channels/evolution/disconnect", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 233, "method": "DELETE", "path": "/api/agents/:agentId/channels/evolution", "auth": "authenticate+requireManager", "tenant": true, "status": "CANONICAL"},
+        {"line": 277, "method": "GET", "path": "/api/integrations", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 317, "method": "GET", "path": "/api/integrations/:integrationId", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 354, "method": "GET", "path": "/api/integrations/:integrationId/status", "auth": "authenticate", "tenant": true, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "crm-integration.routes.js",
+      "routes_count": 7,
+      "base_middleware": [],
+      "routes": [
+        {"line": 108, "method": "GET", "path": "/api/integrations/crm/:provider/oauth/start", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 188, "method": "GET", "path": "/api/integrations/oauth/callback/:provider", "auth": "NONE", "tenant": false, "status": "CANONICAL", "note": "OAuth callback - no auth required"},
+        {"line": 293, "method": "POST", "path": "/api/integrations/:integrationId/disconnect", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 335, "method": "POST", "path": "/api/integrations/:integrationId/sync", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 384, "method": "GET", "path": "/api/integrations/:integrationId/pipelines", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 463, "method": "POST", "path": "/api/integrations/:integrationId/leads", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 543, "method": "GET", "path": "/api/integrations/:integrationId/test", "auth": "authenticate", "tenant": true, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "google/calendar.routes.js",
+      "routes_count": 11,
+      "base_middleware": [],
+      "routes": [
+        {"line": 49, "method": "GET", "path": "/api/google/auth-url", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 76, "method": "GET", "path": "/api/google/auth-status", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 111, "method": "GET", "path": "/auth/google", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 138, "method": "GET", "path": "/oauth2callback", "auth": "NONE", "tenant": false, "status": "CANONICAL", "note": "OAuth callback"},
+        {"line": 154, "method": "GET", "path": "/api/calendar/status", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 172, "method": "GET", "path": "/api/events", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 205, "method": "POST", "path": "/api/events", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 276, "method": "PUT", "path": "/api/events/:eventId", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 302, "method": "DELETE", "path": "/api/events/:eventId", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 328, "method": "GET", "path": "/api/calendar/free-slots", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 360, "method": "POST", "path": "/api/calendar/suggest-times", "auth": "authenticate", "tenant": true, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "google/sheets.routes.js",
+      "routes_count": 2,
+      "base_middleware": [],
+      "routes": [
+        {"line": 16, "method": "GET", "path": "/api/leads", "auth": "NONE", "tenant": false, "status": "DUPLICATE", "canonical_source": "crm/leads.routes.js", "note": "OVERLAP with whatsapp.routes.js:307"},
+        {"line": 52, "method": "GET", "path": "/api/dashboard/leads", "auth": "NONE", "tenant": false, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "webhooks-inbound.routes.js",
+      "routes_count": 1,
+      "base_middleware": [],
+      "routes": [
+        {"line": 42, "method": "POST", "path": "/api/webhooks/inbound/:webhookPublicId", "auth": "webhook_secret", "tenant": false, "status": "CANONICAL", "note": "P0 canonical webhook entry point"}
+      ]
+    },
+    {
+      "file": "webhook.routes.js",
+      "routes_count": 4,
+      "base_middleware": [],
+      "routes": [
+        {"line": 78, "method": "POST", "path": "/api/webhook/evolution", "auth": "NONE", "tenant": false, "status": "DEPRECATED_410", "note": "Returns 410 Gone - use /api/webhooks/inbound/:publicId"},
+        {"line": 843, "method": "GET", "path": "/api/webhook/health", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 890, "method": "GET", "path": "/api/webhook/coordinator/stats", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 902, "method": "POST", "path": "/api/webhook/coordinator/emergency-cleanup", "auth": "NONE", "tenant": false, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "auth.routes.js",
+      "routes_count": 11,
+      "base_middleware": [],
+      "routes": [
+        {"line": 109, "method": "POST", "path": "/api/auth/register", "auth": "registrationRateLimit", "tenant": false, "status": "CANONICAL"},
+        {"line": 247, "method": "POST", "path": "/api/auth/create-user", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 300, "method": "POST", "path": "/api/auth/login", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 337, "method": "POST", "path": "/api/auth/logout", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 359, "method": "POST", "path": "/api/auth/refresh", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 389, "method": "GET", "path": "/api/auth/me", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 450, "method": "PUT", "path": "/api/auth/password", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 487, "method": "GET", "path": "/api/auth/sessions", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 508, "method": "DELETE", "path": "/api/auth/sessions", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 529, "method": "GET", "path": "/api/auth/entitlements", "auth": "authenticate", "tenant": false, "status": "CANONICAL"},
+        {"line": 583, "method": "POST", "path": "/api/auth/verify", "auth": "NONE", "tenant": false, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "agents.routes.js",
+      "routes_count": 16,
+      "base_middleware": ["authenticate", "tenantContext", "sanitizeInput", "rateLimitByTenant"],
+      "routes": [
+        {"line": 295, "method": "GET", "path": "/api/agents", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 318, "method": "GET", "path": "/api/agents/my", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 329, "method": "GET", "path": "/api/agents/:agentId", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 359, "method": "POST", "path": "/api/agents", "auth": "requireManager", "tenant": true, "status": "CANONICAL"},
+        {"line": 394, "method": "PUT", "path": "/api/agents/:agentId", "auth": "requireManager", "tenant": true, "status": "CANONICAL"},
+        {"line": 418, "method": "DELETE", "path": "/api/agents/:agentId", "auth": "requireManager", "tenant": true, "status": "CANONICAL"},
+        {"line": 439, "method": "GET", "path": "/api/admin/agents", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 470, "method": "GET", "path": "/api/agents/:agentId/permissions", "auth": "authenticate", "tenant": true, "status": "CANONICAL"},
+        {"line": 512, "method": "POST", "path": "/api/agents/:agentId/duplicate", "auth": "requireManager", "tenant": true, "status": "CANONICAL"},
+        {"line": 578, "method": "GET", "path": "/api/agents/:agentId/evolution/status", "auth": "authenticate", "tenant": true, "status": "LEGACY_SHIM", "canonical": "/api/agents/:agentId/channels/evolution/status"},
+        {"line": 584, "method": "POST", "path": "/api/agents/:agentId/evolution/create", "auth": "authenticate", "tenant": true, "status": "LEGACY_SHIM", "canonical": "/api/agents/:agentId/channels/evolution/connect"},
+        {"line": 590, "method": "GET", "path": "/api/agents/:agentId/evolution/qrcode", "auth": "authenticate", "tenant": true, "status": "LEGACY_SHIM", "canonical": "/api/agents/:agentId/channels/evolution/qrcode"},
+        {"line": 596, "method": "POST", "path": "/api/agents/:agentId/evolution/disconnect", "auth": "authenticate", "tenant": true, "status": "LEGACY_SHIM", "canonical": "/api/agents/:agentId/channels/evolution/disconnect"},
+        {"line": 602, "method": "DELETE", "path": "/api/agents/:agentId/evolution", "auth": "requireManager", "tenant": true, "status": "LEGACY_SHIM", "canonical": "/api/agents/:agentId/channels/evolution"},
+        {"line": 608, "method": "GET", "path": "/api/evolution/instances", "auth": "authenticate", "tenant": false, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "crm/leads.routes.js",
+      "routes_count": 9,
+      "base_middleware": ["authenticate", "tenantContext", "requireTenant"],
+      "routes": [
+        {"line": 24, "method": "GET", "path": "/api/crm/leads", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 85, "method": "GET", "path": "/api/crm/leads/stats", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 106, "method": "GET", "path": "/api/crm/leads/:id", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 139, "method": "POST", "path": "/api/crm/leads", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 175, "method": "PUT", "path": "/api/crm/leads/:id", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 218, "method": "DELETE", "path": "/api/crm/leads/:id", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 257, "method": "PUT", "path": "/api/crm/leads/:id/status", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 307, "method": "PUT", "path": "/api/crm/leads/:id/bant", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"},
+        {"line": 353, "method": "POST", "path": "/api/crm/leads/:id/convert", "auth": "base_middleware", "tenant": true, "status": "CANONICAL"}
+      ]
+    },
+    {
+      "file": "whatsapp.routes.js",
+      "routes_count": 9,
+      "base_middleware": [],
+      "routes": [
+        {"line": 22, "method": "POST", "path": "/api/whatsapp/send", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 86, "method": "GET", "path": "/api/campaigns", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 95, "method": "GET", "path": "/api/campaigns/:id", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 107, "method": "POST", "path": "/api/campaigns", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 134, "method": "POST", "path": "/api/campaign/run", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 207, "method": "GET", "path": "/api/whatsapp/campaign-status", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 239, "method": "POST", "path": "/api/whatsapp/intelligent-campaign", "auth": "NONE", "tenant": false, "status": "CANONICAL", "note": "LEGACY in comment"},
+        {"line": 307, "method": "GET", "path": "/api/leads", "auth": "NONE", "tenant": false, "status": "DUPLICATE", "canonical_source": "crm/leads.routes.js"},
+        {"line": 340, "method": "POST", "path": "/api/leads/update-stage", "auth": "NONE", "tenant": false, "status": "DUPLICATE", "canonical_source": "funil.routes.js"}
+      ]
+    },
+    {
+      "file": "funil.routes.js",
+      "routes_count": 11,
+      "base_middleware": [],
+      "routes": [
+        {"line": 31, "method": "GET", "path": "/api/funil/bant", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 172, "method": "GET", "path": "/api/funil/stats", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 209, "method": "GET", "path": "/api/funil/bant/:contactId", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 240, "method": "POST", "path": "/api/leads/update-stage", "auth": "NONE", "tenant": false, "status": "CANONICAL", "note": "ALSO in whatsapp.routes.js:340"},
+        {"line": 334, "method": "POST", "path": "/api/funil/cleanup-prospecting", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 399, "method": "POST", "path": "/api/funil/sheets-sync/enable", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 418, "method": "POST", "path": "/api/funil/sheets-sync/disable", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 437, "method": "POST", "path": "/api/funil/sync-to-sheets", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 570, "method": "GET", "path": "/api/funil/pipeline-unificado", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 670, "method": "POST", "path": "/api/leads/ingest", "auth": "NONE", "tenant": false, "status": "CANONICAL"},
+        {"line": 898, "method": "GET", "path": "/api/leads/ingest/stats", "auth": "NONE", "tenant": false, "status": "CANONICAL"}
+      ]
+    }
+  ],
+  "duplicates": [
+    {
+      "path": "/api/leads",
+      "method": "GET",
+      "occurrences": [
+        {"file": "google/sheets.routes.js", "line": 16, "auth": "NONE"},
+        {"file": "whatsapp.routes.js", "line": 307, "auth": "NONE"}
+      ],
+      "canonical_source": "crm/leads.routes.js (via /api/crm/leads)",
+      "recommendation": "Remove from sheets and whatsapp, use /api/crm/leads"
+    },
+    {
+      "path": "/api/leads/update-stage",
+      "method": "POST",
+      "occurrences": [
+        {"file": "whatsapp.routes.js", "line": 340, "auth": "NONE"},
+        {"file": "funil.routes.js", "line": 240, "auth": "NONE"}
+      ],
+      "canonical_source": "funil.routes.js",
+      "recommendation": "Remove from whatsapp.routes.js"
+    }
+  ],
+  "legacy_routes": [
+    {
+      "path": "/api/webhook/evolution",
+      "file": "webhook.routes.js",
+      "line": 78,
+      "status": "410_GONE",
+      "replacement": "/api/webhooks/inbound/:webhookPublicId",
+      "removal_plan": "Already returning 410"
+    },
+    {
+      "path": "/api/agents/:agentId/evolution/*",
+      "file": "agents.routes.js",
+      "lines": [578, 584, 590, 596, 602],
+      "status": "SHIM_TO_CHANNELS",
+      "replacement": "/api/agents/:agentId/channels/evolution/*",
+      "removal_plan": "Controlled by LEGACY_EVOLUTION_ROUTES and LEGACY_EVOLUTION_CUTOFF_AT env vars"
+    }
+  ],
+  "env_flags": {
+    "LEGACY_WEBHOOK_PIPELINE": {
+      "file": "webhooks-inbound.routes.js:25",
+      "default": "false",
+      "effect": "true = process webhook inline, false = use async_jobs queue"
+    },
+    "LEGACY_EVOLUTION_ROUTES": {
+      "file": "agents.routes.js:24",
+      "default": "true",
+      "effect": "false = block legacy evolution routes immediately"
+    },
+    "LEGACY_EVOLUTION_CUTOFF_AT": {
+      "file": "agents.routes.js:26-27",
+      "default": "7 days from now (dev), REQUIRED in production",
+      "effect": "ISO timestamp after which legacy evolution routes return 410"
+    }
+  },
+  "security_concerns": [
+    {
+      "severity": "MEDIUM",
+      "file": "whatsapp.routes.js",
+      "issue": "Routes without authentication",
+      "affected_routes": ["/api/whatsapp/send", "/api/campaigns", "/api/campaign/run"],
+      "recommendation": "Add authentication middleware"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "funil.routes.js",
+      "issue": "Routes without authentication or tenant isolation",
+      "affected_routes": ["/api/funil/*", "/api/leads/ingest"],
+      "recommendation": "Add authenticate + tenantContext middleware"
+    },
+    {
+      "severity": "LOW",
+      "file": "google/sheets.routes.js",
+      "issue": "Public read access to leads",
+      "affected_routes": ["/api/leads", "/api/dashboard/leads"],
+      "recommendation": "Add authentication if leads contain PII"
+    }
+  ]
+}

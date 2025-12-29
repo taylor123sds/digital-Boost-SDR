@@ -1,0 +1,133 @@
+file,line,method,path,auth,tenant,status,note
+channels.routes.js,23,POST,/api/agents/:agentId/channels/evolution/connect,authenticate,true,CANONICAL,
+channels.routes.js,76,GET,/api/agents/:agentId/channels/evolution/status,authenticate,true,CANONICAL,
+channels.routes.js,130,GET,/api/agents/:agentId/channels/evolution/qrcode,authenticate,true,CANONICAL,
+channels.routes.js,191,POST,/api/agents/:agentId/channels/evolution/disconnect,authenticate,true,CANONICAL,
+channels.routes.js,233,DELETE,/api/agents/:agentId/channels/evolution,authenticate+requireManager,true,CANONICAL,
+channels.routes.js,277,GET,/api/integrations,authenticate,true,CANONICAL,
+channels.routes.js,317,GET,/api/integrations/:integrationId,authenticate,true,CANONICAL,
+channels.routes.js,354,GET,/api/integrations/:integrationId/status,authenticate,true,CANONICAL,
+crm-integration.routes.js,108,GET,/api/integrations/crm/:provider/oauth/start,authenticate,true,CANONICAL,
+crm-integration.routes.js,188,GET,/api/integrations/oauth/callback/:provider,NONE,false,CANONICAL,OAuth callback
+crm-integration.routes.js,293,POST,/api/integrations/:integrationId/disconnect,authenticate,true,CANONICAL,
+crm-integration.routes.js,335,POST,/api/integrations/:integrationId/sync,authenticate,true,CANONICAL,
+crm-integration.routes.js,384,GET,/api/integrations/:integrationId/pipelines,authenticate,true,CANONICAL,
+crm-integration.routes.js,463,POST,/api/integrations/:integrationId/leads,authenticate,true,CANONICAL,
+crm-integration.routes.js,543,GET,/api/integrations/:integrationId/test,authenticate,true,CANONICAL,
+google/calendar.routes.js,49,GET,/api/google/auth-url,authenticate,true,CANONICAL,
+google/calendar.routes.js,76,GET,/api/google/auth-status,authenticate,true,CANONICAL,
+google/calendar.routes.js,111,GET,/auth/google,authenticate,true,CANONICAL,
+google/calendar.routes.js,138,GET,/oauth2callback,NONE,false,CANONICAL,OAuth callback
+google/calendar.routes.js,154,GET,/api/calendar/status,authenticate,true,CANONICAL,
+google/calendar.routes.js,172,GET,/api/events,authenticate,true,CANONICAL,
+google/calendar.routes.js,205,POST,/api/events,authenticate,true,CANONICAL,
+google/calendar.routes.js,276,PUT,/api/events/:eventId,authenticate,true,CANONICAL,
+google/calendar.routes.js,302,DELETE,/api/events/:eventId,authenticate,true,CANONICAL,
+google/calendar.routes.js,328,GET,/api/calendar/free-slots,authenticate,true,CANONICAL,
+google/calendar.routes.js,360,POST,/api/calendar/suggest-times,authenticate,true,CANONICAL,
+google/sheets.routes.js,16,GET,/api/leads,NONE,false,DUPLICATE,overlap with whatsapp.routes.js
+google/sheets.routes.js,52,GET,/api/dashboard/leads,NONE,false,CANONICAL,
+webhooks-inbound.routes.js,42,POST,/api/webhooks/inbound/:webhookPublicId,webhook_secret,false,CANONICAL,P0 canonical webhook
+webhook.routes.js,78,POST,/api/webhook/evolution,NONE,false,DEPRECATED_410,Returns 410 Gone
+webhook.routes.js,843,GET,/api/webhook/health,NONE,false,CANONICAL,
+webhook.routes.js,890,GET,/api/webhook/coordinator/stats,NONE,false,CANONICAL,
+webhook.routes.js,902,POST,/api/webhook/coordinator/emergency-cleanup,NONE,false,CANONICAL,
+auth.routes.js,109,POST,/api/auth/register,registrationRateLimit,false,CANONICAL,
+auth.routes.js,247,POST,/api/auth/create-user,authenticate,false,CANONICAL,
+auth.routes.js,300,POST,/api/auth/login,NONE,false,CANONICAL,
+auth.routes.js,337,POST,/api/auth/logout,authenticate,false,CANONICAL,
+auth.routes.js,359,POST,/api/auth/refresh,NONE,false,CANONICAL,
+auth.routes.js,389,GET,/api/auth/me,authenticate,false,CANONICAL,
+auth.routes.js,450,PUT,/api/auth/password,authenticate,false,CANONICAL,
+auth.routes.js,487,GET,/api/auth/sessions,authenticate,false,CANONICAL,
+auth.routes.js,508,DELETE,/api/auth/sessions,authenticate,false,CANONICAL,
+auth.routes.js,529,GET,/api/auth/entitlements,authenticate,false,CANONICAL,
+auth.routes.js,583,POST,/api/auth/verify,NONE,false,CANONICAL,
+agents.routes.js,295,GET,/api/agents,authenticate+tenantContext,true,CANONICAL,
+agents.routes.js,318,GET,/api/agents/my,authenticate+tenantContext,true,CANONICAL,
+agents.routes.js,329,GET,/api/agents/:agentId,authenticate+tenantContext,true,CANONICAL,
+agents.routes.js,359,POST,/api/agents,requireManager,true,CANONICAL,
+agents.routes.js,394,PUT,/api/agents/:agentId,requireManager,true,CANONICAL,
+agents.routes.js,418,DELETE,/api/agents/:agentId,requireManager,true,CANONICAL,
+agents.routes.js,439,GET,/api/admin/agents,authenticate+tenantContext,true,CANONICAL,
+agents.routes.js,470,GET,/api/agents/:agentId/permissions,authenticate+tenantContext,true,CANONICAL,
+agents.routes.js,512,POST,/api/agents/:agentId/duplicate,requireManager,true,CANONICAL,
+agents.routes.js,578,GET,/api/agents/:agentId/evolution/status,authenticate+tenantContext,true,LEGACY_SHIM,use channels/*
+agents.routes.js,584,POST,/api/agents/:agentId/evolution/create,authenticate+tenantContext,true,LEGACY_SHIM,use channels/*
+agents.routes.js,590,GET,/api/agents/:agentId/evolution/qrcode,authenticate+tenantContext,true,LEGACY_SHIM,use channels/*
+agents.routes.js,596,POST,/api/agents/:agentId/evolution/disconnect,authenticate+tenantContext,true,LEGACY_SHIM,use channels/*
+agents.routes.js,602,DELETE,/api/agents/:agentId/evolution,requireManager,true,LEGACY_SHIM,use channels/*
+agents.routes.js,608,GET,/api/evolution/instances,authenticate,false,CANONICAL,
+crm/leads.routes.js,24,GET,/api/crm/leads,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,85,GET,/api/crm/leads/stats,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,106,GET,/api/crm/leads/:id,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,139,POST,/api/crm/leads,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,175,PUT,/api/crm/leads/:id,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,218,DELETE,/api/crm/leads/:id,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,257,PUT,/api/crm/leads/:id/status,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,307,PUT,/api/crm/leads/:id/bant,authenticate+tenantContext+requireTenant,true,CANONICAL,
+crm/leads.routes.js,353,POST,/api/crm/leads/:id/convert,authenticate+tenantContext+requireTenant,true,CANONICAL,
+cadence.routes.js,36,GET,/api/cadences,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,64,GET,/api/cadences/stats,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,166,GET,/api/cadences/pipeline-view,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,220,GET,/api/cadences/:id,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,253,GET,/api/cadences/:id/steps,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,289,POST,/api/cadences/:id/enroll,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,364,GET,/api/cadences/enrollments/active,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,416,PUT,/api/cadences/enrollments/:id/pause,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,454,PUT,/api/cadences/enrollments/:id/resume,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,490,PUT,/api/cadences/enrollments/:id/respond,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,554,GET,/api/cadences/actions/pending,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,634,POST,/api/cadences/actions/execute,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+cadence.routes.js,730,POST,/api/cadences/advance-day,authenticate+enforceIsolation+requireTenant,true,CANONICAL,
+funil.routes.js,31,GET,/api/funil/bant,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,172,GET,/api/funil/stats,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,209,GET,/api/funil/bant/:contactId,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,240,POST,/api/leads/update-stage,NONE,false,CANONICAL,ALSO in whatsapp
+funil.routes.js,334,POST,/api/funil/cleanup-prospecting,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,399,POST,/api/funil/sheets-sync/enable,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,418,POST,/api/funil/sheets-sync/disable,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,437,POST,/api/funil/sync-to-sheets,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,570,GET,/api/funil/pipeline-unificado,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,670,POST,/api/leads/ingest,NONE,false,CANONICAL,NEEDS_AUTH
+funil.routes.js,898,GET,/api/leads/ingest/stats,NONE,false,CANONICAL,NEEDS_AUTH
+command-center.routes.js,34,GET,/api/command-center/overview,optionalAuth,false,CANONICAL,
+command-center.routes.js,162,GET,/api/command-center/tasks/urgent,optionalAuth,false,CANONICAL,
+command-center.routes.js,221,GET,/api/command-center/hot-leads,optionalAuth,false,CANONICAL,
+command-center.routes.js,279,GET,/api/command-center/activity-feed,optionalAuth,false,CANONICAL,
+command-center.routes.js,372,GET,/api/command-center/pipeline-summary,optionalAuth,false,CANONICAL,
+command-center.routes.js,428,GET,/api/command-center/performance,optionalAuth,false,CANONICAL,
+dashboard.routes.js,120,POST,/api/tts/elevenlabs,NONE,false,CANONICAL,
+dashboard.routes.js,147,POST,/api/chat,NONE,false,CANONICAL,
+dashboard.routes.js,203,POST,/api/dashboard/voice-navigate,NONE,false,CANONICAL,
+dashboard.routes.js,251,POST,/api/dashboard/execute-navigation,NONE,false,CANONICAL,
+dashboard.routes.js,282,GET,/api/dashboard/voice-commands,NONE,false,CANONICAL,
+health.routes.js,44,GET,/health,NONE,false,CANONICAL,
+health.routes.js,87,GET,/health/detailed,NONE,false,CANONICAL,
+health.routes.js,129,GET,/health/ready,NONE,false,CANONICAL,
+health.routes.js,178,GET,/health/live,NONE,false,CANONICAL,
+health.routes.js,193,GET,/api/version,NONE,false,CANONICAL,
+metrics.routes.js,32,GET,/api/metrics,NONE,false,CANONICAL,
+metrics.routes.js,51,GET,/api/metrics/summary,NONE,false,CANONICAL,
+metrics.routes.js,70,POST,/api/metrics/reset,NONE,false,CANONICAL,NEEDS_AUTH
+admin.routes.js,25,GET,/api/health,NONE,false,CANONICAL,
+admin.routes.js,66,GET,/api/stats,NONE,false,CANONICAL,
+admin.routes.js,97,POST,/api/admin/clear-cache,NONE,false,CANONICAL,NEEDS_AUTH
+admin.routes.js,125,GET,/api/admin/handlers-health,NONE,false,CANONICAL,
+admin.routes.js,158,GET,/api/admin/system-health,NONE,false,CANONICAL,
+admin.routes.js,174,GET,/api/admin/error-stats,NONE,false,CANONICAL,
+admin.routes.js,187,POST,/api/admin/clear-old-errors,NONE,false,CANONICAL,NEEDS_AUTH
+admin.routes.js,212,GET,/api/admin/coordinator/stats,NONE,false,CANONICAL,
+admin.routes.js,225,POST,/api/admin/coordinator/emergency-cleanup,NONE,false,CANONICAL,NEEDS_AUTH
+admin.routes.js,251,GET,/api/admin/audio/stats,NONE,false,CANONICAL,
+admin.routes.js,268,GET,/api/admin/audio/status/:messageId,NONE,false,CANONICAL,
+admin.routes.js,288,GET,/api/admin/context/stats,NONE,false,CANONICAL,
+whatsapp.routes.js,22,POST,/api/whatsapp/send,NONE,false,CANONICAL,NEEDS_AUTH
+whatsapp.routes.js,86,GET,/api/campaigns,NONE,false,CANONICAL,
+whatsapp.routes.js,95,GET,/api/campaigns/:id,NONE,false,CANONICAL,
+whatsapp.routes.js,107,POST,/api/campaigns,NONE,false,CANONICAL,NEEDS_AUTH
+whatsapp.routes.js,134,POST,/api/campaign/run,NONE,false,CANONICAL,NEEDS_AUTH
+whatsapp.routes.js,207,GET,/api/whatsapp/campaign-status,NONE,false,CANONICAL,
+whatsapp.routes.js,239,POST,/api/whatsapp/intelligent-campaign,NONE,false,CANONICAL,NEEDS_AUTH
+whatsapp.routes.js,307,GET,/api/leads,NONE,false,DUPLICATE,use /api/crm/leads
+whatsapp.routes.js,340,POST,/api/leads/update-stage,NONE,false,DUPLICATE,use funil.routes.js

@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { authenticate } from '../../middleware/auth.middleware.js';
-import { tenantContext, requireTenant } from '../../middleware/tenant.middleware.js';
+import { tenantContext } from '../../middleware/tenant.middleware.js';
 import { User } from '../../models/User.js';
 import { defaultLogger } from '../../utils/logger.enhanced.js';
 
@@ -27,7 +27,7 @@ function parsePreferences(raw) {
  * GET /api/settings
  * Returns current user profile + preferences
  */
-router.get('/api/settings', authenticate, tenantContext, requireTenant, (req, res) => {
+router.get('/api/settings', authenticate, tenantContext, (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -82,7 +82,7 @@ router.get('/api/settings', authenticate, tenantContext, requireTenant, (req, re
  * PUT /api/settings
  * Update current user profile + preferences
  */
-router.put('/api/settings', authenticate, tenantContext, requireTenant, (req, res) => {
+router.put('/api/settings', authenticate, tenantContext, (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {

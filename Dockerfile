@@ -70,8 +70,8 @@ COPY --from=frontend-builder /build/dist/ ./public/app/
 # Create BUILD_INFO.json with version metadata
 RUN echo "{\"commit\":\"${GIT_COMMIT}\",\"branch\":\"${GIT_BRANCH}\",\"buildDate\":\"${BUILD_DATE}\",\"imageTag\":\"${IMAGE_TAG}\",\"nodeVersion\":\"$(node -v)\"}" > BUILD_INFO.json
 
-# Create necessary directories
-RUN mkdir -p logs data uploads backups
+# Create necessary directories (including document handler uploads)
+RUN mkdir -p logs data uploads/documents backups
 
 # Set environment with version info
 ENV NODE_ENV=production

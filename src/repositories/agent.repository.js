@@ -366,6 +366,93 @@ export class AgentRepository {
   }
 
   /**
+   * Find agent by webhook API key
+   * API key is stored in integrations.webhook.apiKey
+   */
+  findByApiKey(apiKey) {
+    const db = getDatabase();
+    try {
+      if (!apiKey) return null;
+
+      // Search all active agents for matching API key
+      const agents = db.prepare(`
+        SELECT * FROM agents
+        WHERE status != 'deleted'
+        AND json_extract(integrations, '$.webhook.apiKey') = ?
+      `).all(apiKey);
+
+      if (agents.length === 0) return null;
+
+      return this._parseAgent(agents[0]);
+    } catch (error) {
+      console.error('[AGENT-REPO] Error finding by API key:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate and save a new API key for an agent
+   */
+  generateApiKey(agentId, tenantId) {
+    const db = getDatabase();
+    try {
+      const agent = this.findById(agentId, tenantId);
+      if (!agent) {
+        throw new Error('Agent not found');
+      }
+
+      // Generate secure API key
+      const apiKey = `dh_${randomUUID().replace(/-/g, '')}`;
+
+      // Update integrations with new API key
+      const integrations = agent.integrations || {};
+      integrations.webhook = integrations.webhook || {};
+      integrations.webhook.apiKey = apiKey;
+      integrations.webhook.createdAt = new Date().toISOString();
+
+      db.prepare(`
+        UPDATE agents SET integrations = ?, updated_at = ?
+        WHERE id = ? AND tenant_id = ?
+      `).run(JSON.stringify(integrations), new Date().toISOString(), agentId, tenantId);
+
+      return apiKey;
+    } catch (error) {
+      console.error('[AGENT-REPO] Error generating API key:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Revoke API key for an agent
+   */
+  revokeApiKey(agentId, tenantId) {
+    const db = getDatabase();
+    try {
+      const agent = this.findById(agentId, tenantId);
+      if (!agent) {
+        throw new Error('Agent not found');
+      }
+
+      // Remove API key from integrations
+      const integrations = agent.integrations || {};
+      if (integrations.webhook) {
+        delete integrations.webhook.apiKey;
+        integrations.webhook.revokedAt = new Date().toISOString();
+      }
+
+      db.prepare(`
+        UPDATE agents SET integrations = ?, updated_at = ?
+        WHERE id = ? AND tenant_id = ?
+      `).run(JSON.stringify(integrations), new Date().toISOString(), agentId, tenantId);
+
+      return true;
+    } catch (error) {
+      console.error('[AGENT-REPO] Error revoking API key:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Safely parse JSON
    */
   _safeJsonParse(str, defaultValue = {}) {

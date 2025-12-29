@@ -726,6 +726,61 @@ class ApiClient {
   async deleteDocument(docId: string) {
     return this.request<{ success: boolean }>(`/documents/${docId}`, { method: 'DELETE' });
   }
+
+  // ============================================================================
+  // Document Handler Webhook API
+  // ============================================================================
+
+  async getWebhookInfo(agentId: string): Promise<WebhookInfo | null> {
+    try {
+      const result = await this.request<{ success: boolean } & WebhookInfo>(`/agents/${agentId}/webhook-info`);
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  async generateApiKey(agentId: string): Promise<{ apiKey: string; webhookUrl: string } | null> {
+    try {
+      const result = await this.request<{ success: boolean; apiKey: string; webhookUrl: string }>(
+        `/agents/${agentId}/api-key`,
+        { method: 'POST' }
+      );
+      return { apiKey: result.apiKey, webhookUrl: result.webhookUrl };
+    } catch {
+      return null;
+    }
+  }
+
+  async revokeApiKey(agentId: string): Promise<boolean> {
+    try {
+      await this.request<{ success: boolean }>(`/agents/${agentId}/api-key`, { method: 'DELETE' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export interface WebhookInfo {
+  webhookUrl: string;
+  textWebhookUrl: string;
+  hasApiKey: boolean;
+  apiKeyCreatedAt: string | null;
+  documentation: {
+    fileUpload: {
+      method: string;
+      url: string;
+      headers: Record<string, string>;
+      body: string;
+    };
+    textMessage: {
+      method: string;
+      url: string;
+      headers: Record<string, string>;
+      body: string;
+    };
+  };
 }
 
 // Types
@@ -750,7 +805,7 @@ export interface Agent {
   id: string;
   name: string;
   slug?: string;
-  type: 'sdr' | 'support' | 'custom' | 'scheduler';
+  type: 'sdr' | 'support' | 'custom' | 'scheduler' | 'document_handler';
   status: 'active' | 'paused' | 'offline' | 'draft' | 'deleted';
   channel: 'whatsapp' | 'email' | 'chat' | 'voice';
   persona?: Record<string, unknown>;

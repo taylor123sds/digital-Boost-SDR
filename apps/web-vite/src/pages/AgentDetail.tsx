@@ -10,9 +10,11 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { WebhookIntegrationConfig } from '../components/document';
 import { api } from '../lib/api';
 import type { Agent, Lead } from '../lib/api';
 import { formatNumber, cn } from '../lib/utils';
+import { Webhook } from 'lucide-react';
 
 // Types for this page
 interface AgentMetrics {
@@ -82,7 +84,7 @@ export default function AgentDetailPage() {
   });
 
   // Settings states
-  const [settingsTab, setSettingsTab] = useState<'basic' | 'persona' | 'ai' | 'integrations' | 'handoff'>('basic');
+  const [settingsTab, setSettingsTab] = useState<'basic' | 'persona' | 'ai' | 'integrations' | 'handoff' | 'webhook'>('basic');
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCode, setQRCode] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -749,6 +751,10 @@ export default function AgentDetailPage() {
                   { id: 'ai', label: 'IA & Modelo', icon: <Brain size={18} /> },
                   { id: 'integrations', label: 'Integracoes', icon: <Zap size={18} /> },
                   { id: 'handoff', label: 'Handoff', icon: <Bell size={18} /> },
+                  // Webhook tab only for document_handler agents
+                  ...(agent?.type === 'document_handler' ? [
+                    { id: 'webhook', label: 'API/Webhook', icon: <Webhook size={18} /> }
+                  ] : []),
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -1107,6 +1113,22 @@ export default function AgentDetailPage() {
                         ))}
                       </div>
                     </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Webhook Settings (Document Handler only) */}
+              {settingsTab === 'webhook' && agent?.type === 'document_handler' && (
+                <Card>
+                  <div className="p-4 border-b border-white/10">
+                    <h3 className="font-semibold">Integracao via API</h3>
+                    <p className="text-sm text-gray-400 mt-1">Configure sistemas externos para enviar documentos</p>
+                  </div>
+                  <div className="p-6">
+                    <WebhookIntegrationConfig
+                      agentId={agent?.id}
+                      isNewAgent={false}
+                    />
                   </div>
                 </Card>
               )}

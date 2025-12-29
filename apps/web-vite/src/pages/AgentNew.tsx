@@ -13,7 +13,7 @@ import TopBar from '../components/layout/TopBar';
 import { cn } from '../lib/utils';
 import { api, type AgentPresets } from '../lib/api';
 import { WhatsAppConnector, CRMConnector, CalendarConnector } from '../components/integrations';
-import { DocumentRoutingConfig } from '../components/document';
+import { DocumentRoutingConfig, WebhookIntegrationConfig } from '../components/document';
 
 // Types
 type AgentType = 'sdr' | 'specialist' | 'scheduler' | 'support' | 'document_handler';
@@ -1253,26 +1253,44 @@ export default function AgentNewPage() {
         );
 
       case 8:
-        // Document Handler agent shows Document Routing, others show Playbooks
+        // Document Handler agent shows Document Routing + Webhook Integration, others show Playbooks
         if (form.type === 'document_handler') {
           return (
-            <Card>
-              <div className="p-4 border-b border-white/10">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <FileText className="text-blue-500" size={20} />
-                  Roteamento de Documentos
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">Configure para onde cada tipo de documento sera enviado</p>
-              </div>
-              <div className="p-6">
-                <DocumentRoutingConfig
-                  documentTypes={presets?.documentTypes || []}
-                  routingDestinations={presets?.routingDestinations || []}
-                  routes={form.documentRoutes}
-                  onRoutesChange={(routes) => updateForm('documentRoutes', routes)}
-                />
-              </div>
-            </Card>
+            <div className="space-y-6">
+              <Card>
+                <div className="p-4 border-b border-white/10">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <FileText className="text-blue-500" size={20} />
+                    Roteamento de Documentos
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-1">Configure para onde cada tipo de documento sera enviado</p>
+                </div>
+                <div className="p-6">
+                  <DocumentRoutingConfig
+                    documentTypes={presets?.documentTypes || []}
+                    routingDestinations={presets?.routingDestinations || []}
+                    routes={form.documentRoutes}
+                    onRoutesChange={(routes) => updateForm('documentRoutes', routes)}
+                  />
+                </div>
+              </Card>
+
+              <Card>
+                <div className="p-4 border-b border-white/10">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Plug className="text-violet-500" size={20} />
+                    Integracao via API
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-1">Configure sistemas externos para enviar documentos automaticamente</p>
+                </div>
+                <div className="p-6">
+                  <WebhookIntegrationConfig
+                    agentId={null}
+                    isNewAgent={true}
+                  />
+                </div>
+              </Card>
+            </div>
           );
         }
 

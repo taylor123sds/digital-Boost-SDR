@@ -18,7 +18,7 @@ import { createDocumentRepositories } from '../repositories/document.repository.
 import { getSchema, getSchemaTypes } from '../schemas/document-schemas.js';
 import { sendEmail } from '../services/EmailService.js';
 import { sendWhatsAppText } from '../services/whatsappAdapterProvider.js';
-import { getDatabase } from '../database.js';
+import { getDatabase } from '../db/index.js';
 import { defaultLogger } from '../utils/logger.enhanced.js';
 import openaiClient from '../core/openai_client.js';
 import { nanoid } from 'nanoid';

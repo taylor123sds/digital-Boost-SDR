@@ -23,7 +23,7 @@ import { getSchemaTypes } from '../../schemas/document-schemas.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { requireTenant, tenantContext } from '../../middleware/tenant.middleware.js';
 import { defaultLogger } from '../../utils/logger.enhanced.js';
-import { getDatabase } from '../../database.js';
+import { getDatabase } from '../../db/index.js';
 
 const logger = defaultLogger.child({ module: 'DocumentHandlerRoutes' });
 const router = express.Router();

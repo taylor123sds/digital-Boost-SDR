@@ -125,6 +125,7 @@ interface AgentForm {
 
   // Document Handler specific
   documentRoutes: DocumentRoute[];
+  selectedDocumentTypes: string[];
 }
 
 const iconMap: Record<string, LucideIcon> = {
@@ -145,6 +146,68 @@ const iconMap: Record<string, LucideIcon> = {
   FileText
 };
 
+// Wizard step definitions per agent type
+type WizardStepId = 'identity' | 'company' | 'offer' | 'icp' | 'policies' | 'goals' | 'channels' | 'integrations' | 'playbooks' | 'bant_preview' | 'document_types' | 'document_routes' | 'webhook' | 'support_playbooks' | 'scheduler_availability' | 'preview';
+
+interface WizardStep {
+  id: WizardStepId;
+  title: string;
+  icon: string;
+  description: string;
+}
+
+// Steps for each agent type
+const wizardStepsByType: Record<AgentType, WizardStep[]> = {
+  sdr: [
+    { id: 'identity', title: 'Identidade', icon: 'User', description: 'Nome e personalidade do agente' },
+    { id: 'company', title: 'Empresa', icon: 'Building', description: 'Contexto do negocio' },
+    { id: 'offer', title: 'Oferta', icon: 'Package', description: 'Produtos e servicos' },
+    { id: 'icp', title: 'ICP', icon: 'Users', description: 'Perfil do cliente ideal' },
+    { id: 'policies', title: 'Politicas', icon: 'Shield', description: 'Regras e limites' },
+    { id: 'goals', title: 'Objetivos', icon: 'Flag', description: 'CTA e metas' },
+    { id: 'channels', title: 'Canais', icon: 'MessageSquare', description: 'Comunicacao' },
+    { id: 'integrations', title: 'Integracoes', icon: 'Plug', description: 'WhatsApp, Calendar, CRM' },
+    { id: 'playbooks', title: 'Playbooks', icon: 'BookOpen', description: 'Objecoes e follow-up' },
+    { id: 'bant_preview', title: 'BANT & Preview', icon: 'Eye', description: 'Qualificacao e revisao' },
+  ],
+  specialist: [
+    { id: 'identity', title: 'Identidade', icon: 'User', description: 'Nome e personalidade do agente' },
+    { id: 'company', title: 'Empresa', icon: 'Building', description: 'Contexto do negocio' },
+    { id: 'offer', title: 'Oferta', icon: 'Package', description: 'Produtos e servicos' },
+    { id: 'icp', title: 'ICP', icon: 'Users', description: 'Perfil do cliente ideal' },
+    { id: 'policies', title: 'Politicas', icon: 'Shield', description: 'Regras e limites' },
+    { id: 'goals', title: 'Objetivos', icon: 'Flag', description: 'CTA e metas' },
+    { id: 'channels', title: 'Canais', icon: 'MessageSquare', description: 'Comunicacao' },
+    { id: 'integrations', title: 'Integracoes', icon: 'Plug', description: 'WhatsApp, Calendar, CRM' },
+    { id: 'playbooks', title: 'Playbooks', icon: 'BookOpen', description: 'Objecoes e follow-up' },
+    { id: 'bant_preview', title: 'BANT & Preview', icon: 'Eye', description: 'Qualificacao e revisao' },
+  ],
+  support: [
+    { id: 'identity', title: 'Identidade', icon: 'User', description: 'Nome e personalidade' },
+    { id: 'company', title: 'Empresa', icon: 'Building', description: 'Contexto do negocio' },
+    { id: 'policies', title: 'Politicas', icon: 'Shield', description: 'Regras de atendimento' },
+    { id: 'channels', title: 'Canais', icon: 'MessageSquare', description: 'Comunicacao' },
+    { id: 'integrations', title: 'Integracoes', icon: 'Plug', description: 'WhatsApp e CRM' },
+    { id: 'support_playbooks', title: 'Playbooks', icon: 'BookOpen', description: 'FAQ e escalacao' },
+    { id: 'preview', title: 'Preview', icon: 'Eye', description: 'Revisao final' },
+  ],
+  scheduler: [
+    { id: 'identity', title: 'Identidade', icon: 'User', description: 'Nome e personalidade' },
+    { id: 'company', title: 'Empresa', icon: 'Building', description: 'Contexto do negocio' },
+    { id: 'scheduler_availability', title: 'Disponibilidade', icon: 'Calendar', description: 'Horarios e regras' },
+    { id: 'channels', title: 'Canais', icon: 'MessageSquare', description: 'Comunicacao' },
+    { id: 'integrations', title: 'Integracoes', icon: 'Plug', description: 'Calendar obrigatorio' },
+    { id: 'preview', title: 'Preview', icon: 'Eye', description: 'Revisao final' },
+  ],
+  document_handler: [
+    { id: 'identity', title: 'Identidade', icon: 'User', description: 'Nome e descricao' },
+    { id: 'document_types', title: 'Tipos', icon: 'FileText', description: 'Documentos aceitos' },
+    { id: 'document_routes', title: 'Rotas', icon: 'Users', description: 'Destinos e notificacoes' },
+    { id: 'webhook', title: 'Webhook', icon: 'Plug', description: 'Integracao via API' },
+    { id: 'preview', title: 'Preview', icon: 'Eye', description: 'Revisao final' },
+  ],
+};
+
 export default function AgentNewPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -158,7 +221,6 @@ export default function AgentNewPage() {
   const qualificationFrameworks = presets?.qualificationFrameworks || [];
   const bantFieldsConfig = presets?.bantFieldsConfig || [];
   const weekDays = presets?.weekDays || [];
-  const steps = presets?.steps || [];
   const toneLabels = presets?.toneLabels || [];
 
   useEffect(() => {
@@ -249,7 +311,20 @@ export default function AgentNewPage() {
 
     // Document Handler specific
     documentRoutes: [],
+    selectedDocumentTypes: [],
   });
+
+  // Get current wizard steps based on agent type
+  const currentSteps = wizardStepsByType[form.type] || wizardStepsByType.sdr;
+  const currentStepId = currentSteps[step]?.id;
+  const totalSteps = currentSteps.length;
+  const isLastStep = step === totalSteps - 1;
+
+  // Handle type change - reset to step 0
+  const handleTypeChange = (newType: AgentType) => {
+    updateForm('type', newType);
+    setStep(0);
+  };
 
   const updateForm = (key: string, value: unknown) => {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -323,16 +398,44 @@ export default function AgentNewPage() {
   };
 
   const canProceed = () => {
-    if (step === 0) return form.name.trim() && form.persona.trim();
-    if (step === 1) return form.company.trim() && form.sector && form.description.trim();
-    if (step === 2) return form.type && (form.services.length > 0 || form.offerings.trim());
-    if (step === 3) return form.audienceType;
-    if (step === 4) return true;
-    if (step === 5) return form.ctaType && form.ctaDescription.trim();
-    if (step === 6) return form.channels.length > 0;
-    if (step === 7) return true;
-    if (step === 8) return form.handoffCriteria.length > 0;
-    return true;
+    switch (currentStepId) {
+      case 'identity':
+        return form.name.trim() && form.persona.trim();
+      case 'company':
+        // For document_handler, company is optional
+        if (form.type === 'document_handler') return true;
+        return form.company.trim() && form.sector && form.description.trim();
+      case 'offer':
+        return form.services.length > 0 || form.offerings.trim();
+      case 'icp':
+        return form.audienceType;
+      case 'policies':
+        return true;
+      case 'goals':
+        return form.ctaType && form.ctaDescription.trim();
+      case 'channels':
+        return form.channels.length > 0;
+      case 'integrations':
+        return true;
+      case 'playbooks':
+      case 'support_playbooks':
+        return form.handoffCriteria.length > 0;
+      case 'bant_preview':
+      case 'preview':
+        return true;
+      // Document Handler specific
+      case 'document_types':
+        return form.selectedDocumentTypes.length > 0;
+      case 'document_routes':
+        return true; // Routes are optional
+      case 'webhook':
+        return true;
+      // Scheduler specific
+      case 'scheduler_availability':
+        return form.operatingHours.days.length > 0;
+      default:
+        return true;
+    }
   };
 
   const handleSave = async () => {
@@ -435,8 +538,8 @@ export default function AgentNewPage() {
   };
 
   const renderStepContent = () => {
-    switch (step) {
-      case 0:
+    switch (currentStepId) {
+      case 'identity':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -512,7 +615,7 @@ export default function AgentNewPage() {
                     return (
                       <button
                         key={type.id}
-                        onClick={() => updateForm('type', type.id)}
+                        onClick={() => handleTypeChange(type.id as AgentType)}
                         className={cn(
                           "p-4 rounded-lg border text-left transition-all flex items-start gap-4",
                           form.type === type.id ? "border-cyan bg-cyan/10" : "border-white/10 hover:border-white/30"
@@ -537,7 +640,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 1:
+      case 'company':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -665,7 +768,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 2:
+      case 'offer':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -749,7 +852,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 3:
+      case 'icp':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -861,7 +964,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 4:
+      case 'policies':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -915,7 +1018,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 5:
+      case 'goals':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -1008,7 +1111,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 6:
+      case 'channels':
         const channelOptions = [
           { id: 'whatsapp', name: 'WhatsApp', icon: '💬', desc: 'Mensagens via WhatsApp Business', selectedClass: 'border-green-500/50 bg-green-500/10' },
           { id: 'email', name: 'Email', icon: '📧', desc: 'Comunicacao por email', selectedClass: 'border-cyan/50 bg-cyan/10' },
@@ -1148,7 +1251,7 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 7:
+      case 'integrations':
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -1252,49 +1355,8 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 8:
-        // Document Handler agent shows Document Routing + Webhook Integration, others show Playbooks
-        if (form.type === 'document_handler') {
-          return (
-            <div className="space-y-6">
-              <Card>
-                <div className="p-4 border-b border-white/10">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="text-blue-500" size={20} />
-                    Roteamento de Documentos
-                  </h2>
-                  <p className="text-sm text-gray-400 mt-1">Configure para onde cada tipo de documento sera enviado</p>
-                </div>
-                <div className="p-6">
-                  <DocumentRoutingConfig
-                    documentTypes={presets?.documentTypes || []}
-                    routingDestinations={presets?.routingDestinations || []}
-                    routes={form.documentRoutes}
-                    onRoutesChange={(routes) => updateForm('documentRoutes', routes)}
-                  />
-                </div>
-              </Card>
-
-              <Card>
-                <div className="p-4 border-b border-white/10">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Plug className="text-violet-500" size={20} />
-                    Integracao via API
-                  </h2>
-                  <p className="text-sm text-gray-400 mt-1">Configure sistemas externos para enviar documentos automaticamente</p>
-                </div>
-                <div className="p-6">
-                  <WebhookIntegrationConfig
-                    agentId={null}
-                    isNewAgent={true}
-                  />
-                </div>
-              </Card>
-            </div>
-          );
-        }
-
-        // Default: Playbooks for SDR, Support, etc.
+      case 'playbooks':
+        // Playbooks for SDR, Specialist
         return (
           <Card>
             <div className="p-4 border-b border-white/10">
@@ -1386,7 +1448,247 @@ export default function AgentNewPage() {
           </Card>
         );
 
-      case 9:
+      case 'support_playbooks':
+        // Playbooks for Support agents
+        return (
+          <Card>
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <BookOpen className="text-amber-500" size={20} />
+                Playbooks de Atendimento
+              </h2>
+              <p className="text-sm text-gray-400 mt-1">Configure FAQ e regras de escalacao</p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Criterios para Escalacao (handoff)</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Adicionar criterio de escalacao"
+                    className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan/50"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        addToArray('handoffCriteria', (e.target as HTMLInputElement).value);
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {form.handoffCriteria.map((criteria, i) => (
+                    <span key={i} className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-sm flex items-center gap-2">
+                      {criteria}
+                      <button onClick={() => removeFromArray('handoffCriteria', i)}><Trash2 size={12} /></button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <h4 className="font-medium text-blue-400 mb-2 flex items-center gap-2">
+                  <HeadphonesIcon size={16} />
+                  Dica para Atendimento
+                </h4>
+                <p className="text-sm text-gray-400">
+                  Configure criterios claros de quando escalar para um humano.
+                  Exemplos: reclamacoes graves, solicitacoes de reembolso, problemas tecnicos complexos.
+                </p>
+              </div>
+            </div>
+          </Card>
+        );
+
+      case 'scheduler_availability':
+        // Availability for Scheduler agents
+        return (
+          <Card>
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Calendar className="text-blue-500" size={20} />
+                Disponibilidade e Horarios
+              </h2>
+              <p className="text-sm text-gray-400 mt-1">Configure quando agendamentos podem ser feitos</p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Horario de Agendamento</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Inicio</label>
+                    <input
+                      type="time"
+                      value={form.operatingHours.start}
+                      onChange={(e) => updateForm('operatingHours', { ...form.operatingHours, start: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Fim</label>
+                    <input
+                      type="time"
+                      value={form.operatingHours.end}
+                      onChange={(e) => updateForm('operatingHours', { ...form.operatingHours, end: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Dias Disponiveis</label>
+                <div className="flex gap-2">
+                  {weekDays.map((day) => (
+                    <button
+                      key={day}
+                      onClick={() => {
+                        const days = form.operatingHours.days;
+                        if (days.includes(day)) {
+                          updateForm('operatingHours', { ...form.operatingHours, days: days.filter(d => d !== day) });
+                        } else {
+                          updateForm('operatingHours', { ...form.operatingHours, days: [...days, day] });
+                        }
+                      }}
+                      className={cn(
+                        "w-12 h-12 rounded-lg border font-medium",
+                        form.operatingHours.days.includes(day) ? "border-blue-500 bg-blue-500/20 text-blue-400" : "border-white/10 text-gray-400"
+                      )}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <h4 className="font-medium text-amber-400 mb-2 flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  Integracao com Calendar Obrigatoria
+                </h4>
+                <p className="text-sm text-gray-400">
+                  Para o agente Scheduler funcionar, e necessario conectar um calendario no proximo passo.
+                  Suportamos Google Calendar e Outlook.
+                </p>
+              </div>
+            </div>
+          </Card>
+        );
+
+      case 'document_types':
+        // Document types selection for Document Handler
+        const documentTypeOptions = presets?.documentTypes || [
+          { id: 'ferias', name: 'Ferias', icon: '🏖️' },
+          { id: 'atestado', name: 'Atestado', icon: '🏥' },
+          { id: 'nota_fiscal', name: 'Nota Fiscal', icon: '🧾' },
+          { id: 'contrato', name: 'Contrato', icon: '📝' },
+          { id: 'licitacao', name: 'Licitacao', icon: '📋' },
+          { id: 'termo_referencia', name: 'Termo de Referencia', icon: '📄' },
+        ];
+
+        return (
+          <Card>
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="text-blue-500" size={20} />
+                Tipos de Documento
+              </h2>
+              <p className="text-sm text-gray-400 mt-1">Selecione os tipos de documento que este agente ira processar</p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {documentTypeOptions.map((docType) => {
+                  const isSelected = form.selectedDocumentTypes.includes(docType.id);
+                  return (
+                    <label
+                      key={docType.id}
+                      className={cn(
+                        "p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-3",
+                        isSelected
+                          ? "border-blue-500/50 bg-blue-500/10"
+                          : "border-white/10 hover:border-white/20 bg-white/5"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            updateForm('selectedDocumentTypes', [...form.selectedDocumentTypes, docType.id]);
+                          } else {
+                            updateForm('selectedDocumentTypes', form.selectedDocumentTypes.filter(t => t !== docType.id));
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <span className="text-2xl">{docType.icon}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{docType.name}</span>
+                          {isSelected && (
+                            <CheckCircle size={14} className="text-blue-500" />
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {form.selectedDocumentTypes.length > 0 && (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-sm text-blue-400 flex items-center gap-2">
+                    <CheckCircle size={14} />
+                    {form.selectedDocumentTypes.length} tipo(s) selecionado(s)
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        );
+
+      case 'document_routes':
+        // Document routing configuration
+        return (
+          <Card>
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Users className="text-violet-500" size={20} />
+                Rotas e Notificacoes
+              </h2>
+              <p className="text-sm text-gray-400 mt-1">Configure para onde cada tipo de documento sera enviado</p>
+            </div>
+            <div className="p-6">
+              <DocumentRoutingConfig
+                documentTypes={presets?.documentTypes || []}
+                routingDestinations={presets?.routingDestinations || []}
+                routes={form.documentRoutes}
+                onRoutesChange={(routes) => updateForm('documentRoutes', routes)}
+              />
+            </div>
+          </Card>
+        );
+
+      case 'webhook':
+        // Webhook configuration for Document Handler
+        return (
+          <Card>
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Plug className="text-cyan" size={20} />
+                Integracao via API
+              </h2>
+              <p className="text-sm text-gray-400 mt-1">Configure sistemas externos para enviar documentos automaticamente</p>
+            </div>
+            <div className="p-6">
+              <WebhookIntegrationConfig
+                agentId={null}
+                isNewAgent={true}
+              />
+            </div>
+          </Card>
+        );
+
+      case 'bant_preview':
         return (
           <div className="space-y-6">
             <Card>
@@ -1489,6 +1791,91 @@ export default function AgentNewPage() {
           </div>
         );
 
+      case 'preview':
+        // Simple preview for Document Handler, Support, Scheduler
+        return (
+          <Card>
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Eye className="text-cyan" size={20} />
+                Revisao Final
+              </h2>
+              <p className="text-sm text-gray-400 mt-1">Revise as configuracoes antes de criar o agente</p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="p-4 bg-white/5 rounded-lg">
+                <label className="flex items-center gap-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => updateForm('isActive', e.target.checked)}
+                    className="w-6 h-6 accent-green-500 rounded"
+                  />
+                  <div>
+                    <div className="font-medium">Agente Ativo</div>
+                    <div className="text-sm text-gray-400">Se ativado, o agente comecara a responder imediatamente</div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="font-medium text-cyan">Identidade</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-400">Nome:</span><span>{form.name || '-'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Tipo:</span><span>{agentTypes.find(t => t.id === form.type)?.name || '-'}</span></div>
+                    {form.company && (
+                      <div className="flex justify-between"><span className="text-gray-400">Empresa:</span><span>{form.company}</span></div>
+                    )}
+                  </div>
+                </div>
+
+                {form.type === 'document_handler' && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-blue-500">Documentos</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {form.selectedDocumentTypes.map(dt => (
+                        <span key={dt} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs capitalize">{dt.replace('_', ' ')}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(form.type === 'support' || form.type === 'scheduler') && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-violet">Canais</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {form.channels.map(ch => (
+                        <span key={ch} className="px-2 py-1 bg-violet/20 text-violet rounded text-xs capitalize">{ch}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {form.type === 'scheduler' && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-amber-500">Disponibilidade</h3>
+                    <div className="text-sm text-gray-400">
+                      {form.operatingHours.start} - {form.operatingHours.end}
+                      <br />
+                      {form.operatingHours.days.join(', ')}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {form.type === 'document_handler' && form.documentRoutes.length > 0 && (
+                <div className="p-4 bg-violet/10 border border-violet/20 rounded-lg">
+                  <h4 className="font-medium text-violet mb-2">Rotas Configuradas</h4>
+                  <p className="text-sm text-gray-400">
+                    {form.documentRoutes.length} rota(s) de notificacao configurada(s)
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        );
+
       default:
         return null;
     }
@@ -1506,35 +1893,35 @@ export default function AgentNewPage() {
           </button>
           <div>
                     <h1 className="text-2xl font-semibold">Criar Novo Agente</h1>
-            <p className="text-gray-400 mt-1">Configure seu agente de IA em 10 passos</p>
+            <p className="text-gray-400 mt-1">Configure seu agente de IA em {totalSteps} passos</p>
           </div>
         </div>
 
         {/* Progress Steps */}
         <div className="mb-8 overflow-x-auto pb-2">
           <div className="flex items-center gap-1 min-w-max bg-dark-card p-2 rounded-xl border border-white/10">
-            {steps.map((s, idx) => {
+            {currentSteps.map((s, idx) => {
               const Icon = iconMap[s.icon] || Plug;
-              const isActive = step === s.id;
-              const isCompleted = step > s.id;
+              const isStepActive = step === idx;
+              const isStepCompleted = step > idx;
 
               return (
                 <div key={s.id} className="flex items-center">
                   <button
-                    onClick={() => step > s.id && setStep(s.id)}
-                    disabled={step < s.id}
+                    onClick={() => step > idx && setStep(idx)}
+                    disabled={step < idx}
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
-                      isActive && "bg-cyan/20",
-                      isCompleted && "cursor-pointer hover:bg-white/5",
-                      !isActive && !isCompleted && "opacity-50"
+                      isStepActive && "bg-cyan/20",
+                      isStepCompleted && "cursor-pointer hover:bg-white/5",
+                      !isStepActive && !isStepCompleted && "opacity-50"
                     )}
                   >
                     <div
                       className={cn(
                         "w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-sm",
-                        isActive ? "bg-gradient-to-r from-cyan to-violet text-dark-bg" :
-                        isCompleted ? "bg-green-500/20 text-green-500" :
+                        isStepActive ? "bg-gradient-to-r from-cyan to-violet text-dark-bg" :
+                        isStepCompleted ? "bg-green-500/20 text-green-500" :
                         "bg-white/10 text-gray-400"
                       )}
                     >
@@ -1543,14 +1930,14 @@ export default function AgentNewPage() {
                     <div className="hidden lg:block text-left">
                       <div className={cn(
                         "text-xs font-medium",
-                        isActive ? "text-cyan" : isCompleted ? "text-green-500" : "text-gray-400"
+                        isStepActive ? "text-cyan" : isStepCompleted ? "text-green-500" : "text-gray-400"
                       )}>
                         {s.title}
                       </div>
                     </div>
                   </button>
-                  {idx < steps.length - 1 && (
-                    <div className={cn("w-4 h-0.5 mx-1", isCompleted ? "bg-green-500" : "bg-white/10")} />
+                  {idx < currentSteps.length - 1 && (
+                    <div className={cn("w-4 h-0.5 mx-1", isStepCompleted ? "bg-green-500" : "bg-white/10")} />
                   )}
                 </div>
               );
@@ -1569,7 +1956,7 @@ export default function AgentNewPage() {
             {step === 0 ? 'Cancelar' : 'Voltar'}
           </Button>
 
-          {step < 9 ? (
+          {!isLastStep ? (
             <Button onClick={() => setStep(step + 1)} disabled={!canProceed()}>
               Proximo
             </Button>

@@ -59,6 +59,7 @@ import versionRoutes from './version.routes.js';
 import documentReviewRoutes from './document-review.routes.js';
 import documentHandlerRoutes from './document-handler.routes.js';
 import tenantProfileRoutes from './tenant-profile.routes.js';
+import agentMetricsRoutes from './agent-metrics.routes.js';
 
 const router = express.Router();
 
@@ -117,6 +118,7 @@ router.use(versionRoutes);           // /api/version, /api/version/short, /healt
 router.use(documentReviewRoutes);    // /api/document-review (PDF review + notify)
 router.use(documentHandlerRoutes);   // /api/documents/*, /api/packages/*, /api/extractions/*, /api/reports/*
 router.use(tenantProfileRoutes);     // /api/tenant-profile, /api/tenant-profile/diagnose
+router.use(agentMetricsRoutes);      // /api/agents/:id/metrics, /api/agents/:id/tabs (type-specific)
 
 console.log(' Todas as rotas montadas com sucesso');
 console.log(' Rotas ativas:');

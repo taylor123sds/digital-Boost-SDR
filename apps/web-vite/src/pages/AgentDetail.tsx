@@ -77,15 +77,46 @@ const iconMap: Record<string, React.ComponentType<{ size?: number }>> = {
   Timer,
 };
 
-// Fallback tabs if API fails
-const fallbackTabs: AgentTab[] = [
-  { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
-  { id: 'leads', label: 'Leads', icon: 'Users', enabled: true },
-  { id: 'pipeline', label: 'Pipeline', icon: 'Columns', enabled: true },
-  { id: 'cadence', label: 'Cadencia', icon: 'Clock', enabled: true },
-  { id: 'prospecting', label: 'Prospeccao', icon: 'Target', enabled: true },
-  { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
-];
+// Tabs by agent type (defined locally for reliability)
+const TABS_BY_TYPE: Record<string, AgentTab[]> = {
+  sdr: [
+    { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+    { id: 'leads', label: 'Leads', icon: 'Users', enabled: true },
+    { id: 'pipeline', label: 'Pipeline', icon: 'Columns', enabled: true },
+    { id: 'cadence', label: 'Cadencia', icon: 'Clock', enabled: true },
+    { id: 'prospecting', label: 'Prospeccao', icon: 'Target', enabled: true },
+    { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
+  ],
+  specialist: [
+    { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+    { id: 'leads', label: 'Leads', icon: 'Users', enabled: true },
+    { id: 'pipeline', label: 'Pipeline', icon: 'Columns', enabled: true },
+    { id: 'cadence', label: 'Cadencia', icon: 'Clock', enabled: true },
+    { id: 'prospecting', label: 'Prospeccao', icon: 'Target', enabled: true },
+    { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
+  ],
+  support: [
+    { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+    { id: 'tickets', label: 'Tickets', icon: 'MessageSquare', enabled: true },
+    { id: 'conversations', label: 'Conversas', icon: 'MessagesSquare', enabled: true },
+    { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
+  ],
+  scheduler: [
+    { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+    { id: 'bookings', label: 'Agendamentos', icon: 'Calendar', enabled: true },
+    { id: 'pipeline', label: 'Pipeline', icon: 'Columns', enabled: true },
+    { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
+  ],
+  document_handler: [
+    { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+    { id: 'documents', label: 'Documentos', icon: 'FileText', enabled: true },
+    { id: 'packages', label: 'Pacotes', icon: 'FolderOpen', enabled: true },
+    { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
+  ],
+};
+
+// Fallback tabs if API fails (SDR default)
+const fallbackTabs: AgentTab[] = TABS_BY_TYPE.sdr;
 
 export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -201,16 +232,19 @@ export default function AgentDetailPage() {
       const agentData = await api.getAgent(id!);
       setAgent(agentData);
 
-      // Load dynamic tabs for this agent type
-      const tabsData = await api.getAgentTabs(id!);
-      if (tabsData.length > 0) {
-        setDynamicTabs(tabsData);
-      }
+      // Set tabs based on agent type (local lookup for reliability)
+      const agentType = agentData?.type || 'sdr';
+      const typeTabs = TABS_BY_TYPE[agentType] || TABS_BY_TYPE.sdr;
+      setDynamicTabs(typeTabs);
 
-      // Load type-specific metrics
-      const typeMetricsData = await api.getAgentMetrics(id!, metricsPeriod);
-      if (typeMetricsData) {
-        setTypeMetrics(typeMetricsData);
+      // Load type-specific metrics (optional - may require auth)
+      try {
+        const typeMetricsData = await api.getAgentMetrics(id!, metricsPeriod);
+        if (typeMetricsData) {
+          setTypeMetrics(typeMetricsData);
+        }
+      } catch {
+        // Metrics API may fail due to auth, continue without metrics
       }
 
       // Load legacy metrics for SDR/Specialist (fallback)

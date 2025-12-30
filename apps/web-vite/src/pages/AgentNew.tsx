@@ -322,6 +322,7 @@ export default function AgentNewPage() {
 
   // Handle type change - reset to step 0
   const handleTypeChange = (newType: AgentType) => {
+    console.log('[AgentNew] Type changed to:', newType, '| Steps:', wizardStepsByType[newType]?.length);
     updateForm('type', newType);
     setStep(0);
   };

@@ -258,6 +258,26 @@ class ApiClient {
     await this.request<{ success: boolean }>(`/agents/${id}`, { method: 'DELETE' });
   }
 
+  // Agent Tabs - returns valid tabs for agent type
+  async getAgentTabs(agentId: string): Promise<AgentTab[]> {
+    try {
+      const result = await this.request<{ success: boolean; agentType: string; tabs: AgentTab[] }>(`/agents/${agentId}/tabs`);
+      return result.tabs || [];
+    } catch {
+      return [];
+    }
+  }
+
+  // Agent Metrics - returns type-specific metrics
+  async getAgentMetrics(agentId: string, period: '7d' | '30d' | '90d' = '7d'): Promise<AgentTypeMetrics | null> {
+    try {
+      const result = await this.request<{ success: boolean; agentType: string; metrics: AgentTypeMetrics }>(`/agents/${agentId}/metrics?period=${period}`);
+      return result.metrics || null;
+    } catch {
+      return null;
+    }
+  }
+
   // CRM / Leads - uses real /api/crm/leads endpoints with agent isolation
   async getLeads(params?: { stage?: string; search?: string; page?: number; agentId?: string | null }) {
     try {
@@ -805,7 +825,7 @@ export interface Agent {
   id: string;
   name: string;
   slug?: string;
-  type: 'sdr' | 'support' | 'custom' | 'scheduler' | 'document_handler';
+  type: 'sdr' | 'specialist' | 'support' | 'custom' | 'scheduler' | 'document_handler';
   status: 'active' | 'paused' | 'offline' | 'draft' | 'deleted';
   channel: 'whatsapp' | 'email' | 'chat' | 'voice';
   persona?: Record<string, unknown>;
@@ -824,6 +844,100 @@ export interface Agent {
   messagesProcessed?: number;
   avgResponseTime?: number;
   conversionRate?: number;
+}
+
+// Agent Tabs (returned by /api/agents/:id/tabs)
+export interface AgentTab {
+  id: string;
+  label: string;
+  icon: string;
+  enabled: boolean;
+  position?: number;
+}
+
+// Agent Type-Specific Metrics (returned by /api/agents/:id/metrics)
+export interface AgentTypeMetrics {
+  // SDR/Specialist
+  summary?: {
+    totalLeads?: number;
+    qualifiedLeads?: number;
+    conversionRate?: string | number;
+    avgBantScore?: string | number;
+    pipelineValue?: number;
+    wonDeals?: number;
+    wonValue?: number;
+    // Support
+    totalConversations?: number;
+    totalMessages?: number;
+    totalTickets?: number;
+    openTickets?: number;
+    resolvedTickets?: number;
+    escalatedTickets?: number;
+    avgResolutionTimeMs?: number;
+    avgFirstResponseMs?: number;
+    slaBreached?: number;
+    avgCsat?: string | number;
+    // Scheduler
+    totalBookings?: number;
+    upcomingBookings?: number;
+    todayBookings?: number;
+    completedBookings?: number;
+    noShowCount?: number;
+    cancelledCount?: number;
+    completionRate?: string | number;
+    // Document Handler
+    totalDocuments?: number;
+    pending?: number;
+    processing?: number;
+    completed?: number;
+    errors?: number;
+    successRate?: string | number;
+  };
+  messages?: {
+    total?: number;
+    sent?: number;
+    received?: number;
+    responseRate?: string | number;
+    agentMessages?: number;
+    customerMessages?: number;
+  };
+  funnel?: {
+    byStage?: Record<string, number>;
+  };
+  cadence?: {
+    total?: number;
+    active?: number;
+    responded?: number;
+    completed?: number;
+  };
+  tickets?: {
+    open?: number;
+    pending?: number;
+    inProgress?: number;
+    resolved?: number;
+    closed?: number;
+    escalated?: number;
+  };
+  bookings?: {
+    scheduled?: number;
+    confirmed?: number;
+    completed?: number;
+    noShow?: number;
+    cancelled?: number;
+  };
+  breakdown?: {
+    byPriority?: Record<string, number>;
+    byCategory?: Array<{ category: string; count: number }>;
+    byType?: Record<string, number>;
+    byOrigin?: Record<string, number>;
+  };
+  recentDocuments?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    origin: string;
+    created_at: string;
+  }>;
 }
 
 export interface Lead {

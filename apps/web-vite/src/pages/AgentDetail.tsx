@@ -4,7 +4,9 @@ import {
   ArrowLeft, BarChart2, Users, Columns, Clock, Target,
   Settings, RefreshCw, Play, Pause, Phone,
   Calendar, ArrowUp, ArrowDown, CheckCircle, X,
-  MessageSquare, Bot, Zap, Bell, Brain, Sliders
+  MessageSquare, Bot, Zap, Bell, Brain, Sliders,
+  Webhook, FileText, FolderOpen, MessagesSquare, AlertCircle,
+  TrendingUp, UserCheck, XCircle, Timer
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -12,9 +14,8 @@ import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
 import { WebhookIntegrationConfig } from '../components/document';
 import { api } from '../lib/api';
-import type { Agent, Lead } from '../lib/api';
+import type { Agent, Lead, AgentTab, AgentTypeMetrics } from '../lib/api';
 import { formatNumber, cn } from '../lib/utils';
-import { Webhook } from 'lucide-react';
 
 // Types for this page
 interface AgentMetrics {
@@ -53,15 +54,37 @@ interface ProspectingStats {
   isRunning: boolean;
 }
 
-type TabId = 'metrics' | 'leads' | 'pipeline' | 'cadence' | 'prospecting' | 'settings';
+type TabId = 'metrics' | 'leads' | 'pipeline' | 'cadence' | 'prospecting' | 'settings' |
+             'tickets' | 'conversations' | 'bookings' | 'documents' | 'packages';
 
-const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: 'metrics', label: 'Metricas', icon: <BarChart2 size={18} /> },
-  { id: 'leads', label: 'Leads', icon: <Users size={18} /> },
-  { id: 'pipeline', label: 'Pipeline', icon: <Columns size={18} /> },
-  { id: 'cadence', label: 'Cadencia', icon: <Clock size={18} /> },
-  { id: 'prospecting', label: 'Prospeccao', icon: <Target size={18} /> },
-  { id: 'settings', label: 'Config', icon: <Settings size={18} /> },
+// Icon map for dynamic tab icons
+const iconMap: Record<string, React.ComponentType<{ size?: number }>> = {
+  BarChart2,
+  Users,
+  Columns,
+  Clock,
+  Target,
+  Settings,
+  MessageSquare,
+  MessagesSquare,
+  Calendar,
+  FileText,
+  FolderOpen,
+  Webhook,
+  AlertCircle,
+  TrendingUp,
+  UserCheck,
+  Timer,
+};
+
+// Fallback tabs if API fails
+const fallbackTabs: AgentTab[] = [
+  { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+  { id: 'leads', label: 'Leads', icon: 'Users', enabled: true },
+  { id: 'pipeline', label: 'Pipeline', icon: 'Columns', enabled: true },
+  { id: 'cadence', label: 'Cadencia', icon: 'Clock', enabled: true },
+  { id: 'prospecting', label: 'Prospeccao', icon: 'Target', enabled: true },
+  { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
 ];
 
 export default function AgentDetailPage() {
@@ -71,7 +94,12 @@ export default function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Data states
+  // Dynamic tabs based on agent type
+  const [dynamicTabs, setDynamicTabs] = useState<AgentTab[]>(fallbackTabs);
+  const [typeMetrics, setTypeMetrics] = useState<AgentTypeMetrics | null>(null);
+  const [metricsPeriod, setMetricsPeriod] = useState<'7d' | '30d' | '90d'>('7d');
+
+  // Data states (legacy - for SDR/Specialist)
   const [metrics, setMetrics] = useState<AgentMetrics | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pipelineLeads, setPipelineLeads] = useState<Record<string, Lead[]>>({});
@@ -173,18 +201,32 @@ export default function AgentDetailPage() {
       const agentData = await api.getAgent(id!);
       setAgent(agentData);
 
-      // Load metrics
-      const statsData = await api.getDashboardStats();
-      setMetrics({
-        totalLeads: statsData.totalLeads || 0,
-        responseRate: 78,
-        meetings: 12,
-        conversionRate: statsData.conversionRate || 0,
-        leadsChange: 12,
-        responseChange: 5,
-        meetingsChange: 3,
-        conversionChange: 2.5,
-      });
+      // Load dynamic tabs for this agent type
+      const tabsData = await api.getAgentTabs(id!);
+      if (tabsData.length > 0) {
+        setDynamicTabs(tabsData);
+      }
+
+      // Load type-specific metrics
+      const typeMetricsData = await api.getAgentMetrics(id!, metricsPeriod);
+      if (typeMetricsData) {
+        setTypeMetrics(typeMetricsData);
+      }
+
+      // Load legacy metrics for SDR/Specialist (fallback)
+      if (!agentData.type || agentData.type === 'sdr' || agentData.type === 'specialist') {
+        const statsData = await api.getDashboardStats();
+        setMetrics({
+          totalLeads: statsData.totalLeads || 0,
+          responseRate: 78,
+          meetings: 12,
+          conversionRate: statsData.conversionRate || 0,
+          leadsChange: 12,
+          responseChange: 5,
+          meetingsChange: 3,
+          conversionChange: 2.5,
+        });
+      }
     } catch (error) {
       console.error('Erro ao carregar agente:', error);
       setAgent(null);
@@ -434,63 +476,212 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Dynamic based on agent type */}
       <div className="flex border-b border-white/10 px-6 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "flex items-center gap-2 px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
-              activeTab === tab.id
-                ? "text-cyan border-cyan"
-                : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+        {dynamicTabs.filter(t => t.enabled).map((tab) => {
+          const IconComponent = iconMap[tab.icon] || BarChart2;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabId)}
+              className={cn(
+                "flex items-center gap-2 px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
+                activeTab === tab.id
+                  ? "text-cyan border-cyan"
+                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+              )}
+            >
+              <IconComponent size={18} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab Content */}
       <div className="p-6">
-        {/* Metrics Tab */}
-        {activeTab === 'metrics' && metrics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard
-              title="Total de Leads"
-              value={metrics.totalLeads}
-              change={metrics.leadsChange}
-              changeLabel="esta semana"
-              icon={<Users className="text-cyan" />}
-              iconBg="cyan"
-            />
-            <StatCard
-              title="Taxa de Resposta"
-              value={`${metrics.responseRate}%`}
-              change={metrics.responseChange}
-              changeLabel="vs ontem"
-              icon={<BarChart2 className="text-violet" />}
-              iconBg="violet"
-            />
-            <StatCard
-              title="Reunioes Agendadas"
-              value={metrics.meetings}
-              change={metrics.meetingsChange}
-              changeLabel="esta semana"
-              icon={<Calendar className="text-green-500" />}
-              iconBg="success"
-            />
-            <StatCard
-              title="Taxa de Conversao"
-              value={`${metrics.conversionRate}%`}
-              change={metrics.conversionChange}
-              changeLabel="este mes"
-              icon={<Target className="text-yellow-500" />}
-              iconBg="warning"
-            />
-          </div>
+        {/* Metrics Tab - Type Specific */}
+        {activeTab === 'metrics' && (
+          <>
+            {/* Period selector */}
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-sm text-gray-400">Periodo:</span>
+              {(['7d', '30d', '90d'] as const).map((period) => (
+                <button
+                  key={period}
+                  onClick={() => { setMetricsPeriod(period); loadAgentData(); }}
+                  className={cn(
+                    "px-3 py-1 text-sm rounded-lg transition-colors",
+                    metricsPeriod === period
+                      ? "bg-cyan/20 text-cyan"
+                      : "text-gray-400 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  {period === '7d' ? '7 dias' : period === '30d' ? '30 dias' : '90 dias'}
+                </button>
+              ))}
+            </div>
+
+            {/* SDR/Specialist Metrics */}
+            {(!agent?.type || agent?.type === 'sdr' || agent?.type === 'specialist') && typeMetrics?.summary && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Total de Leads"
+                  value={typeMetrics.summary.totalLeads || 0}
+                  icon={<Users className="text-cyan" />}
+                  iconBg="cyan"
+                />
+                <StatCard
+                  title="Leads Qualificados"
+                  value={typeMetrics.summary.qualifiedLeads || 0}
+                  icon={<UserCheck className="text-green-500" />}
+                  iconBg="success"
+                />
+                <StatCard
+                  title="Taxa de Conversao"
+                  value={`${typeMetrics.summary.conversionRate || 0}%`}
+                  icon={<TrendingUp className="text-violet" />}
+                  iconBg="violet"
+                />
+                <StatCard
+                  title="BANT Score Medio"
+                  value={typeMetrics.summary.avgBantScore || 0}
+                  icon={<Target className="text-yellow-500" />}
+                  iconBg="warning"
+                />
+              </div>
+            )}
+
+            {/* Support Metrics */}
+            {agent?.type === 'support' && typeMetrics?.summary && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Tickets Abertos"
+                  value={typeMetrics.summary.openTickets || typeMetrics.summary.totalConversations || 0}
+                  icon={<MessageSquare className="text-cyan" />}
+                  iconBg="cyan"
+                />
+                <StatCard
+                  title="Tickets Resolvidos"
+                  value={typeMetrics.summary.resolvedTickets || 0}
+                  icon={<CheckCircle className="text-green-500" />}
+                  iconBg="success"
+                />
+                <StatCard
+                  title="Tempo Medio Resposta"
+                  value={typeMetrics.summary.avgFirstResponseMs
+                    ? `${Math.round(typeMetrics.summary.avgFirstResponseMs / 1000 / 60)}min`
+                    : '-'}
+                  icon={<Timer className="text-violet" />}
+                  iconBg="violet"
+                />
+                <StatCard
+                  title="SLA Violado"
+                  value={typeMetrics.summary.slaBreached || 0}
+                  icon={<AlertCircle className="text-red-500" />}
+                  iconBg="warning"
+                />
+              </div>
+            )}
+
+            {/* Scheduler Metrics */}
+            {agent?.type === 'scheduler' && typeMetrics?.summary && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Agendamentos Hoje"
+                  value={typeMetrics.summary.todayBookings || 0}
+                  icon={<Calendar className="text-cyan" />}
+                  iconBg="cyan"
+                />
+                <StatCard
+                  title="Proximos Agendamentos"
+                  value={typeMetrics.summary.upcomingBookings || 0}
+                  icon={<Clock className="text-violet" />}
+                  iconBg="violet"
+                />
+                <StatCard
+                  title="Completados"
+                  value={typeMetrics.summary.completedBookings || 0}
+                  icon={<CheckCircle className="text-green-500" />}
+                  iconBg="success"
+                />
+                <StatCard
+                  title="No-Shows"
+                  value={typeMetrics.summary.noShowCount || 0}
+                  icon={<XCircle className="text-red-500" />}
+                  iconBg="warning"
+                />
+              </div>
+            )}
+
+            {/* Document Handler Metrics */}
+            {agent?.type === 'document_handler' && typeMetrics?.summary && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Documentos Recebidos"
+                  value={typeMetrics.summary.totalDocuments || 0}
+                  icon={<FileText className="text-cyan" />}
+                  iconBg="cyan"
+                />
+                <StatCard
+                  title="Processados"
+                  value={typeMetrics.summary.completed || 0}
+                  icon={<CheckCircle className="text-green-500" />}
+                  iconBg="success"
+                />
+                <StatCard
+                  title="Pendentes"
+                  value={typeMetrics.summary.pending || 0}
+                  icon={<Clock className="text-yellow-500" />}
+                  iconBg="warning"
+                />
+                <StatCard
+                  title="Taxa de Sucesso"
+                  value={`${typeMetrics.summary.successRate || 0}%`}
+                  icon={<TrendingUp className="text-violet" />}
+                  iconBg="violet"
+                />
+              </div>
+            )}
+
+            {/* Fallback to legacy metrics */}
+            {!typeMetrics && metrics && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Total de Leads"
+                  value={metrics.totalLeads}
+                  change={metrics.leadsChange}
+                  changeLabel="esta semana"
+                  icon={<Users className="text-cyan" />}
+                  iconBg="cyan"
+                />
+                <StatCard
+                  title="Taxa de Resposta"
+                  value={`${metrics.responseRate}%`}
+                  change={metrics.responseChange}
+                  changeLabel="vs ontem"
+                  icon={<BarChart2 className="text-violet" />}
+                  iconBg="violet"
+                />
+                <StatCard
+                  title="Reunioes Agendadas"
+                  value={metrics.meetings}
+                  change={metrics.meetingsChange}
+                  changeLabel="esta semana"
+                  icon={<Calendar className="text-green-500" />}
+                  iconBg="success"
+                />
+                <StatCard
+                  title="Taxa de Conversao"
+                  value={`${metrics.conversionRate}%`}
+                  change={metrics.conversionChange}
+                  changeLabel="este mes"
+                  icon={<Target className="text-yellow-500" />}
+                  iconBg="warning"
+                />
+              </div>
+            )}
+          </>
         )}
 
         {/* Leads Tab */}

@@ -471,84 +471,103 @@ async function getSchedulerMetrics(db, agentId, tenantId, fromDate) {
 
 /**
  * Document Handler Agent Metrics
+ * Includes both documents AND RH events (FERIAS, ATESTADO, etc)
  */
 async function getDocumentHandlerMetrics(db, agentId, tenantId, fromDate) {
+  // Check if rh_events table exists (primary source for this agent type)
+  const rhEventsExists = db.prepare(`
+    SELECT name FROM sqlite_master WHERE type='table' AND name='rh_events'
+  `).get();
+
+  // RH Events stats
+  let rhStats = { total: 0, sent: 0, partial: 0, received: 0 };
+  let rhByType = [];
+  let recentRhEvents = [];
+
+  if (rhEventsExists) {
+    rhStats = db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
+        SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial,
+        SUM(CASE WHEN status = 'received' OR status = 'processing' THEN 1 ELSE 0 END) as received
+      FROM rh_events
+      WHERE agent_id = ? AND created_at >= ?
+    `).get(agentId, fromDate) || rhStats;
+
+    rhByType = db.prepare(`
+      SELECT event_type, COUNT(*) as count
+      FROM rh_events
+      WHERE agent_id = ?
+      GROUP BY event_type
+    `).all(agentId);
+
+    recentRhEvents = db.prepare(`
+      SELECT id, event_type, message, status, created_at
+      FROM rh_events
+      WHERE agent_id = ?
+      ORDER BY created_at DESC
+      LIMIT 10
+    `).all(agentId);
+  }
+
   // Check if documents table exists
   const docsTableExists = db.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='documents'
   `).get();
 
-  if (!docsTableExists) {
-    return {
-      summary: {
-        totalDocuments: 0,
-        processed: 0,
-        pending: 0,
-        errors: 0,
-        note: 'Tabela documents nao existe. Execute a migracao 053.'
-      }
-    };
+  let docStats = { total: 0, pending: 0, processing: 0, completed: 0, errors: 0 };
+
+  if (docsTableExists) {
+    docStats = db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errors
+      FROM documents
+      WHERE agent_id = ? AND tenant_id = ? AND created_at >= ?
+    `).get(agentId, tenantId, fromDate) || docStats;
   }
 
-  const docStats = db.prepare(`
-    SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
-      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-      SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errors
-    FROM documents
-    WHERE agent_id = ? AND tenant_id = ? AND created_at >= ?
-  `).get(agentId, tenantId, fromDate) || {};
+  // Combined totals
+  const totalEvents = (rhStats.total || 0) + (docStats.total || 0);
+  const totalSent = (rhStats.sent || 0) + (docStats.completed || 0);
+  const totalPending = (rhStats.received || 0) + (docStats.pending || 0);
+  const totalErrors = (rhStats.partial || 0) + (docStats.errors || 0);
 
-  // By origin
-  const byOrigin = db.prepare(`
-    SELECT origin, COUNT(*) as count
-    FROM documents
-    WHERE agent_id = ? AND tenant_id = ?
-    GROUP BY origin
-  `).all(agentId, tenantId);
-
-  // By document type (from metadata)
-  const byType = db.prepare(`
-    SELECT
-      json_extract(metadata, '$.tipo') as doc_type,
-      COUNT(*) as count
-    FROM documents
-    WHERE agent_id = ? AND tenant_id = ?
-      AND json_extract(metadata, '$.tipo') IS NOT NULL
-    GROUP BY doc_type
-  `).all(agentId, tenantId);
-
-  // Recent documents
-  const recentDocs = db.prepare(`
-    SELECT id, name, status, origin, created_at
-    FROM documents
-    WHERE agent_id = ? AND tenant_id = ?
-    ORDER BY created_at DESC
-    LIMIT 10
-  `).all(agentId, tenantId);
-
-  // Processing rate
-  const processedTotal = (docStats.completed || 0) + (docStats.errors || 0);
-  const successRate = processedTotal > 0
-    ? ((docStats.completed / processedTotal) * 100).toFixed(1)
+  const successRate = totalEvents > 0
+    ? ((totalSent / totalEvents) * 100).toFixed(1)
     : 0;
 
   return {
     summary: {
-      totalDocuments: docStats.total || 0,
-      pending: docStats.pending || 0,
-      processing: docStats.processing || 0,
-      completed: docStats.completed || 0,
-      errors: docStats.errors || 0,
+      totalEvents,
+      sent: totalSent,
+      pending: totalPending,
+      errors: totalErrors,
       successRate
     },
-    breakdown: {
-      byOrigin: byOrigin.reduce((acc, o) => { acc[o.origin || 'unknown'] = o.count; return acc; }, {}),
-      byType: byType.reduce((acc, t) => { acc[t.doc_type || 'unknown'] = t.count; return acc; }, {})
+    rhEvents: {
+      total: rhStats.total || 0,
+      sent: rhStats.sent || 0,
+      partial: rhStats.partial || 0,
+      byType: rhByType.reduce((acc, t) => { acc[t.event_type] = t.count; return acc; }, {})
     },
-    recentDocuments: recentDocs
+    documents: {
+      total: docStats.total || 0,
+      completed: docStats.completed || 0,
+      pending: docStats.pending || 0,
+      errors: docStats.errors || 0
+    },
+    recentEvents: recentRhEvents.map(e => ({
+      id: e.id,
+      type: e.event_type,
+      message: e.message?.substring(0, 100) + (e.message?.length > 100 ? '...' : ''),
+      status: e.status,
+      createdAt: e.created_at
+    }))
   };
 }
 

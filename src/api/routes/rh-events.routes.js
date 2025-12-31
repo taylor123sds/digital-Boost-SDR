@@ -193,6 +193,100 @@ router.post('/api/rh-events/:agentPublicId', async (req, res) => {
 });
 
 /**
+ * GET /api/rh-events/:agentPublicId/config
+ * Ver configuração de notificações do agente
+ */
+router.get('/api/rh-events/:agentPublicId/config', async (req, res) => {
+  try {
+    const { agentPublicId } = req.params;
+    const db = getDatabase();
+
+    const agent = db.prepare(`
+      SELECT id, name, config_json FROM agents
+      WHERE json_extract(integrations, '$.webhook.publicId') = ?
+         OR json_extract(config_json, '$.documentHandler.webhookPublicId') = ?
+         OR id = ? OR id LIKE ?
+    `).get(agentPublicId, agentPublicId, agentPublicId, `agent_${agentPublicId}%`);
+
+    if (!agent) {
+      return res.status(404).json({ success: false, error: 'Agent not found' });
+    }
+
+    const config = JSON.parse(agent.config_json || '{}');
+
+    res.json({
+      success: true,
+      agentId: agent.id,
+      agentName: agent.name,
+      notifications: config.notifications || {
+        whatsapp: { enabled: false, number: '' },
+        email: { enabled: false, address: '' }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/rh-events/:agentPublicId/config
+ * Atualizar configuração de notificações do agente
+ */
+router.put('/api/rh-events/:agentPublicId/config', async (req, res) => {
+  try {
+    const { agentPublicId } = req.params;
+    const { whatsapp, email } = req.body;
+    const db = getDatabase();
+
+    const agent = db.prepare(`
+      SELECT id, name, config_json FROM agents
+      WHERE json_extract(integrations, '$.webhook.publicId') = ?
+         OR json_extract(config_json, '$.documentHandler.webhookPublicId') = ?
+         OR id = ? OR id LIKE ?
+    `).get(agentPublicId, agentPublicId, agentPublicId, `agent_${agentPublicId}%`);
+
+    if (!agent) {
+      return res.status(404).json({ success: false, error: 'Agent not found' });
+    }
+
+    const config = JSON.parse(agent.config_json || '{}');
+
+    // Update notifications
+    config.notifications = {
+      whatsapp: {
+        enabled: whatsapp?.enabled ?? config.notifications?.whatsapp?.enabled ?? false,
+        number: whatsapp?.number ?? config.notifications?.whatsapp?.number ?? ''
+      },
+      email: {
+        enabled: email?.enabled ?? config.notifications?.email?.enabled ?? false,
+        address: email?.address ?? config.notifications?.email?.address ?? ''
+      }
+    };
+
+    db.prepare('UPDATE agents SET config_json = ?, updated_at = ? WHERE id = ?').run(
+      JSON.stringify(config),
+      new Date().toISOString(),
+      agent.id
+    );
+
+    console.log('[RH-EVENTS] Config updated:', {
+      agentId: agent.id,
+      whatsapp: config.notifications.whatsapp.number ? '***' + config.notifications.whatsapp.number.slice(-4) : 'none',
+      email: config.notifications.email.address || 'none'
+    });
+
+    res.json({
+      success: true,
+      message: 'Configuração atualizada',
+      agentId: agent.id,
+      notifications: config.notifications
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/rh-events/:agentPublicId/history
  * Lista histórico de eventos
  */

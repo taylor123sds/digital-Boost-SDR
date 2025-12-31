@@ -183,6 +183,12 @@ export default function AgentDetailPage() {
       vip: false,
       priceNegotiation: false,
     },
+
+    // Document Handler Notifications
+    notificationWhatsappEnabled: false,
+    notificationWhatsappNumber: '',
+    notificationEmailEnabled: false,
+    notificationEmailAddress: '',
   });
 
   const mapStageColor = (color?: string) => {
@@ -236,6 +242,27 @@ export default function AgentDetailPage() {
       const agentType = agentData?.type || 'sdr';
       const typeTabs = TABS_BY_TYPE[agentType] || TABS_BY_TYPE.sdr;
       setDynamicTabs(typeTabs);
+
+      // Load notification config for document_handler
+      if (agentType === 'document_handler') {
+        try {
+          const configRes = await fetch(`/api/rh-events/${id}/config`);
+          if (configRes.ok) {
+            const configData = await configRes.json();
+            if (configData.success && configData.notifications) {
+              setAgentConfig(prev => ({
+                ...prev,
+                notificationWhatsappEnabled: configData.notifications.whatsapp?.enabled || false,
+                notificationWhatsappNumber: configData.notifications.whatsapp?.number || '',
+                notificationEmailEnabled: configData.notifications.email?.enabled || false,
+                notificationEmailAddress: configData.notifications.email?.address || '',
+              }));
+            }
+          }
+        } catch {
+          // Config not available, use defaults
+        }
+      }
 
       // Load type-specific metrics (optional - may require auth)
       try {
@@ -436,7 +463,25 @@ export default function AgentDetailPage() {
         status: agentConfig.status,
         channel: agentConfig.channel,
       });
-      // Aqui pode salvar outras configurações em endpoints específicos
+
+      // Save notification settings for document_handler
+      if (agent?.type === 'document_handler') {
+        await fetch(`/api/rh-events/${id}/config`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            whatsapp: {
+              enabled: agentConfig.notificationWhatsappEnabled,
+              number: agentConfig.notificationWhatsappNumber
+            },
+            email: {
+              enabled: agentConfig.notificationEmailEnabled,
+              address: agentConfig.notificationEmailAddress
+            }
+          })
+        });
+      }
+
       alert('Configuracoes salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -1344,18 +1389,95 @@ export default function AgentDetailPage() {
 
               {/* Webhook Settings (Document Handler only) */}
               {settingsTab === 'webhook' && agent?.type === 'document_handler' && (
-                <Card>
-                  <div className="p-4 border-b border-white/10">
-                    <h3 className="font-semibold">Integracao via API</h3>
-                    <p className="text-sm text-gray-400 mt-1">Configure sistemas externos para enviar documentos</p>
-                  </div>
-                  <div className="p-6">
-                    <WebhookIntegrationConfig
-                      agentId={agent?.id}
-                      isNewAgent={false}
-                    />
-                  </div>
-                </Card>
+                <>
+                  {/* Notification Settings */}
+                  <Card className="mb-6">
+                    <div className="p-4 border-b border-white/10">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <Bell size={18} />
+                        Notificacoes
+                      </h3>
+                      <p className="text-sm text-gray-400 mt-1">Configure para onde enviar as notificacoes dos eventos</p>
+                    </div>
+                    <div className="p-6 space-y-6">
+                      {/* WhatsApp */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            <Phone size={16} className="text-green-400" />
+                            WhatsApp
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={agentConfig.notificationWhatsappEnabled || false}
+                            onChange={(e) => setAgentConfig(prev => ({
+                              ...prev,
+                              notificationWhatsappEnabled: e.target.checked
+                            }))}
+                            className="w-4 h-4 rounded border-white/20 bg-white/5"
+                          />
+                        </div>
+                        {agentConfig.notificationWhatsappEnabled && (
+                          <input
+                            type="text"
+                            value={agentConfig.notificationWhatsappNumber || ''}
+                            onChange={(e) => setAgentConfig(prev => ({
+                              ...prev,
+                              notificationWhatsappNumber: e.target.value
+                            }))}
+                            placeholder="5584999999999"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 focus:outline-none focus:border-cyan"
+                          />
+                        )}
+                      </div>
+
+                      {/* Email */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            <MessageSquare size={16} className="text-blue-400" />
+                            Email
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={agentConfig.notificationEmailEnabled || false}
+                            onChange={(e) => setAgentConfig(prev => ({
+                              ...prev,
+                              notificationEmailEnabled: e.target.checked
+                            }))}
+                            className="w-4 h-4 rounded border-white/20 bg-white/5"
+                          />
+                        </div>
+                        {agentConfig.notificationEmailEnabled && (
+                          <input
+                            type="email"
+                            value={agentConfig.notificationEmailAddress || ''}
+                            onChange={(e) => setAgentConfig(prev => ({
+                              ...prev,
+                              notificationEmailAddress: e.target.value
+                            }))}
+                            placeholder="rh@empresa.com"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 focus:outline-none focus:border-cyan"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Webhook Integration */}
+                  <Card>
+                    <div className="p-4 border-b border-white/10">
+                      <h3 className="font-semibold">Integracao via API</h3>
+                      <p className="text-sm text-gray-400 mt-1">Configure sistemas externos para enviar documentos</p>
+                    </div>
+                    <div className="p-6">
+                      <WebhookIntegrationConfig
+                        agentId={agent?.id}
+                        isNewAgent={false}
+                      />
+                    </div>
+                  </Card>
+                </>
               )}
 
               {/* Save Button */}

@@ -60,6 +60,7 @@ import documentReviewRoutes from './document-review.routes.js';
 import documentHandlerRoutes from './document-handler.routes.js';
 import tenantProfileRoutes from './tenant-profile.routes.js';
 import agentMetricsRoutes from './agent-metrics.routes.js';
+import rhEventsRoutes from './rh-events.routes.js';
 
 const router = express.Router();
 
@@ -119,6 +120,7 @@ router.use(documentReviewRoutes);    // /api/document-review (PDF review + notif
 router.use(documentHandlerRoutes);   // /api/documents/*, /api/packages/*, /api/extractions/*, /api/reports/*
 router.use(tenantProfileRoutes);     // /api/tenant-profile, /api/tenant-profile/diagnose
 router.use(agentMetricsRoutes);      // /api/agents/:id/metrics, /api/agents/:id/tabs (type-specific)
+router.use(rhEventsRoutes);          // /api/rh-events/:publicId (SGA → WhatsApp/Email)
 
 console.log(' Todas as rotas montadas com sucesso');
 console.log(' Rotas ativas:');

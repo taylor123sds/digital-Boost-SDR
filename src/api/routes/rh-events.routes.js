@@ -72,6 +72,27 @@ router.post('/api/rh-events/:agentPublicId', async (req, res) => {
 
     console.log('[RH-EVENTS] Agent found:', { id: agent.id, name: agent.name });
 
+    // Get notification settings from agent config
+    const agentConfig = JSON.parse(agent.config_json || '{}');
+    const notificationConfig = agentConfig.notifications || {};
+
+    // Use agent config if recipients not provided in request
+    const finalChannels = {
+      whatsapp: channels?.whatsapp ?? notificationConfig.whatsapp?.enabled ?? false,
+      email: channels?.email ?? notificationConfig.email?.enabled ?? false
+    };
+
+    const finalRecipients = {
+      whatsapp: recipients?.whatsapp || notificationConfig.whatsapp?.number || '',
+      email: recipients?.email || notificationConfig.email?.address || ''
+    };
+
+    console.log('[RH-EVENTS] Using recipients:', {
+      whatsapp: finalRecipients.whatsapp ? '***' + finalRecipients.whatsapp.slice(-4) : 'none',
+      email: finalRecipients.email ? '***@' + finalRecipients.email.split('@')[1] : 'none',
+      source: recipients?.whatsapp ? 'request' : 'agent_config'
+    });
+
     // Create table if not exists
     db.exec(`
       CREATE TABLE IF NOT EXISTS rh_events (
@@ -100,8 +121,8 @@ router.post('/api/rh-events/:agentPublicId', async (req, res) => {
       agent.id,
       eventType,
       message,
-      JSON.stringify(channels || {}),
-      JSON.stringify(recipients || {}),
+      JSON.stringify(finalChannels),
+      JSON.stringify(finalRecipients),
       JSON.stringify(payload || {}),
       new Date().toISOString()
     );
@@ -110,21 +131,21 @@ router.post('/api/rh-events/:agentPublicId', async (req, res) => {
     const results = { whatsapp: null, email: null };
 
     // Send WhatsApp if enabled
-    if (channels?.whatsapp && recipients?.whatsapp) {
-      console.log('[RH-EVENTS] Sending WhatsApp to:', recipients.whatsapp);
-      results.whatsapp = await sendWhatsApp(recipients.whatsapp, message);
+    if (finalChannels.whatsapp && finalRecipients.whatsapp) {
+      console.log('[RH-EVENTS] Sending WhatsApp to:', finalRecipients.whatsapp);
+      results.whatsapp = await sendWhatsApp(finalRecipients.whatsapp, message);
     }
 
     // Send Email if enabled
-    if (channels?.email && recipients?.email) {
-      console.log('[RH-EVENTS] Sending Email to:', recipients.email);
-      results.email = await sendEmail(recipients.email, eventType, message);
+    if (finalChannels.email && finalRecipients.email) {
+      console.log('[RH-EVENTS] Sending Email to:', finalRecipients.email);
+      results.email = await sendEmail(finalRecipients.email, eventType, message);
     }
 
     // Update event status
     const success =
-      (!channels?.whatsapp || results.whatsapp?.success) &&
-      (!channels?.email || results.email?.success);
+      (!finalChannels.whatsapp || results.whatsapp?.success) &&
+      (!finalChannels.email || results.email?.success);
 
     db.prepare(`
       UPDATE rh_events

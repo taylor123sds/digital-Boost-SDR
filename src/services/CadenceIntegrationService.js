@@ -448,7 +448,7 @@ class CadenceIntegrationService {
 
       if (newStage) {
         updateFields.stage_id = newStage;
-        updateFields.stage_entered_at = 'datetime("now")';
+        updateFields.stage_entered_at = "datetime('now')";
       }
 
       if (meetingId) {

@@ -199,7 +199,7 @@ class MeetingTranscription {
       return this.findById(id);
     }
 
-    fields.push('updated_at = datetime("now")');
+    fields.push("updated_at = datetime('now')");
     values.push(id);
 
     const stmt = this.getDb().prepare(`

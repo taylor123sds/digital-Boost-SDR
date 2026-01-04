@@ -108,6 +108,12 @@ router.post('/api/agents/:agentId/channels/evolution/connect',
       });
 
       if (!result.success) {
+        console.error('[CHANNELS] Evolution connect failed:', {
+          agentId,
+          tenantId,
+          error: result.error,
+          code: result.code
+        });
         return res.status(400).json({
           success: false,
           error: result.error,

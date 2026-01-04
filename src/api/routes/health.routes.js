@@ -184,4 +184,57 @@ router.get('/health/live', async (req, res) => {
   });
 });
 
+/**
+ * GET /qr/:instanceName
+ * Serve QR code page for Evolution API instance
+ * Useful when Evolution Manager is not accessible
+ */
+router.get('/qr/:instanceName', async (req, res) => {
+  try {
+    const { instanceName } = req.params;
+    const evolutionUrl = process.env.EVOLUTION_BASE_URL || 'http://evolution-api:8080';
+    const evolutionKey = process.env.EVOLUTION_API_KEY;
+
+    if (!evolutionKey) {
+      return res.status(500).send('<h1>EVOLUTION_API_KEY not configured</h1>');
+    }
+
+    // Get QR code from Evolution API
+    const response = await fetch(`${evolutionUrl}/instance/connect/${instanceName}`, {
+      headers: { 'apikey': evolutionKey }
+    });
+
+    const data = await response.json();
+
+    if (data.base64) {
+      res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>WhatsApp QR Code - ${instanceName}</title>
+  <meta http-equiv="refresh" content="30">
+</head>
+<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#1a1a2e;color:white;">
+  <h1>WhatsApp QR Code</h1>
+  <img src="${data.base64}" style="max-width:350px;border:3px solid #18c5ff;border-radius:15px;margin:20px;"/>
+  <p>Instancia: <strong>${instanceName}</strong></p>
+  <p style="color:#888;">Pagina atualiza automaticamente a cada 30 segundos</p>
+</body>
+</html>`);
+    } else {
+      res.send(`<!DOCTYPE html>
+<html>
+<head><title>Status - ${instanceName}</title></head>
+<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#1a1a2e;color:white;">
+  <h1>Status da Instancia</h1>
+  <p>Estado: ${data.state || data.instance?.state || 'desconhecido'}</p>
+  <pre style="background:#333;padding:20px;border-radius:10px;max-width:600px;overflow:auto;">${JSON.stringify(data, null, 2)}</pre>
+</body>
+</html>`);
+    }
+  } catch (error) {
+    console.error('[QR] Error:', error);
+    res.status(500).send(`<h1>Erro ao obter QR code</h1><p>${error.message}</p>`);
+  }
+});
+
 export default router;

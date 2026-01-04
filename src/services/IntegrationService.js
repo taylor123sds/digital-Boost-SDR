@@ -232,7 +232,7 @@ export class IntegrationService {
       params.push(JSON.stringify({ ...existingConfig, ...data.config }));
     }
 
-    sets.push('updated_at = datetime("now")');
+    sets.push("updated_at = datetime('now')");
 
     params.push(tenantId, integrationId);
 
@@ -343,6 +343,16 @@ export class IntegrationService {
     `).get(tenantId, agentId);
 
     if (!agent) {
+      // Debug: check if agent exists with different tenant
+      const agentAnyTenant = db.prepare(`
+        SELECT id, tenant_id, name FROM agents WHERE id = ?
+      `).get(agentId);
+      this.logger.error('[IntegrationService] Agent not found for tenant', {
+        tenantId,
+        agentId,
+        agentExists: !!agentAnyTenant,
+        actualTenant: agentAnyTenant?.tenant_id
+      });
       return {
         success: false,
         error: 'Agent not found',

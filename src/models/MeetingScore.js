@@ -291,7 +291,7 @@ class MeetingScore {
       return currentScore;
     }
 
-    fields.push('updated_at = datetime("now")');
+    fields.push("updated_at = datetime('now')");
     values.push(id);
 
     const stmt = this.getDb().prepare(`

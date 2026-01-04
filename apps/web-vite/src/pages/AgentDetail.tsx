@@ -407,12 +407,16 @@ export default function AgentDetailPage() {
   };
 
   // Connect WhatsApp via Evolution API
+  const [evolutionError, setEvolutionError] = useState<string | null>(null);
   const connectWhatsApp = async () => {
     if (!id) return;
     setConnectionStatus('connecting');
     setShowQRModal(true);
+    setEvolutionError(null);
     try {
+      console.log('[WhatsApp] Connecting for agent:', id);
       const data = await api.connectEvolution(id, { instanceName: 'leadly_main' });
+      console.log('[WhatsApp] API response:', data);
       if (data?.qrcode?.base64) {
         setQRCode(data.qrcode.base64);
         pollConnectionStatus();
@@ -420,9 +424,16 @@ export default function AgentDetailPage() {
         setConnectionStatus('connected');
         setShowQRModal(false);
         setQRCode(null);
+      } else {
+        // API returned but no QR code
+        console.warn('[WhatsApp] No QR code in response:', data);
+        setEvolutionError('Resposta sem QR code. Tente novamente.');
+        setConnectionStatus('disconnected');
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('Erro ao conectar WhatsApp:', error);
+      setEvolutionError(errorMessage);
       setConnectionStatus('disconnected');
     }
   };
@@ -1507,7 +1518,23 @@ export default function AgentDetailPage() {
                 </button>
               </div>
               <div className="p-6 text-center">
-                {qrCode ? (
+                {evolutionError ? (
+                  <div className="py-12">
+                    <div className="text-red-400 mb-4">
+                      <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-red-400 font-medium mb-2">Erro ao conectar</p>
+                    <p className="text-gray-400 text-sm">{evolutionError}</p>
+                    <button
+                      onClick={connectWhatsApp}
+                      className="mt-4 px-4 py-2 bg-cyan/20 text-cyan rounded-lg hover:bg-cyan/30 transition-colors"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : qrCode ? (
                   <>
                     <div className="bg-white p-4 rounded-lg inline-block mb-4">
                       <img src={qrCode} alt="QR Code WhatsApp" className="w-64 h-64" />

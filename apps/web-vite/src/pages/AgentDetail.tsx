@@ -113,6 +113,11 @@ const TABS_BY_TYPE: Record<string, AgentTab[]> = {
     { id: 'packages', label: 'Pacotes', icon: 'FolderOpen', enabled: true },
     { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
   ],
+  custom: [
+    { id: 'metrics', label: 'Metricas', icon: 'BarChart2', enabled: true },
+    { id: 'events', label: 'Eventos', icon: 'Bell', enabled: true },
+    { id: 'settings', label: 'Config', icon: 'Settings', enabled: true },
+  ],
 };
 
 // Fallback tabs if API fails (SDR default)
@@ -243,8 +248,8 @@ export default function AgentDetailPage() {
       const typeTabs = TABS_BY_TYPE[agentType] || TABS_BY_TYPE.sdr;
       setDynamicTabs(typeTabs);
 
-      // Load notification config for document_handler
-      if (agentType === 'document_handler') {
+      // Load notification config for document_handler and custom agents
+      if (agentType === 'document_handler' || agentType === 'custom') {
         try {
           const configRes = await fetch(`/api/rh-events/${id}/config`);
           if (configRes.ok) {
@@ -475,8 +480,8 @@ export default function AgentDetailPage() {
         channel: agentConfig.channel,
       });
 
-      // Save notification settings for document_handler
-      if (agent?.type === 'document_handler') {
+      // Save notification settings for document_handler and custom agents
+      if (agent?.type === 'document_handler' || agent?.type === 'custom') {
         await fetch(`/api/rh-events/${id}/config`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1032,8 +1037,8 @@ export default function AgentDetailPage() {
                   { id: 'ai', label: 'IA & Modelo', icon: <Brain size={18} /> },
                   { id: 'integrations', label: 'Integracoes', icon: <Zap size={18} /> },
                   { id: 'handoff', label: 'Handoff', icon: <Bell size={18} /> },
-                  // Webhook tab only for document_handler agents
-                  ...(agent?.type === 'document_handler' ? [
+                  // Webhook tab for document_handler and custom agents
+                  ...(agent?.type === 'document_handler' || agent?.type === 'custom' ? [
                     { id: 'webhook', label: 'API/Webhook', icon: <Webhook size={18} /> }
                   ] : []),
                 ].map((item) => (
@@ -1399,7 +1404,7 @@ export default function AgentDetailPage() {
               )}
 
               {/* Webhook Settings (Document Handler only) */}
-              {settingsTab === 'webhook' && agent?.type === 'document_handler' && (
+              {settingsTab === 'webhook' && (agent?.type === 'document_handler' || agent?.type === 'custom') && (
                 <>
                   {/* Notification Settings */}
                   <Card className="mb-6">

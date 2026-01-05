@@ -419,8 +419,10 @@ export default function AgentDetailPage() {
     setShowQRModal(true);
     setEvolutionError(null);
     try {
-      console.log('[WhatsApp] Connecting for agent:', id);
-      const data = await api.connectEvolution(id, { instanceName: 'leadly_main' });
+      // Use configured instance name or generate one based on agent ID
+      const instanceName = agentConfig.evolutionInstance || `evo_${id.substring(0, 20)}`;
+      console.log('[WhatsApp] Connecting for agent:', id, 'instance:', instanceName);
+      const data = await api.connectEvolution(id, { instanceName });
       console.log('[WhatsApp] API response:', data);
       if (data?.qrcode?.base64) {
         setQRCode(data.qrcode.base64);
@@ -429,6 +431,14 @@ export default function AgentDetailPage() {
         setConnectionStatus('connected');
         setShowQRModal(false);
         setQRCode(null);
+      } else if (data?.error) {
+        // API returned error
+        console.warn('[WhatsApp] Error in response:', data);
+        const errorMsg = data.upgradeRequired
+          ? 'Limite de integracoes atingido. Faca upgrade do plano.'
+          : data.error || 'Erro ao conectar. Tente novamente.';
+        setEvolutionError(errorMsg);
+        setConnectionStatus('disconnected');
       } else {
         // API returned but no QR code
         console.warn('[WhatsApp] No QR code in response:', data);
@@ -436,8 +446,20 @@ export default function AgentDetailPage() {
         setConnectionStatus('disconnected');
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('Erro ao conectar WhatsApp:', error);
+      let errorMessage = 'Erro desconhecido';
+      if (error instanceof Error) {
+        // Check for specific error types
+        if (error.message.includes('limit') || error.message.includes('Limit')) {
+          errorMessage = 'Limite de integracoes atingido. Remova uma integracao existente ou faca upgrade.';
+        } else if (error.message.includes('400')) {
+          errorMessage = 'Erro de configuracao. Verifique os dados e tente novamente.';
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Erro no servidor. Tente novamente em alguns segundos.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
       setEvolutionError(errorMessage);
       setConnectionStatus('disconnected');
     }

@@ -389,21 +389,74 @@ async function sendWhatsApp(phone, message) {
 }
 
 /**
- * Send Email (placeholder - configure nodemailer)
+ * Send Email via SMTP (Gmail)
  */
-async function sendEmail(email, eventType, message) {
+async function sendEmail(emailTo, eventType, message) {
   try {
-    // TODO: Implement with nodemailer when email service is configured
-    console.log('[RH-EVENTS] Email would be sent to:', email);
+    const nodemailer = await import('nodemailer');
+
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASSWORD;
+    const emailFrom = process.env.EMAIL_FROM || emailUser;
+    const emailFromName = process.env.EMAIL_FROM_NAME || 'ORBION RH';
+
+    if (!emailUser || !emailPass) {
+      console.warn('[RH-EVENTS] Email not configured: EMAIL_USER or EMAIL_PASSWORD missing');
+      return {
+        success: false,
+        error: 'Email service not configured'
+      };
+    }
+
+    // Create transporter with Gmail
+    const transporter = nodemailer.default.createTransport({
+      service: 'gmail',
+      auth: {
+        user: emailUser,
+        pass: emailPass
+      }
+    });
+
+    // Format message for email (convert WhatsApp formatting)
+    const htmlMessage = message
+      .replace(/\n/g, '<br>')
+      .replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+
+    const mailOptions = {
+      from: `"${emailFromName}" <${emailFrom}>`,
+      to: emailTo,
+      subject: `[${eventType}] Notificação RH - ORBION`,
+      text: message,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #1a1a2e; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h2 style="margin: 0; color: #18c5ff;">📋 Notificação RH</h2>
+            <p style="margin: 5px 0 0 0; color: #888;">Tipo: ${eventType}</p>
+          </div>
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 0 0 8px 8px;">
+            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #18c5ff;">
+              ${htmlMessage}
+            </div>
+            <p style="color: #888; font-size: 12px; margin-top: 20px;">
+              Enviado automaticamente pelo sistema ORBION
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    console.log('[RH-EVENTS] Sending email to:', emailTo);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[RH-EVENTS] Email sent:', info.messageId);
 
     return {
       success: true,
-      note: 'Email logged (service not configured)',
-      to: email,
-      subject: `[${eventType}] Notificação RH`
+      messageId: info.messageId,
+      to: emailTo
     };
 
   } catch (error) {
+    console.error('[RH-EVENTS] Email error:', error.message);
     return { success: false, error: error.message };
   }
 }

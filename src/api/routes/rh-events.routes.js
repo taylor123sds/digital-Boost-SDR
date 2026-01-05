@@ -408,13 +408,18 @@ async function sendEmail(emailTo, eventType, message) {
       };
     }
 
-    // Create transporter with Gmail
+    // Create transporter with Gmail SMTP (explicit config)
     const transporter = nodemailer.default.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // TLS
       auth: {
         user: emailUser,
         pass: emailPass
-      }
+      },
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 60000
     });
 
     // Format message for email (convert WhatsApp formatting)

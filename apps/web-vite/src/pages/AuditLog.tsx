@@ -8,6 +8,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { cn } from '../lib/utils';
 import { api, type AuditEntry } from '../lib/api';
 
@@ -22,6 +23,7 @@ const categoryConfig = {
 };
 
 export default function AuditLogPage() {
+  const { openSidebar } = useSidebar();
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,7 +114,7 @@ export default function AuditLogPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Audit Log" />
+      <TopBar title="Audit Log" onMenuClick={openSidebar} />
 
       <div className="p-6">
         {/* Header */}

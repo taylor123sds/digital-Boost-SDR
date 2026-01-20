@@ -76,10 +76,11 @@ router.post('/api/rh-events/:agentPublicId', async (req, res) => {
     const agentConfig = JSON.parse(agent.config_json || '{}');
     const notificationConfig = agentConfig.notifications || {};
 
-    // Use agent config if recipients not provided in request
+    // Use agent config as default, request can only ENABLE (not disable)
+    // This ensures agent config is respected when SGA sends channels: {whatsapp: false, email: false}
     const finalChannels = {
-      whatsapp: channels?.whatsapp ?? notificationConfig.whatsapp?.enabled ?? false,
-      email: channels?.email ?? notificationConfig.email?.enabled ?? false
+      whatsapp: (channels?.whatsapp === true) || (notificationConfig.whatsapp?.enabled === true),
+      email: (channels?.email === true) || (notificationConfig.email?.enabled === true)
     };
 
     const finalRecipients = {

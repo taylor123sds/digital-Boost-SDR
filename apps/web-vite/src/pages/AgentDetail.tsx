@@ -12,6 +12,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { WebhookIntegrationConfig } from '../components/document';
 import { api } from '../lib/api';
 import type { Agent, Lead, AgentTab, AgentTypeMetrics } from '../lib/api';
@@ -55,7 +56,7 @@ interface ProspectingStats {
 }
 
 type TabId = 'metrics' | 'leads' | 'pipeline' | 'cadence' | 'prospecting' | 'settings' |
-             'tickets' | 'conversations' | 'bookings' | 'documents' | 'packages';
+             'tickets' | 'conversations' | 'bookings' | 'documents' | 'packages' | 'events';
 
 // Icon map for dynamic tab icons
 const iconMap: Record<string, React.ComponentType<{ size?: number }>> = {
@@ -125,6 +126,7 @@ const fallbackTabs: AgentTab[] = TABS_BY_TYPE.sdr;
 
 export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { openSidebar } = useSidebar();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('metrics');
   const [loading, setLoading] = useState(true);
@@ -146,6 +148,20 @@ export default function AgentDetailPage() {
   const [prospectingStats, setProspectingStats] = useState<ProspectingStats>({
     pending: 0, sentToday: 0, replies: 0, isRunning: false
   });
+
+  // RH Events state (for custom/document_handler agents)
+  const [rhEvents, setRhEvents] = useState<Array<{
+    id: string;
+    event_type: string;
+    message: string;
+    status: string;
+    channels: string;
+    recipients: string;
+    whatsapp_result: string | null;
+    email_result: string | null;
+    created_at: string;
+    processed_at: string | null;
+  }>>([]);
 
   // Settings states
   const [settingsTab, setSettingsTab] = useState<'basic' | 'persona' | 'ai' | 'integrations' | 'handoff' | 'webhook'>('basic');
@@ -234,6 +250,7 @@ export default function AgentDetailPage() {
     if (activeTab === 'pipeline') loadPipeline();
     if (activeTab === 'cadence') loadCadence();
     if (activeTab === 'prospecting') loadProspecting();
+    if (activeTab === 'events') loadRhEvents();
   }, [activeTab]);
 
   const loadAgentData = async () => {
@@ -388,6 +405,20 @@ export default function AgentDetailPage() {
     }
   };
 
+  const loadRhEvents = async () => {
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/rh-events/${id}/history?limit=100`);
+      if (res.ok) {
+        const data = await res.json();
+        setRhEvents(data.events || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar eventos RH:', error);
+      setRhEvents([]);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     if (activeTab === 'metrics') await loadAgentData();
@@ -395,6 +426,7 @@ export default function AgentDetailPage() {
     if (activeTab === 'pipeline') await loadPipeline();
     if (activeTab === 'cadence') await loadCadence();
     if (activeTab === 'prospecting') await loadProspecting();
+    if (activeTab === 'events') await loadRhEvents();
     setRefreshing(false);
   };
 
@@ -555,28 +587,29 @@ export default function AgentDetailPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title={agent?.name || 'Agente'} />
+      <TopBar title={agent?.name || 'Agente'} onMenuClick={openSidebar} />
 
       {/* Header with back button and status */}
-      <div className="px-6 pt-6 pb-4 border-b border-white/10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-white/10">
+        {/* Mobile: Stack layout */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2 md:gap-4">
             <Link to="/agents">
               <Button variant="ghost" size="sm" icon={<ArrowLeft size={18} />}>
-                Voltar
+                <span className="hidden sm:inline">Voltar</span>
               </Button>
             </Link>
-            <div>
-              <h1 className="text-2xl font-semibold">{agent?.name}</h1>
-              <p className="text-gray-400 text-sm mt-1">
-                {agent?.channel} | {formatNumber(agent?.messagesProcessed || 0)} mensagens processadas
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg md:text-2xl font-semibold truncate">{agent?.name}</h1>
+              <p className="text-gray-400 text-xs md:text-sm mt-0.5 md:mt-1 truncate">
+                {agent?.channel} | {formatNumber(agent?.messagesProcessed || 0)} msgs
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 self-end md:self-auto">
             <Badge variant={agent?.status === 'active' ? 'success' : 'warning'}>
               <span className={cn(
-                "w-2 h-2 rounded-full mr-2",
+                "w-2 h-2 rounded-full mr-1.5 md:mr-2",
                 agent?.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'
               )} />
               {agent?.status === 'active' ? 'Online' : 'Pausado'}
@@ -587,14 +620,14 @@ export default function AgentDetailPage() {
               icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
               onClick={handleRefresh}
             >
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation - Dynamic based on agent type */}
-      <div className="flex border-b border-white/10 px-6 overflow-x-auto">
+      <div className="flex border-b border-white/10 px-1 md:px-6 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
         {dynamicTabs.filter(t => t.enabled).map((tab) => {
           const IconComponent = iconMap[tab.icon] || BarChart2;
           return (
@@ -602,13 +635,13 @@ export default function AgentDetailPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabId)}
               className={cn(
-                "flex items-center gap-2 px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
+                "flex items-center gap-1 md:gap-2 px-2.5 md:px-5 py-2.5 md:py-4 text-[11px] md:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0",
                 activeTab === tab.id
                   ? "text-cyan border-cyan"
                   : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
               )}
             >
-              <IconComponent size={18} />
+              <IconComponent size={16} />
               {tab.label}
             </button>
           );
@@ -616,7 +649,7 @@ export default function AgentDetailPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="p-6">
+      <div className="p-3 md:p-6">
         {/* Metrics Tab - Type Specific */}
         {activeTab === 'metrics' && (
           <>
@@ -1043,6 +1076,174 @@ export default function AgentDetailPage() {
                   </tbody>
                 </table>
               </div>
+            </Card>
+          </>
+        )}
+
+        {/* Events Tab (for custom agents) */}
+        {activeTab === 'events' && (
+          <>
+            {/* Event Stats - 2 cols on mobile, 4 on desktop */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6">
+              <StatCard
+                title="Total Eventos"
+                value={rhEvents.length}
+                icon={<Bell className="text-cyan" />}
+                iconBg="cyan"
+              />
+              <StatCard
+                title="Enviados"
+                value={rhEvents.filter(e => e.status === 'sent').length}
+                icon={<CheckCircle className="text-green-500" />}
+                iconBg="success"
+              />
+              <StatCard
+                title="Pendentes"
+                value={rhEvents.filter(e => e.status === 'pending').length}
+                icon={<Clock className="text-yellow-500" />}
+                iconBg="warning"
+              />
+              <StatCard
+                title="Erros"
+                value={rhEvents.filter(e => e.status === 'error').length}
+                icon={<XCircle className="text-red-500" />}
+                iconBg="warning"
+              />
+            </div>
+
+            <Card>
+              <div className="flex items-center justify-between p-3 md:p-4 border-b border-white/10">
+                <h3 className="font-semibold text-sm md:text-base">Eventos RH</h3>
+                <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />} onClick={loadRhEvents}>
+                  <span className="hidden sm:inline">Atualizar</span>
+                </Button>
+              </div>
+
+              {/* Empty state */}
+              {rhEvents.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  <Bell size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>Nenhum evento recebido ainda</p>
+                  <p className="text-sm mt-2">Configure o webhook no sistema de RH</p>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile: Card layout */}
+                  <div className="md:hidden divide-y divide-white/5">
+                    {rhEvents.slice(0, 50).map((event) => {
+                      let channels: { whatsapp?: boolean; email?: boolean } = {};
+                      try {
+                        channels = JSON.parse(event.channels || '{}');
+                      } catch { /* ignore */ }
+
+                      return (
+                        <div key={event.id} className="p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Badge variant={
+                              event.event_type === 'FERIAS' ? 'info' :
+                              event.event_type === 'ATESTADO' ? 'warning' :
+                              event.event_type === 'ADMISSAO' ? 'success' :
+                              event.event_type === 'DEMISSAO' ? 'danger' : 'default'
+                            }>
+                              {event.event_type}
+                            </Badge>
+                            <Badge variant={
+                              event.status === 'sent' ? 'success' :
+                              event.status === 'pending' ? 'warning' :
+                              event.status === 'error' ? 'danger' : 'default'
+                            }>
+                              {event.status === 'sent' ? 'Enviado' :
+                               event.status === 'pending' ? 'Pendente' :
+                               event.status === 'error' ? 'Erro' : event.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-300 line-clamp-2">
+                            {event.message}
+                          </p>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <div className="flex gap-1">
+                              {channels.whatsapp && (
+                                <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded">WA</span>
+                              )}
+                              {channels.email && (
+                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">Email</span>
+                              )}
+                            </div>
+                            <span>{formatDate(event.created_at)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop: Table layout */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="text-left p-4 text-xs text-gray-400 font-medium uppercase">Tipo</th>
+                          <th className="text-left p-4 text-xs text-gray-400 font-medium uppercase">Mensagem</th>
+                          <th className="text-left p-4 text-xs text-gray-400 font-medium uppercase">Canais</th>
+                          <th className="text-left p-4 text-xs text-gray-400 font-medium uppercase">Status</th>
+                          <th className="text-left p-4 text-xs text-gray-400 font-medium uppercase">Data</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rhEvents.slice(0, 50).map((event) => {
+                          let channels: { whatsapp?: boolean; email?: boolean } = {};
+                          try {
+                            channels = JSON.parse(event.channels || '{}');
+                          } catch { /* ignore */ }
+
+                          return (
+                            <tr key={event.id} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="p-4">
+                                <Badge variant={
+                                  event.event_type === 'FERIAS' ? 'info' :
+                                  event.event_type === 'ATESTADO' ? 'warning' :
+                                  event.event_type === 'ADMISSAO' ? 'success' :
+                                  event.event_type === 'DEMISSAO' ? 'danger' : 'default'
+                                }>
+                                  {event.event_type}
+                                </Badge>
+                              </td>
+                              <td className="p-4 text-sm max-w-xs truncate" title={event.message}>
+                                {event.message?.substring(0, 60)}...
+                              </td>
+                              <td className="p-4">
+                                <div className="flex gap-2">
+                                  {channels.whatsapp && (
+                                    <span className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded">
+                                      WhatsApp
+                                    </span>
+                                  )}
+                                  {channels.email && (
+                                    <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded">
+                                      Email
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <Badge variant={
+                                  event.status === 'sent' ? 'success' :
+                                  event.status === 'pending' ? 'warning' :
+                                  event.status === 'error' ? 'danger' : 'default'
+                                }>
+                                  {event.status === 'sent' ? 'Enviado' :
+                                   event.status === 'pending' ? 'Pendente' :
+                                   event.status === 'error' ? 'Erro' : event.status}
+                                </Badge>
+                              </td>
+                              <td className="p-4 text-gray-400 text-sm">{formatDate(event.created_at)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </Card>
           </>
         )}

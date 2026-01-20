@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, createContext, useContext } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import { AgentProvider } from './contexts/AgentContext';
 
@@ -19,9 +19,26 @@ import BillingPage from './pages/Billing';
 import AuditLogPage from './pages/AuditLog';
 import SettingsPage from './pages/Settings';
 
+// Sidebar context for mobile menu
+interface SidebarContextType {
+  isOpen: boolean;
+  openSidebar: () => void;
+  closeSidebar: () => void;
+}
+
+const SidebarContext = createContext<SidebarContextType>({
+  isOpen: false,
+  openSidebar: () => {},
+  closeSidebar: () => {},
+});
+
+export const useSidebar = () => useContext(SidebarContext);
+
 // Auth guard component
 function ProtectedRoute() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -46,12 +63,25 @@ function ProtectedRoute() {
 
   return (
     <AgentProvider>
-      <div className="min-h-screen bg-dark-bg">
-        <Sidebar />
-        <main className="ml-64 min-h-screen transition-all duration-300">
-          <Outlet />
-        </main>
-      </div>
+      <SidebarContext.Provider value={{
+        isOpen: sidebarOpen,
+        openSidebar: () => setSidebarOpen(true),
+        closeSidebar: () => setSidebarOpen(false),
+      }}>
+        <div className="min-h-screen bg-dark-bg">
+          <Sidebar
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+          {/* Main content - no margin on mobile, margin on desktop */}
+          <main className={`min-h-screen transition-all duration-300 md:ml-${sidebarCollapsed ? '20' : '64'}`}
+                style={{ marginLeft: typeof window !== 'undefined' && window.innerWidth >= 768 ? (sidebarCollapsed ? '5rem' : '16rem') : '0' }}>
+            <Outlet />
+          </main>
+        </div>
+      </SidebarContext.Provider>
     </AgentProvider>
   );
 }

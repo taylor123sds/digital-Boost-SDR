@@ -18,12 +18,14 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { api, type DocumentItem, type DocumentPackageItem } from '../lib/api';
 import { useActiveAgentId, useAgent } from '../contexts/AgentContext';
 
 type ViewMode = 'documents' | 'packages';
 
 export default function DocumentsPage() {
+  const { openSidebar } = useSidebar();
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [packages, setPackages] = useState<DocumentPackageItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +139,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Documentos" />
+      <TopBar title="Documentos" onMenuClick={openSidebar} />
 
       <div className="p-6">
         {/* Header */}

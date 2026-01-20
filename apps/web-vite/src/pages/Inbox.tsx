@@ -7,6 +7,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { cn } from '../lib/utils';
 import { api } from '../lib/api';
 
@@ -35,6 +36,7 @@ interface Message {
 }
 
 export default function InboxPage() {
+  const { openSidebar } = useSidebar();
   const PAGE_SIZE = 50;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -408,7 +410,7 @@ export default function InboxPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Inbox" />
+      <TopBar title="Inbox" onMenuClick={openSidebar} />
 
       <div className="h-[calc(100vh-64px)] flex">
         {renderConversationList()}

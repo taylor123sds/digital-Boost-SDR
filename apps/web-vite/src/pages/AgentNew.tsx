@@ -10,6 +10,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { cn } from '../lib/utils';
 import { api, type AgentPresets } from '../lib/api';
 import { WhatsAppConnector, CRMConnector, CalendarConnector } from '../components/integrations';
@@ -209,6 +210,7 @@ const wizardStepsByType: Record<AgentType, WizardStep[]> = {
 };
 
 export default function AgentNewPage() {
+  const { openSidebar } = useSidebar();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -1883,7 +1885,7 @@ export default function AgentNewPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Novo Agente" />
+      <TopBar title="Novo Agente" onMenuClick={openSidebar} />
 
       <div className="p-6 max-w-5xl mx-auto">
         {/* Header */}

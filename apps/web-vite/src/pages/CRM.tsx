@@ -5,6 +5,7 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import LeadDetailModal from '../components/crm/LeadDetailModal';
 import LeadCreateModal from '../components/crm/LeadCreateModal';
 import { api } from '../lib/api';
@@ -12,6 +13,7 @@ import type { Lead } from '../lib/api';
 import { useActiveAgentId, useAgent } from '../contexts/AgentContext';
 
 export default function CRMPage() {
+  const { openSidebar } = useSidebar();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stages, setStages] = useState<Array<{ id: string; label: string; color: 'default' | 'success' | 'warning' | 'danger' | 'info' }>>([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,7 @@ export default function CRMPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="CRM" />
+      <TopBar title="CRM" onMenuClick={openSidebar} />
 
       <div className="p-6">
         {/* Header */}

@@ -4,11 +4,13 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { api } from '../lib/api';
 import type { Campaign } from '../lib/api';
 import { formatNumber } from '../lib/utils';
 
 export default function CampaignsPage() {
+  const { openSidebar } = useSidebar();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -75,7 +77,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Campanhas" />
+      <TopBar title="Campanhas" onMenuClick={openSidebar} />
 
       <div className="p-6">
         {/* Header */}

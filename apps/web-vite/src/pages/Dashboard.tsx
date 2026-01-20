@@ -9,12 +9,14 @@ import {
 } from 'lucide-react';
 import { Card, StatCard } from '../components/ui/Card';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { api } from '../lib/api';
 import type { DashboardStats } from '../lib/api';
 import { formatNumber, formatDateTime } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
 export default function DashboardPage() {
+  const { openSidebar } = useSidebar();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +56,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Dashboard" />
+      <TopBar title="Dashboard" onMenuClick={openSidebar} />
 
       <div className="p-6 space-y-6">
         {/* Stats Grid */}

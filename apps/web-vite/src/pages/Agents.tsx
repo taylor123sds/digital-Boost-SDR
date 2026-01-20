@@ -5,11 +5,13 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { api } from '../lib/api';
 import type { Agent } from '../lib/api';
 import { formatNumber } from '../lib/utils';
 
 export default function AgentsPage() {
+  const { openSidebar } = useSidebar();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +83,7 @@ export default function AgentsPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Agentes" />
+      <TopBar title="Agentes" onMenuClick={openSidebar} />
 
       <div className="p-6">
         {/* Header */}

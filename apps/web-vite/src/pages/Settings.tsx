@@ -4,6 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { cn } from '../lib/utils';
 import { api, type UserSettings } from '../lib/api';
 
@@ -17,6 +18,7 @@ const tabs = [
 ];
 
 export default function SettingsPage() {
+  const { openSidebar } = useSidebar();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -152,7 +154,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Configuracoes" />
+      <TopBar title="Configuracoes" onMenuClick={openSidebar} />
 
       <div className="p-6">
         {error && (

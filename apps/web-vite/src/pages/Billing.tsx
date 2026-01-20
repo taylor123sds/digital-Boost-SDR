@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { cn } from '../lib/utils';
 import { api } from '../lib/api';
 
@@ -49,6 +50,7 @@ interface Invoice {
 // Invoices are loaded from backend
 
 export default function BillingPage() {
+  const { openSidebar } = useSidebar();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -186,7 +188,7 @@ export default function BillingPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <TopBar title="Billing" />
+        <TopBar title="Billing" onMenuClick={openSidebar} />
         <div className="flex items-center justify-center py-24">
           <div className="w-8 h-8 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
         </div>
@@ -196,7 +198,7 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Billing" />
+      <TopBar title="Billing" onMenuClick={openSidebar} />
 
       <div className="p-6 max-w-6xl mx-auto">
         {/* Trial Banner */}

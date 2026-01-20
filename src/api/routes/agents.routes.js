@@ -447,6 +447,20 @@ router.post('/api/agents', requireManager, async (req, res) => {
   try {
     const { name, type, description, system_prompt, config } = req.body;
 
+    const normalizeAgentType = (value) => {
+      const aliases = {
+        specialist: 'specialist',
+        document_handler: 'document_handler',
+        doc_handler: 'document_handler',
+        doc: 'document_handler',
+        sdr: 'sdr',
+        support: 'support',
+        scheduler: 'scheduler',
+        custom: 'custom'
+      };
+      return aliases[value] || 'custom';
+    };
+
     if (!name) {
       return res.status(400).json({
         success: false,
@@ -456,7 +470,7 @@ router.post('/api/agents', requireManager, async (req, res) => {
 
     const repository = getAgentRepository();
     const agent = repository.create(
-      { name, type, description, system_prompt, config },
+      { name, type: normalizeAgentType(type), description, system_prompt, config },
       req.tenantId,
       req.user.id
     );
@@ -568,7 +582,26 @@ router.put('/api/agents/:agentId', requireManager, validateAgentId, async (req, 
     const { agentId } = req.params;
     const repository = getAgentRepository();
 
-    const agent = repository.update(agentId, req.body, req.tenantId);
+    const normalizeAgentType = (value) => {
+      if (value === undefined) return undefined;
+      const aliases = {
+        specialist: 'specialist',
+        document_handler: 'document_handler',
+        doc_handler: 'document_handler',
+        doc: 'document_handler',
+        sdr: 'sdr',
+        support: 'support',
+        scheduler: 'scheduler',
+        custom: 'custom'
+      };
+      return aliases[value] || 'custom';
+    };
+
+    const agent = repository.update(
+      agentId,
+      { ...req.body, type: normalizeAgentType(req.body.type) },
+      req.tenantId
+    );
 
     res.json({
       success: true,

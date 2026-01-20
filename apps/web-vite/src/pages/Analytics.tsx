@@ -3,10 +3,12 @@ import { TrendingUp, Users, MessageCircle, Clock } from 'lucide-react';
 import { Card, StatCard } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import TopBar from '../components/layout/TopBar';
+import { useSidebar } from '../App';
 import { api } from '../lib/api';
 import type { AnalyticsData, ChannelBreakdownItem, TopAgentItem } from '../lib/api';
 
 export default function AnalyticsPage() {
+  const { openSidebar } = useSidebar();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [channels, setChannels] = useState<ChannelBreakdownItem[]>([]);
   const [topAgents, setTopAgents] = useState<TopAgentItem[]>([]);
@@ -52,7 +54,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen">
-      <TopBar title="Analytics" />
+      <TopBar title="Analytics" onMenuClick={openSidebar} />
 
       <div className="p-6 space-y-6">
         {/* Header */}

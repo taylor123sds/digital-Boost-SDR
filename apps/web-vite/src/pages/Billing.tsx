@@ -84,8 +84,10 @@ export default function BillingPage() {
         if (entData.success && entData.data) {
           const ent = entData.data;
           // Map entitlements to subscription
+          const planIdFromName = typeof ent.planName === 'string' ? ent.planName.toLowerCase() : null;
+          const paidPlanId = planIdFromName || (ent.maxAgents && ent.maxAgents > 3 ? 'enterprise' : 'professional');
           setSubscription({
-            planId: ent.billingStatus === 'trial' ? 'trial' : ent.billingStatus === 'active' ? 'professional' : 'starter',
+            planId: ent.billingStatus === 'trial' ? 'trial' : ent.billingStatus === 'paid' ? paidPlanId : 'starter',
             status: ent.billingStatus === 'trial' ? 'trialing' : ent.billingStatus as Subscription['status'],
             currentPeriodEnd: ent.trialEndsAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             cancelAtPeriodEnd: false

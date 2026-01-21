@@ -443,9 +443,13 @@ export default function AgentNewPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/agents', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           name: form.name,
           type: form.type,

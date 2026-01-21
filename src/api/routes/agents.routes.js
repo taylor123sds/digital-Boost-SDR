@@ -581,6 +581,7 @@ router.put('/api/agents/:agentId', requireManager, validateAgentId, async (req, 
   try {
     const { agentId } = req.params;
     const repository = getAgentRepository();
+    const body = { ...req.body };
 
     const normalizeAgentType = (value) => {
       if (value === undefined) return undefined;
@@ -599,7 +600,14 @@ router.put('/api/agents/:agentId', requireManager, validateAgentId, async (req, 
 
     const agent = repository.update(
       agentId,
-      { ...req.body, type: normalizeAgentType(req.body.type) },
+      {
+        ...body,
+        system_prompt: body.system_prompt ?? body.systemPrompt,
+        ai_config: body.ai_config ?? body.aiConfig,
+        message_templates: body.message_templates ?? body.messageTemplates,
+        knowledge_base: body.knowledge_base ?? body.knowledgeBase,
+        type: normalizeAgentType(body.type)
+      },
       req.tenantId
     );
 

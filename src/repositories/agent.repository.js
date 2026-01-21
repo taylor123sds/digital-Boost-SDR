@@ -107,6 +107,7 @@ export class AgentRepository {
     try {
       const id = data.id || `agent_${randomUUID()}`;
       const now = new Date().toISOString();
+      const configJson = this._normalizeConfigJson(data.config ?? data.config_json);
 
       // Generate slug from name if not provided
       const slug = data.slug || data.name.toLowerCase()
@@ -126,6 +127,9 @@ export class AgentRepository {
         slug,
         type: data.type || 'sdr',
         status: data.status || 'draft',
+        channel: data.channel || 'whatsapp',
+        description: data.description || null,
+        config_json: configJson,
         persona: JSON.stringify(data.persona || {}),
         system_prompt: data.system_prompt || null,
         prompts: JSON.stringify(data.prompts || {}),
@@ -165,11 +169,17 @@ export class AgentRepository {
       if (!existing) {
         throw new Error('Agent not found or access denied');
       }
+      const configJson = data.config !== undefined || data.config_json !== undefined
+        ? this._normalizeConfigJson(data.config ?? data.config_json, existing.config || {})
+        : (existing.config_json || JSON.stringify(existing.config || {}));
 
       const updates = {
         name: data.name !== undefined ? data.name : existing.name,
         type: data.type !== undefined ? data.type : existing.type,
         status: data.status !== undefined ? data.status : existing.status,
+        channel: data.channel !== undefined ? data.channel : existing.channel,
+        description: data.description !== undefined ? data.description : existing.description,
+        config_json: configJson,
         persona: data.persona !== undefined ? JSON.stringify(data.persona) : JSON.stringify(existing.persona),
         system_prompt: data.system_prompt !== undefined ? data.system_prompt : existing.system_prompt,
         prompts: data.prompts !== undefined ? JSON.stringify(data.prompts) : JSON.stringify(existing.prompts),
@@ -340,6 +350,9 @@ export class AgentRepository {
   _parseAgent(row) {
     if (!row) return null;
 
+    const config = this._safeJsonParse(row.config_json, {});
+    const integrations = this._safeJsonParse(row.integrations, {});
+
     return {
       id: row.id,
       tenant_id: row.tenant_id,
@@ -347,22 +360,42 @@ export class AgentRepository {
       slug: row.slug,
       type: row.type,
       status: row.status,
+      description: row.description,
+      config,
+      config_json: row.config_json,
       persona: this._safeJsonParse(row.persona, {}),
       system_prompt: row.system_prompt,
       prompts: this._safeJsonParse(row.prompts, {}),
       message_templates: this._safeJsonParse(row.message_templates, {}),
       behavior: this._safeJsonParse(row.behavior, {}),
       ai_config: this._safeJsonParse(row.ai_config, {}),
-      integrations: this._safeJsonParse(row.integrations, {}),
+      integrations,
       knowledge_base: this._safeJsonParse(row.knowledge_base, {}),
       metrics: this._safeJsonParse(row.metrics, {}),
       created_at: row.created_at,
       updated_at: row.updated_at,
       last_active_at: row.last_active_at,
+      messages_processed: row.messages_processed,
+      avg_response_time: row.avg_response_time,
       // Computed fields for API compatibility
       is_active: row.status !== 'deleted' && row.status !== 'offline',
-      channel: this._safeJsonParse(row.integrations, {}).channel || 'whatsapp'
+      channel: row.channel || integrations.channel || 'whatsapp'
     };
+  }
+
+  _normalizeConfigJson(value, fallback = {}) {
+    if (value === undefined || value === null) {
+      return JSON.stringify(fallback);
+    }
+    if (typeof value === 'string') {
+      try {
+        JSON.parse(value);
+        return value;
+      } catch {
+        return JSON.stringify(fallback);
+      }
+    }
+    return JSON.stringify(value);
   }
 
   /**

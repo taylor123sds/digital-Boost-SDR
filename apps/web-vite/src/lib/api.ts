@@ -220,8 +220,24 @@ class ApiClient {
     return this._mapAgent(result.data) as Agent;
   }
 
+  private _safeParseJson(value: unknown): Record<string, unknown> {
+    if (!value) return {};
+    if (typeof value === 'object') return value as Record<string, unknown>;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as Record<string, unknown>;
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  }
+
   private _mapAgent(a: any): Agent {
     if (!a) return {} as Agent;
+    const config = typeof a.config === 'object' && a.config !== null
+      ? a.config
+      : this._safeParseJson(a.config_json);
     return {
       id: a.id,
       name: a.name,
@@ -229,6 +245,8 @@ class ApiClient {
       type: a.type || 'sdr',
       status: a.status || 'draft',
       channel: a.channel || 'whatsapp',
+      description: a.description || '',
+      config,
       persona: a.persona || {},
       systemPrompt: a.system_prompt,
       prompts: a.prompts || {},
@@ -240,7 +258,9 @@ class ApiClient {
       metrics: a.metrics || {},
       createdAt: a.created_at,
       updatedAt: a.updated_at,
-      lastActiveAt: a.last_active_at
+      lastActiveAt: a.last_active_at,
+      messagesProcessed: a.messages_processed ?? a.messagesProcessed,
+      avgResponseTime: a.avg_response_time ?? a.avgResponseTime
     };
   }
 
@@ -828,6 +848,8 @@ export interface Agent {
   type: 'sdr' | 'specialist' | 'support' | 'custom' | 'scheduler' | 'document_handler';
   status: 'active' | 'paused' | 'offline' | 'draft' | 'deleted';
   channel: 'whatsapp' | 'email' | 'chat' | 'voice';
+  description?: string;
+  config?: Record<string, unknown>;
   persona?: Record<string, unknown>;
   systemPrompt?: string;
   prompts?: Record<string, unknown>;

@@ -259,6 +259,39 @@ export default function AgentDetailPage() {
       // Load agent info
       const agentData = await api.getAgent(id!);
       setAgent(agentData);
+      const persona = agentData?.persona || {};
+      const aiConfig = agentData?.aiConfig || {};
+      const integrations = agentData?.integrations || {};
+      const behavior = (agentData?.behavior || {}) as Record<string, unknown>;
+      const handoff = (behavior as any).handoff || {};
+      const config = agentData?.config || {};
+      const configIntegrations = (config as any)?.integrations || {};
+      const configAgent = (config as any)?.agent || {};
+      const resolvedStatus = agentData?.status === 'paused' || agentData?.status === 'draft' || agentData?.status === 'offline'
+        ? 'paused'
+        : 'active';
+      setAgentConfig(prev => ({
+        ...prev,
+        name: agentData?.name || prev.name,
+        status: resolvedStatus,
+        channel: (agentData?.channel as 'whatsapp' | 'email' | 'chat') || prev.channel,
+        personaName: (persona as any).name || configAgent.name || prev.personaName,
+        personaCompany: (persona as any).company || (persona as any).companyName || prev.personaCompany,
+        personaRole: (persona as any).role || prev.personaRole,
+        personaTone: (persona as any).tone || prev.personaTone,
+        systemPrompt: agentData?.systemPrompt || configAgent.persona || prev.systemPrompt,
+        model: (aiConfig as any).model || prev.model,
+        temperature: (aiConfig as any).temperature ?? prev.temperature,
+        maxTokens: (aiConfig as any).maxTokens ?? prev.maxTokens,
+        evolutionInstance: (integrations as any)?.whatsapp?.instance
+          || (integrations as any)?.evolution?.instance
+          || (configIntegrations as any)?.whatsapp?.instance
+          || prev.evolutionInstance,
+        salesRep: handoff.salesRep || prev.salesRep,
+        notificationChannel: handoff.notificationChannel || prev.notificationChannel,
+        webhookUrl: handoff.webhookUrl || prev.webhookUrl,
+        escalationCriteria: handoff.escalationCriteria || prev.escalationCriteria,
+      }));
 
       // Set tabs based on agent type (local lookup for reliability)
       const agentType = agentData?.type || 'sdr';
@@ -528,10 +561,46 @@ export default function AgentDetailPage() {
 
   const saveSettings = async () => {
     try {
+      const persona = {
+        ...(agent?.persona || {}),
+        name: agentConfig.personaName,
+        company: agentConfig.personaCompany,
+        role: agentConfig.personaRole,
+        tone: agentConfig.personaTone,
+      };
+      const aiConfig = {
+        ...(agent?.aiConfig || {}),
+        model: agentConfig.model,
+        temperature: agentConfig.temperature,
+        maxTokens: agentConfig.maxTokens,
+      };
+      const integrations = {
+        ...(agent?.integrations || {}),
+        whatsapp: {
+          ...(agent?.integrations as any)?.whatsapp,
+          instance: agentConfig.evolutionInstance,
+        },
+      };
+      const behavior = {
+        ...(agent?.behavior || {}),
+        handoff: {
+          ...(agent?.behavior as any)?.handoff,
+          salesRep: agentConfig.salesRep,
+          notificationChannel: agentConfig.notificationChannel,
+          webhookUrl: agentConfig.webhookUrl,
+          escalationCriteria: agentConfig.escalationCriteria,
+        },
+      };
+
       await api.updateAgent(id!, {
         name: agentConfig.name,
-        status: agentConfig.status,
+        status: agentConfig.status === 'paused' ? 'paused' : 'active',
         channel: agentConfig.channel,
+        persona,
+        systemPrompt: agentConfig.systemPrompt,
+        aiConfig,
+        integrations,
+        behavior,
       });
 
       // Save notification settings for document_handler and custom agents

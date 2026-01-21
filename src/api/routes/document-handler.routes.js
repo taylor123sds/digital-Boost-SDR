@@ -1238,10 +1238,13 @@ router.post(
 
       logger.info('API key generated', { agentId, userId: req.user?.id });
 
+      const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BASE_URL || requestBaseUrl;
+
       return res.json({
         success: true,
         apiKey,
-        webhookUrl: `${process.env.BASE_URL || 'https://api.orbion.ai'}/api/webhook/documents/${agentId}`,
+        webhookUrl: `${baseUrl}/api/webhook/documents/${agentId}`,
         message: 'Store this API key securely. It will not be shown again.'
       });
     } catch (error) {
@@ -1308,7 +1311,8 @@ router.get(
 
       const webhookConfig = agent.integrations?.webhook || {};
       const hasApiKey = !!webhookConfig.apiKey;
-      const baseUrl = process.env.BASE_URL || 'https://api.orbion.ai';
+      const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BASE_URL || requestBaseUrl;
 
       return res.json({
         success: true,
